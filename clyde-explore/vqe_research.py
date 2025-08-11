@@ -4,7 +4,7 @@ VQE Research - Complete Workflow
 
 This script provides a complete workflow for VQE calculations including:
 1. Loading molecular Hamiltonians
-2. Ground state optimization with GPU acceleration
+2. Ground state optimization 
 3. Excited states calculations
 4. Energy comparison and analysis
 5. Research-quality visualizations
@@ -36,7 +36,7 @@ except ImportError:
     pass
 
 # Local imports
-from quantum_vqe_gpu import QuantumVQE, VQEConfig, MolecularSystem, load_hamiltonian_from_pennylane
+from quantum_vqe import QuantumVQE, VQEConfig, MolecularSystem, load_hamiltonian_from_pennylane
 from excited_states_calculator import ExcitedStatesCalculator, ExcitedStateConfig, compare_excited_state_methods
 
 # Set up logging
