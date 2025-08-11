@@ -1,0 +1,58 @@
+# GPU-Enabled VQE Requirements
+# Base quantum computing libraries
+pennylane>=0.35.0
+pennylane-lightning
+pennylane-qiskit
+
+# GPU acceleration backends
+jax[gpu]>=0.4.20
+jaxlib[gpu]
+tensorflow>=2.13.0
+tensorflow-gpu
+
+# Scientific computing
+numpy>=1.24.0
+scipy>=1.11.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Progress bars and utilities
+tqdm>=4.66.0
+rich>=13.0.0
+
+# Data handling
+pandas>=2.0.0
+h5py>=3.9.0
+tables
+
+# Optimization and ML
+scikit-learn>=1.3.0
+optax  # JAX optimizers
+
+# Molecular data and chemistry
+pyscf  # For quantum chemistry calculations
+openfermion  # Fermion-to-qubit mappings
+openfermion-pyscf
+
+# Visualization
+plotly>=5.15.0
+ipywidgets  # For interactive plots
+
+# Development and testing
+pytest>=7.4.0
+black
+isort
+flake8
+
+# Optional: Quantum hardware access
+qiskit>=0.45.0
+qiskit-aer
+cirq>=1.2.0
+
+# Optional: Advanced backends
+pennylane-qulacs  # Fast simulator
+pennylane-braket  # AWS Braket
+
+# System utilities
+psutil  # Memory monitoring
+GPUtil  # GPU monitoring

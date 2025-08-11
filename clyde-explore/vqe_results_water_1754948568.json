@@ -1,0 +1,25 @@
+{
+  "molecule_name": "water",
+  "timestamp": 1754948568,
+  "system_info": {
+    "original_qubits": 14,
+    "original_terms": 1086,
+    "exact_energy": -75.01250626334813
+  },
+  "optimization_results": {
+    "ground_energy": -74.40080656652711,
+    "optimization_time": 34.056941747665405,
+    "convergence_steps": 200,
+    "final_gradient_norm": null
+  },
+  "vqe_config": {
+    "optimizer": "adam",
+    "learning_rate": 0.01,
+    "n_layers": 3,
+    "max_iterations": 200
+  },
+  "accuracy": {
+    "absolute_error": 0.6116996968210202,
+    "relative_error": 0.8154636170580838
+  }
+}
