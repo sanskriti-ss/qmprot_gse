@@ -1,0 +1,7 @@
+water	O	-76.388251390 Eh	Tautomer 0	Conformer 40
+alanine	N[C@@H](C)C(=O)O	-323.661033089 Eh	Tautomer 0	Conformer 80
+valine	CC(C)C(N)C(=O)O	-402.271174230 Eh	Tautomer 0	Conformer 106
+leucine	CC(C)CC(N)C(=O)O	-441.575156956 Eh	Tautomer 0	Conformer 59
+isoleucine	CC(C)C(N)C(=O)O	-402.271174260 Eh	Tautomer 0	Conformer 96
+cysteine	C(C(C(=O)O)N)S	-721.827274957 Eh	Tautomer 0	Conformer 69
+asparagine	NC(CC(=O)O)C(=O)O	-512.190860326 Eh	Tautomer 0	Conformer 75
