@@ -443,8 +443,12 @@ class VQEVisualizer:
 
         fig, ax = plt.subplots(figsize=figsize)
 
+        # Color cycle for VQE algorithms: dark green, lemon green, dark purple, dark blue
+        vqe_colors = ['#006400', '#9ACD32', '#483D8B', '#00008B']
+        
         x = np.arange(len(molecules))
-        bar_width = 0.35
+        n_algorithms = len(algorithms)
+        bar_width = 0.8 / (n_algorithms + 1)  # +1 for reference bars
 
         # Get reference energies (choose non-zero if available)
         refs = []
@@ -459,11 +463,16 @@ class VQEVisualizer:
             else:
                 refs.append(np.nan)
 
-        # Get calculated energies for first algorithm (use most recent/valid result)
-        calc_energies = []
-        if algorithms:
-            alg = algorithms[0]  # Use first algorithm
+        # Plot reference bars first
+        if show_reference:
+            ax.bar(x - bar_width * n_algorithms / 2, refs, bar_width, 
+                  label='Reference', color='purple', alpha=0.7)
+
+        # Plot VQE algorithm bars
+        for i, alg in enumerate(algorithms):
             alg_data = df[df['algorithm_name'] == alg]
+            calc_energies = []
+            
             for m in molecules:
                 mol_data = alg_data[alg_data['molecule_abbrev'] == m]
                 if len(mol_data) > 0:
@@ -477,20 +486,30 @@ class VQEVisualizer:
                         calc_energies.append(float(mol_data.iloc[-1]['calculated_energy']))
                 else:
                     calc_energies.append(np.nan)
-        else:
-            calc_energies = [np.nan] * len(molecules)
-
-        # Create double bars
-        if show_reference:
-            ax.bar(x - bar_width/2, refs, bar_width, label='Reference', color='purple', alpha=0.7)
-        ax.bar(x + bar_width/2, calc_energies, bar_width, label=f'Calculated ({algorithms[0] if algorithms else "VQE"})', color='steelblue', alpha=0.8)
+            
+            # Position bars: reference on left, then algorithms
+            bar_position = x - bar_width * n_algorithms / 2 + bar_width * (i + 1)
+            color = vqe_colors[i % len(vqe_colors)]
+            ax.bar(bar_position, calc_energies, bar_width, 
+                  label=f'{alg}', color=color, alpha=0.8)
 
         # Auto-adjust y-limits with top at 0
         try:
             all_energies = []
             if show_reference:
                 all_energies.extend([r for r in refs if not np.isnan(r)])
-            all_energies.extend([e for e in calc_energies if not np.isnan(e)])
+            
+            # Collect all VQE energies
+            for alg in algorithms:
+                alg_data = df[df['algorithm_name'] == alg]
+                for m in molecules:
+                    mol_data = alg_data[alg_data['molecule_abbrev'] == m]
+                    if len(mol_data) > 0:
+                        valid_results = mol_data[mol_data['reference_energy'].abs() > 1e-12]
+                        if len(valid_results) > 0:
+                            all_energies.append(float(valid_results.iloc[-1]['calculated_energy']))
+                        else:
+                            all_energies.append(float(mol_data.iloc[-1]['calculated_energy']))
             
             if all_energies:
                 ymin = min(all_energies)
@@ -502,7 +521,7 @@ class VQEVisualizer:
 
         ax.set_xlabel('Molecule')
         ax.set_ylabel('Energy (Hartree)')
-        ax.set_title('Selected Molecules: Reference vs Calculated Energies')
+        ax.set_title('Selected Molecules: Reference vs VQE Algorithm Comparison')
         ax.set_xticks(x)
         ax.set_xticklabels(molecules, rotation=0)
         ax.legend(fontsize=9)
