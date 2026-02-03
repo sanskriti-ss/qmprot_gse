@@ -1,0 +1,29 @@
+### You need to install lightning.qubit MANUALLY
+
+# Core quantum computing libraries (pinned for compatibility)
+pennylane==0.38.0
+pennylane-lightning==0.38.0
+autoray==0.6.12
+# Note: pennylane-qchem is now included in pennylane
+
+# Scientific computing
+numpy>=1.24.0,<2.0
+scipy>=1.11.0
+pandas>=2.0.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Utilities
+python-dotenv>=1.0.0
+tqdm>=4.65.0
+
+# Optional: Qiskit (comment if needed)
+qiskit>=1.0.0
+qiskit-aer>=0.13.0
+
+# Optional: Chemistry backends (comment if generating Hamiltonians)
+pyscf>=2.4.0
+openfermion>=1.6.0
+openfermionpyscf>=0.5

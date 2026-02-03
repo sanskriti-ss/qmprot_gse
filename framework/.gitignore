@@ -1,0 +1,110 @@
+# ============================================
+# Python
+# ============================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ============================================
+# Virtual Environments
+# ============================================
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ============================================
+# IDE
+# ============================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# ============================================
+# Jupyter Notebooks
+# ============================================
+.ipynb_checkpoints/
+*.ipynb_checkpoints/
+
+# ============================================
+# Testing
+# ============================================
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# ============================================
+# Framework Specific
+# ============================================
+# Results (can be regenerated)
+results/*.json
+results/*.csv
+!results/.gitkeep
+
+# Plots (can be regenerated)
+plots/*.png
+plots/*.pdf
+plots/*.svg
+!plots/.gitkeep
+
+# Logs
+logs/
+*.log
+
+# Large Hamiltonian files (download separately)
+data/hamiltonians/*.txt
+*.h5
+!data/hamiltonians/.gitkeep
+!data/hamiltonians/README.md
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# ============================================
+# OS Specific
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ============================================
+# Keep empty directories
+# ============================================
+!.gitkeep
