@@ -235,7 +235,7 @@ class BaseVQE(ABC):
         
         runtime = time.time() - start_time
         
-        # Calculate errors
+        # Calculate errors (always relative to full system reference energy)
         ref_energy = self.hamiltonian.molecule.reference_energy
         error = optimal_energy - ref_energy
         relative_error = abs(error / ref_energy) if ref_energy != 0 else 0.0
@@ -269,6 +269,12 @@ class BaseVQE(ABC):
         
         logger.info(f"Completed {self.name}: Energy = {optimal_energy:.8f}, "
                    f"Error = {error:.8f}, Runtime = {runtime:.2f}s")
+        
+        # Log reference energies if available
+        if self.hamiltonian.molecule.truncated_ground_state_energy is not None:
+            logger.info(f"Full system reference energy: {ref_energy:.8f} Hartree")
+            logger.info(f"Truncated system ground state: {self.hamiltonian.molecule.truncated_ground_state_energy:.8f} Hartree")
+            logger.info(f"VQE result vs full system reference: {error:.8f} Hartree")
         
         return result
     

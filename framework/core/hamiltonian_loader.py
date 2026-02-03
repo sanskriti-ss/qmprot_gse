@@ -33,6 +33,7 @@ class Molecule:
     basis: str = "sto-3g"
     coordinates: Optional[List[Dict]] = None
     molecular_formula: Optional[str] = None
+    truncated_ground_state_energy: Optional[float] = None  # Ground state of truncated system
     
     
 @dataclass
@@ -110,13 +111,125 @@ class QubitHamiltonian:
         
         logger.info(f"Truncated to {len(truncated_coeffs)} terms on {actual_n_qubits} qubits")
         
+        # Step 4: Calculate ground state energy of truncated Hamiltonian
+        truncated_ground_state_energy = self._calculate_ground_state_energy(
+            truncated_coeffs, truncated_pauli, actual_n_qubits
+        )
+        
+        # Create a new molecule entry with truncated ground state energy
+        truncated_molecule = Molecule(
+            abbreviation=self.molecule.abbreviation,
+            name=self.molecule.name,
+            n_qubits=actual_n_qubits,
+            n_coefficients=len(truncated_coeffs),
+            reference_energy=self.molecule.reference_energy,  # Keep original full system reference
+            hamiltonian_file=self.molecule.hamiltonian_file,
+            n_electrons=self.molecule.n_electrons,
+            n_orbitals=self.molecule.n_orbitals,
+            charge=self.molecule.charge,
+            spin=self.molecule.spin,
+            basis=self.molecule.basis,
+            coordinates=self.molecule.coordinates,
+            molecular_formula=self.molecule.molecular_formula,
+            truncated_ground_state_energy=truncated_ground_state_energy,  # Ground state of truncated system
+        )
+        
         return QubitHamiltonian(
-            molecule=self.molecule,
+            molecule=truncated_molecule,
             coefficients=truncated_coeffs,
             pauli_strings=truncated_pauli,
             n_qubits=actual_n_qubits,
             n_terms=len(truncated_coeffs),
         )
+    
+    def _openfermion_to_pauli_string(self, pauli_term_str: str, n_qubits: int) -> str:
+        """
+        Convert OpenFermion format 'Z(0) X(2) Y(3)' to simple Pauli string 'ZIXIY'.
+        """
+        pauli_map = {}
+        
+        # Handle 'Identity(0)' or just 'Identity'
+        if 'Identity' in pauli_term_str:
+            return 'I' * n_qubits
+        
+        # Parse terms like 'Z(0)', 'X(1)', etc
+        import re
+        pattern = r'([IXYZ])\((\d+)\)'
+        matches = re.findall(pattern, pauli_term_str)
+        
+        for pauli, qubit_str in matches:
+            qubit = int(qubit_str)
+            if qubit < n_qubits:
+                pauli_map[qubit] = pauli
+        
+        # Build full string
+        result = []
+        for i in range(n_qubits):
+            result.append(pauli_map.get(i, 'I'))
+        
+        return ''.join(result)
+    
+    def _calculate_ground_state_energy(self, coefficients, pauli_strings, n_qubits):
+        """
+        Estimate ground state energy of the Hamiltonian.
+        
+        For small systems (n_qubits <= 10), uses exact diagonalization.
+        For larger systems, uses a lower bound estimate.
+        """
+        try:
+            if n_qubits > 10:
+                # For large systems, use a lower bound: sum of negative terms
+                logger.info(f"System too large for exact diagonalization ({n_qubits} qubits). Using lower bound.")
+                negative_sum = sum(c for c in coefficients if c < 0)
+                return negative_sum if negative_sum < 0 else min(coefficients)
+            
+            import numpy as np
+            from scipy.sparse.linalg import eigsh
+            from scipy.sparse import csr_matrix
+            
+            # For small systems, use exact diagonalization
+            hilbert_dim = 2 ** n_qubits
+            
+            # Pauli matrices
+            pauli_map = {
+                'I': np.array([[1, 0], [0, 1]], dtype=complex),
+                'X': np.array([[0, 1], [1, 0]], dtype=complex),
+                'Y': np.array([[0, -1j], [1j, 0]], dtype=complex),
+                'Z': np.array([[1, 0], [0, -1]], dtype=complex),
+            }
+            
+            # Build Hamiltonian matrix
+            H = np.zeros((hilbert_dim, hilbert_dim), dtype=complex)
+            
+            for coeff, pauli_str in zip(coefficients, pauli_strings):
+                if abs(coeff) < 1e-12:
+                    continue
+                
+                # Convert OpenFermion format if needed
+                if '(' in str(pauli_str):
+                    pauli_str = self._openfermion_to_pauli_string(pauli_str, n_qubits)
+                
+                # Build single-qubit operators
+                op = pauli_map[pauli_str[0]]
+                for i in range(1, len(pauli_str)):
+                    op = np.kron(op, pauli_map[pauli_str[i]])
+                
+                H += coeff * op
+            
+            # Diagonalize to find ground state
+            eigenvalues = np.linalg.eigvalsh(H)
+            ground_state_energy = float(eigenvalues[0])
+            
+            logger.info(f"Ground state energy of {n_qubits}-qubit truncated system: {ground_state_energy:.6f}")
+            return ground_state_energy
+            
+        except Exception as e:
+            logger.warning(f"Could not calculate ground state energy: {e}. Using sum of negative coefficients as lower bound.")
+            try:
+                negative_sum = sum(c for c in coefficients if c < 0)
+                return negative_sum if negative_sum < 0 else min(coefficients)
+            except:
+                return 0.0
     
     def to_pennylane(self):
         """Convert to PennyLane Hamiltonian format"""
