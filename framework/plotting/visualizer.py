@@ -406,6 +406,116 @@ class VQEVisualizer:
             logger.info(f"Saved plot to {filepath}")
         
         return fig
+
+    def plot_selected_molecules(self,
+                                molecules: List[str],
+                                algorithms: Optional[List[str]] = None,
+                                show_reference: bool = True,
+                                save: bool = True,
+                                figsize: tuple = (12, 6)) -> plt.Figure:
+        """
+        Plot a single grouped bar chart for a selected list of molecules.
+
+        Args:
+            molecules: List of molecule abbreviations to include
+            algorithms: Optional list of algorithms to include (all if None)
+            show_reference: Whether to plot reference energies per molecule
+            save: Whether to save the figure
+            figsize: Figure size
+
+        Returns:
+            Matplotlib figure
+        """
+        df = self.results_manager.to_dataframe()
+
+        if df.empty:
+            logger.warning("No results to plot")
+            return None
+
+        # Filter molecules
+        df = df[df['molecule_abbrev'].isin(molecules)]
+        if df.empty:
+            logger.warning("No matching molecules found in results")
+            return None
+
+        if algorithms is None:
+            algorithms = df['algorithm_name'].unique().tolist()
+
+        fig, ax = plt.subplots(figsize=figsize)
+
+        x = np.arange(len(molecules))
+        bar_width = 0.35
+
+        # Get reference energies (choose non-zero if available)
+        refs = []
+        for m in molecules:
+            vals = df[df['molecule_abbrev'] == m]['reference_energy'].dropna().values
+            # Prefer a non-zero reference (some saved results may have 0.0 placeholders)
+            nonzero = [v for v in vals if abs(v) > 1e-12]
+            if len(nonzero):
+                refs.append(float(nonzero[0]))
+            elif len(vals):
+                refs.append(float(vals[0]))
+            else:
+                refs.append(np.nan)
+
+        # Get calculated energies for first algorithm (use most recent/valid result)
+        calc_energies = []
+        if algorithms:
+            alg = algorithms[0]  # Use first algorithm
+            alg_data = df[df['algorithm_name'] == alg]
+            for m in molecules:
+                mol_data = alg_data[alg_data['molecule_abbrev'] == m]
+                if len(mol_data) > 0:
+                    # If multiple results, prefer one with non-zero reference energy
+                    valid_results = mol_data[mol_data['reference_energy'].abs() > 1e-12]
+                    if len(valid_results) > 0:
+                        # Use the last (most recent) valid result
+                        calc_energies.append(float(valid_results.iloc[-1]['calculated_energy']))
+                    else:
+                        # Fall back to last result even if reference is zero
+                        calc_energies.append(float(mol_data.iloc[-1]['calculated_energy']))
+                else:
+                    calc_energies.append(np.nan)
+        else:
+            calc_energies = [np.nan] * len(molecules)
+
+        # Create double bars
+        if show_reference:
+            ax.bar(x - bar_width/2, refs, bar_width, label='Reference', color='purple', alpha=0.7)
+        ax.bar(x + bar_width/2, calc_energies, bar_width, label=f'Calculated ({algorithms[0] if algorithms else "VQE"})', color='steelblue', alpha=0.8)
+
+        # Auto-adjust y-limits with top at 0
+        try:
+            all_energies = []
+            if show_reference:
+                all_energies.extend([r for r in refs if not np.isnan(r)])
+            all_energies.extend([e for e in calc_energies if not np.isnan(e)])
+            
+            if all_energies:
+                ymin = min(all_energies)
+                span = abs(ymin)
+                pad = span * 0.1 if span > 0 else 10.0
+                ax.set_ylim(ymin - pad, 0)
+        except Exception:
+            pass
+
+        ax.set_xlabel('Molecule')
+        ax.set_ylabel('Energy (Hartree)')
+        ax.set_title('Selected Molecules: Reference vs Calculated Energies')
+        ax.set_xticks(x)
+        ax.set_xticklabels(molecules, rotation=0)
+        ax.legend(fontsize=9)
+
+        plt.tight_layout()
+
+        if save:
+            fname = "selected_molecules_" + "_".join(molecules) + ".png"
+            filepath = self.output_dir / fname
+            fig.savefig(filepath, dpi=150, bbox_inches='tight')
+            logger.info(f"Saved plot to {filepath}")
+
+        return fig
     
     def generate_all_plots(self):
         """Generate all available plots"""

@@ -299,8 +299,8 @@ Examples:
                        help='Generate plots from existing results')
     
     # Specification
-    parser.add_argument('--molecule', '-m', type=str,
-                       help='Molecule abbreviation (e.g., trp, his)')
+    parser.add_argument('--molecule', '-m', type=str, nargs='+',
+                       help='Molecule abbreviation (e.g., trp, his). Accepts multiple values')
     parser.add_argument('--algorithm', '-a', type=str,
                        help='Algorithm name')
     parser.add_argument('--molecules', type=str, nargs='+',
@@ -411,13 +411,23 @@ Examples:
         )
         
     elif args.all_algorithms and args.molecule:
-        framework.run_molecule(args.molecule, algorithms=args.algorithms, **vqe_params)
+        # Support single or multiple molecules for --molecule
+        if isinstance(args.molecule, list):
+            for mol in args.molecule:
+                framework.run_molecule(mol, algorithms=args.algorithms, **vqe_params)
+        else:
+            framework.run_molecule(args.molecule, algorithms=args.algorithms, **vqe_params)
         
     elif args.all_molecules and args.algorithm:
         framework.run_algorithm(args.algorithm, molecules=args.molecules, **vqe_params)
         
     elif args.molecule and args.algorithm:
-        framework.run_single(args.molecule, args.algorithm, **vqe_params)
+        # If multiple molecules provided, run the single algorithm on each
+        if isinstance(args.molecule, list):
+            for mol in args.molecule:
+                framework.run_single(mol, args.algorithm, **vqe_params)
+        else:
+            framework.run_single(args.molecule, args.algorithm, **vqe_params)
         
     else:
         parser.print_help()
