@@ -307,6 +307,43 @@ class VQEVisualizer:
         
         return fig
     
+    def plot_molecular_complexity_heatmap(self, save: bool = True, figsize: tuple = (12, 8)) -> plt.Figure:
+        """
+        Plot heatmap of molecular complexity (n_qubits, n_parameters) across molecules and algorithms.
+        Args:
+            save: Whether to save plot
+            figsize: Figure size
+        Returns:
+            Matplotlib figure
+        """
+        df = self.results_manager.to_dataframe()
+        if df.empty:
+            logger.warning("No results to plot")
+            return None
+
+        # Pivot for n_qubits
+        qubits_pivot = df.pivot_table(index='molecule_abbrev', columns='algorithm_name', values='n_qubits', aggfunc='mean')
+        # Pivot for n_parameters
+        params_pivot = df.pivot_table(index='molecule_abbrev', columns='algorithm_name', values='n_parameters', aggfunc='mean')
+
+        fig, axes = plt.subplots(1, 2, figsize=figsize)
+        sns.heatmap(qubits_pivot, annot=True, fmt='.0f', cmap='Blues', ax=axes[0], cbar_kws={'label': 'n_qubits'})
+        axes[0].set_title('Qubit Complexity (n_qubits)')
+        axes[0].set_xlabel('Algorithm')
+        axes[0].set_ylabel('Molecule')
+
+        sns.heatmap(params_pivot, annot=True, fmt='.0f', cmap='Purples', ax=axes[1], cbar_kws={'label': 'n_parameters'})
+        axes[1].set_title('Ansatz Complexity (n_parameters)')
+        axes[1].set_xlabel('Algorithm')
+        axes[1].set_ylabel('Molecule')
+
+        plt.tight_layout()
+        if save:
+            filepath = self.output_dir / "heatmap_molecular_complexity.png"
+            fig.savefig(filepath, dpi=150, bbox_inches='tight')
+            logger.info(f"Saved plot to {filepath}")
+        return fig
+    
     def plot_all_molecules(self, save: bool = True, figsize: tuple = (14, 8)) -> plt.Figure:
         """
         Plot comprehensive comparison of all molecules and algorithms.
@@ -659,9 +696,14 @@ class VQEVisualizer:
         self.plot_heatmap(metric='error', save=True)
         self.plot_heatmap(metric='relative_error', save=True)
         self.plot_heatmap(metric='runtime_seconds', save=True)
+        self.plot_molecular_complexity_heatmap(save=True)
         
         # Comprehensive plot
         self.plot_all_molecules(save=True)
+        
+        # Selected molecules plot (if multiple molecules)
+        if len(molecules) > 1:
+            self.plot_selected_molecules(molecules.tolist(), save=True)
         
         # Computation vs Error plot
         self.plot_computation_vs_error(save=True)

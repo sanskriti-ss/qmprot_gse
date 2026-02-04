@@ -39,6 +39,21 @@ class VQEResult:
     
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON serialization"""
+        # Helper function to ensure JSON serializable types
+        def ensure_json_serializable(obj):
+            import numpy as np
+            if isinstance(obj, np.integer):
+                return int(obj)
+            elif isinstance(obj, np.floating):
+                return float(obj)
+            elif isinstance(obj, np.ndarray):
+                return obj.tolist()
+            elif isinstance(obj, list):
+                return [ensure_json_serializable(item) for item in obj]
+            elif isinstance(obj, dict):
+                return {key: ensure_json_serializable(value) for key, value in obj.items()}
+            return obj
+        
         return {
             "molecule_abbrev": self.molecule_abbrev,
             "molecule_name": self.molecule_name,
@@ -55,7 +70,7 @@ class VQEResult:
             "optimal_parameters": self.optimal_parameters.tolist() if self.optimal_parameters is not None else None,
             "final_gradient_norm": float(self.final_gradient_norm) if self.final_gradient_norm else None,
             "converged": self.converged,
-            "metadata": self.metadata,
+            "metadata": ensure_json_serializable(self.metadata),
         }
 
 
