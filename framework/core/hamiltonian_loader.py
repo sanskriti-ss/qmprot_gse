@@ -13,6 +13,10 @@ from typing import Dict, List, Tuple, Optional, Union
 from dataclasses import dataclass, field
 import logging
 import h5py
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import HAMILTONIAN_MAX_TERMS, HAMILTONIAN_TARGET_QUBITS
 
 logger = logging.getLogger(__name__)
 
@@ -438,12 +442,25 @@ class HamiltonianLoader:
             basis = f['basis'][()].decode() if 'basis' in f else "sto-3g"
             mf = f['mf'][()].decode() if 'mf' in f else None
             
-            # Collect hamiltonian chunks
-            hamiltonian_chunks = []
-            # Get all keys that start with 'hamiltonian'
+            # Get all hamiltonian chunk keys
             ham_keys = sorted([k for k in f.keys() if k.startswith('hamiltonian')],
                             key=lambda x: (len(x), x))  # Sort to get proper order
             
+            # Early truncation: limit chunks to read based on expected max terms
+            max_terms_to_load = HAMILTONIAN_MAX_TERMS * 5  # Load 5x more than needed for selection
+            estimated_terms_per_chunk = n_coefficients // len(ham_keys) if len(ham_keys) > 0 else n_coefficients
+            chunks_to_read = min(len(ham_keys), max(1, max_terms_to_load // max(estimated_terms_per_chunk, 1)))
+            
+            # For very large molecules, read even fewer chunks
+            if n_coefficients > 10_000_000:  # > 10M terms
+                chunks_to_read = min(chunks_to_read, 50)  # Max 50 chunks for huge molecules
+            
+            if chunks_to_read < len(ham_keys):
+                logger.info(f"Early truncation: reading {chunks_to_read}/{len(ham_keys)} chunks (estimated ~{chunks_to_read * estimated_terms_per_chunk:,} terms)")
+                ham_keys = ham_keys[:chunks_to_read]
+            
+            # Collect hamiltonian chunks
+            hamiltonian_chunks = []
             for key in ham_keys:
                 chunk = f[key][()]
                 if isinstance(chunk, bytes):

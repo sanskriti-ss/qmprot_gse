@@ -10,6 +10,7 @@ import seaborn as sns
 from pathlib import Path
 from typing import List, Dict, Optional, Union
 import logging
+from datetime import datetime
 
 import sys
 sys.path.append('..')
@@ -50,7 +51,11 @@ class VQEVisualizer:
             style: Matplotlib style
         """
         self.results_manager = results_manager
-        self.output_dir = Path(output_dir) if output_dir else Path("./plots")
+        base_output_dir = Path(output_dir) if output_dir else Path("./plots")
+        
+        # Create timestamped subfolder
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.output_dir = base_output_dir / timestamp
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
         self.colors = color_map or DEFAULT_COLORS
