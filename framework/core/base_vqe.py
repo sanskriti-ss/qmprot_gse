@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Callable, Tuple, Any
 from dataclasses import dataclass, field
 import time
 import logging
+from tqdm import tqdm
 
 from .hamiltonian_loader import QubitHamiltonian
 
@@ -107,6 +108,8 @@ class BaseVQE(ABC):
         self.iteration_count: int = 0
         self.optimal_parameters: Optional[np.ndarray] = None
         self.optimal_energy: Optional[float] = None
+        self.progress_bar: Optional[tqdm] = None
+        self.progress_bar: Optional[tqdm] = None
         
         # Build components
         self.n_qubits = hamiltonian.n_qubits
@@ -156,6 +159,11 @@ class BaseVQE(ABC):
         energy = self.cost_function(parameters)
         self.convergence_history.append(energy)
         self.iteration_count += 1
+        
+        # Update progress bar
+        if self.progress_bar:
+            self.progress_bar.set_postfix({'Energy': f'{energy:.6f}'})
+            self.progress_bar.update(1)
         
         if self.iteration_count % 10 == 0:
             logger.debug(f"Iteration {self.iteration_count}: Energy = {energy:.8f}")
@@ -226,6 +234,11 @@ class BaseVQE(ABC):
         """
         logger.info(f"Running {self.name} on {self.hamiltonian.molecule.name}")
         
+        # Initialize progress bar
+        self.progress_bar = tqdm(total=self.max_iterations, 
+                               desc=f"{self.name} on {self.hamiltonian.molecule.abbreviation}",
+                               unit="iter")
+        
         # Build ansatz
         start_time = time.time()
         self.build_ansatz()
@@ -269,6 +282,14 @@ class BaseVQE(ABC):
         
         logger.info(f"Completed {self.name}: Energy = {optimal_energy:.8f}, "
                    f"Error = {error:.8f}, Runtime = {runtime:.2f}s")
+        
+        # Close progress bar
+        if self.progress_bar:
+            self.progress_bar.close()
+        
+        # Close progress bar
+        if self.progress_bar:
+            self.progress_bar.close()
         
         # Log reference energies if available
         if self.hamiltonian.molecule.truncated_ground_state_energy is not None:

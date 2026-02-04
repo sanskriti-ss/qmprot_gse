@@ -536,6 +536,94 @@ class VQEVisualizer:
 
         return fig
     
+    def plot_computation_vs_error(self,
+                                  molecules: Optional[List[str]] = None,
+                                  algorithms: Optional[List[str]] = None,
+                                  save: bool = True,
+                                  figsize: tuple = (10, 6)) -> plt.Figure:
+        """
+        Plot computational time vs error for all molecule/algorithm combinations.
+        
+        Args:
+            molecules: List of molecules to include (all if None)
+            algorithms: List of algorithms to include (all if None)
+            save: Whether to save the plot
+            figsize: Figure size
+            
+        Returns:
+            Matplotlib figure
+        """
+        df = self.results_manager.to_dataframe()
+        
+        if df.empty:
+            logger.warning("No results to plot")
+            return None
+        
+        if molecules is not None:
+            df = df[df['molecule_abbrev'].isin(molecules)]
+        if algorithms is not None:
+            df = df[df['algorithm_name'].isin(algorithms)]
+            
+        if df.empty:
+            logger.warning("No matching results found")
+            return None
+        
+        fig, ax = plt.subplots(figsize=figsize)
+        
+        # Color cycle for different algorithms
+        colors = ['#006400', '#9ACD32', '#483D8B', '#00008B', '#FF6347', '#32CD32']
+        algorithm_colors = {}
+        
+        # Shape cycle for different molecules
+        markers = ['o', 's', '^', 'D', 'v', '<', '>', 'p']
+        molecule_markers = {}
+        
+        unique_algorithms = df['algorithm_name'].unique()
+        unique_molecules = df['molecule_abbrev'].unique()
+        
+        for i, alg in enumerate(unique_algorithms):
+            algorithm_colors[alg] = colors[i % len(colors)]
+            
+        for i, mol in enumerate(unique_molecules):
+            molecule_markers[mol] = markers[i % len(markers)]
+        
+        # Plot each combination (keep only latest result for each molecule/algorithm pair)
+        plotted_combinations = set()
+        
+        # Group by molecule and algorithm, keep latest result
+        unique_results = df.groupby(['molecule_abbrev', 'algorithm_name']).last().reset_index()
+        
+        for _, row in unique_results.iterrows():
+            alg = row['algorithm_name']
+            mol = row['molecule_abbrev']
+            runtime = row['runtime_seconds']
+            error = abs(row['error'])  # Use absolute error
+            
+            color = algorithm_colors[alg]
+            marker = molecule_markers[mol]
+            
+            # Create label for legend
+            label = f"{alg} ({mol})"
+            
+            ax.scatter(runtime, error, color=color, marker=marker, s=80, alpha=0.8,
+                      edgecolors='black', linewidth=0.5, label=label)
+        
+        ax.set_xlabel('Runtime (seconds)', fontsize=12)
+        ax.set_ylabel('Absolute Error (Hartree)', fontsize=12)
+        ax.set_title('VQE Performance: Computational Time vs Error', fontsize=14, fontweight='bold')
+        ax.set_yscale('log')  # Log scale for better visualization of errors
+        ax.grid(True, alpha=0.3)
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=9)
+        
+        plt.tight_layout()
+        
+        if save:
+            filepath = self.output_dir / "computation_vs_error.png"
+            fig.savefig(filepath, dpi=150, bbox_inches='tight')
+            logger.info(f"Saved plot to {filepath}")
+        
+        return fig
+    
     def generate_all_plots(self):
         """Generate all available plots"""
         logger.info("Generating all plots...")
@@ -569,6 +657,9 @@ class VQEVisualizer:
         
         # Comprehensive plot
         self.plot_all_molecules(save=True)
+        
+        # Computation vs Error plot
+        self.plot_computation_vs_error(save=True)
         
         logger.info(f"All plots saved to {self.output_dir}")
 
