@@ -4,7 +4,7 @@ Looking at the QMProt dataset - investigating the use of using VQE in order to c
 
 Also, a one-stop repository for researchers to run various VQE algorithms on their own dataset, and compare results and computational cost. Compatible with standard Hamiltonian formatting.
 
-![Different VQEs on two amino acids](image.png)
+![Different VQEs on two amino acids](image-1.png)
 
 # How to use this repository:
 1) Download the Hamiltonians through the Hamiltonian_download notebook
