@@ -51,6 +51,7 @@ class QAOAInspiredVQE(BaseVQE):
     def build_ansatz(self) -> Any:
         """Build the QAOA-inspired ansatz circuit"""
         import pennylane as qml
+        from core.backend_manager import create_device
         
         n_qubits = self.n_qubits
         n_layers = self.n_layers
@@ -59,11 +60,14 @@ class QAOAInspiredVQE(BaseVQE):
         # Plus additional variational parameters
         self.n_parameters = n_layers * 2 + n_qubits  # gamma, beta per layer + initial angles
         
-        # Create device
-        self.device = qml.device("lightning.qubit", wires=n_qubits) # switch to default if needed
+        # Create device via backend manager
+        self.device = create_device(self.backend_config)
         
         # Get Hamiltonian
         H = self.hamiltonian.to_pennylane()
+        
+        # Noise insertion callback (no-op for statevector)
+        insert_noise = self.noise_inserter
         
         @qml.qnode(self.device)
         def circuit(params):
@@ -106,12 +110,15 @@ class QAOAInspiredVQE(BaseVQE):
                         qml.RX(beta, wires=i)
                         qml.RY(beta, wires=i)
                         qml.RZ(beta, wires=i)
+                
+                # Apply noise after each layer (no-op for statevector)
+                insert_noise()
             
             return qml.expval(H)
         
         self.cost_fn = circuit
         logger.info(f"Built QAOA-inspired ansatz with {self.n_parameters} parameters, "
-                   f"{n_layers} layers")
+                   f"{n_layers} layers, backend={self.backend_config.label}")
         
         return circuit
     

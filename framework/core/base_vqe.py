@@ -13,6 +13,8 @@ import logging
 from tqdm import tqdm
 
 from .hamiltonian_loader import QubitHamiltonian
+from .backend_manager import BackendConfig, create_device, get_noise_inserter
+from .hf_verification import compute_hf_energy, verify_hf_energy
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,12 @@ class VQEResult:
     final_gradient_norm: Optional[float] = None
     converged: bool = False
     metadata: Dict[str, Any] = field(default_factory=dict)
+    # Backend & noise fields
+    backend_type: str = "statevector"
+    noise_model: Optional[str] = None
+    noise_strength: float = 0.0
+    # Hartree-Fock verification
+    hf_energy: Optional[float] = None
     
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON serialization"""
@@ -71,6 +79,10 @@ class VQEResult:
             "final_gradient_norm": float(self.final_gradient_norm) if self.final_gradient_norm else None,
             "converged": self.converged,
             "metadata": ensure_json_serializable(self.metadata),
+            "backend_type": self.backend_type,
+            "noise_model": self.noise_model,
+            "noise_strength": float(self.noise_strength),
+            "hf_energy": float(self.hf_energy) if self.hf_energy is not None else None,
         }
 
 
@@ -89,6 +101,7 @@ class BaseVQE(ABC):
                  convergence_threshold: float = 1e-6,
                  n_shots: int = 0,
                  random_seed: Optional[int] = None,
+                 backend_config: Optional[BackendConfig] = None,
                  **kwargs):
         """
         Initialize the VQE solver.
@@ -100,6 +113,8 @@ class BaseVQE(ABC):
             convergence_threshold: Convergence threshold for energy
             n_shots: Number of measurement shots (0 for exact simulation)
             random_seed: Random seed for reproducibility
+            backend_config: BackendConfig for device creation. If None,
+                            defaults to statevector (lightning.qubit).
             **kwargs: Additional algorithm-specific parameters
         """
         self.hamiltonian = hamiltonian
@@ -109,6 +124,17 @@ class BaseVQE(ABC):
         self.n_shots = n_shots
         self.random_seed = random_seed
         self.kwargs = kwargs
+        
+        # Backend configuration
+        if backend_config is not None:
+            self.backend_config = backend_config
+        else:
+            self.backend_config = BackendConfig.statevector(
+                n_qubits=hamiltonian.n_qubits
+            )
+        # Ensure n_qubits is consistent
+        self.backend_config.n_qubits = hamiltonian.n_qubits
+        self.noise_inserter = get_noise_inserter(self.backend_config)
         
         # Set random seed
         if random_seed is not None:
@@ -124,7 +150,9 @@ class BaseVQE(ABC):
         self.optimal_parameters: Optional[np.ndarray] = None
         self.optimal_energy: Optional[float] = None
         self.progress_bar: Optional[tqdm] = None
-        self.progress_bar: Optional[tqdm] = None
+        
+        # Hartree-Fock energy (computed in run())
+        self.hf_energy: Optional[float] = None
         
         # Build components
         self.n_qubits = hamiltonian.n_qubits
@@ -248,6 +276,18 @@ class BaseVQE(ABC):
             VQEResult with all results and metadata
         """
         logger.info(f"Running {self.name} on {self.hamiltonian.molecule.name}")
+        logger.info(f"Backend: {self.backend_config.label}")
+        
+        # ── Hartree-Fock energy verification ──────────────────────────
+        try:
+            self.hf_energy = compute_hf_energy(self.hamiltonian)
+            logger.info(
+                f"HF energy ⟨HF|H|HF⟩ = {self.hf_energy:.8f} Ha  "
+                f"(reference = {self.hamiltonian.molecule.reference_energy:.8f} Ha)"
+            )
+        except Exception as exc:
+            logger.warning(f"Could not compute HF energy: {exc}")
+            self.hf_energy = None
         
         # Initialize progress bar
         self.progress_bar = tqdm(total=self.max_iterations, 
@@ -292,15 +332,15 @@ class BaseVQE(ABC):
                 "max_iterations": self.max_iterations,
                 "n_shots": self.n_shots,
                 "random_seed": self.random_seed,
-            }
+            },
+            backend_type=self.backend_config.backend_type,
+            noise_model=self.backend_config.noise_model,
+            noise_strength=self.backend_config.noise_strength,
+            hf_energy=self.hf_energy,
         )
         
         logger.info(f"Completed {self.name}: Energy = {optimal_energy:.8f}, "
                    f"Error = {error:.8f}, Runtime = {runtime:.2f}s")
-        
-        # Close progress bar
-        if self.progress_bar:
-            self.progress_bar.close()
         
         # Close progress bar
         if self.progress_bar:

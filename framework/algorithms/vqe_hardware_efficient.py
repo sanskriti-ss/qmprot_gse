@@ -54,6 +54,7 @@ class HardwareEfficientVQE(BaseVQE):
     def build_ansatz(self) -> Any:
         """Build the hardware-efficient ansatz circuit"""
         import pennylane as qml
+        from core.backend_manager import create_device
         
         n_qubits = self.n_qubits
         n_layers = self.n_layers
@@ -68,11 +69,14 @@ class HardwareEfficientVQE(BaseVQE):
         
         self.n_parameters = n_qubits * rotations_per_qubit * (n_layers + 1)
         
-        # Create device
-        self.device = qml.device("lightning.qubit", wires=n_qubits) # switch to default if needed
+        # Create device via backend manager
+        self.device = create_device(self.backend_config)
         
         # Get Hamiltonian
         H = self.hamiltonian.to_pennylane()
+        
+        # Noise insertion callback (no-op for statevector)
+        insert_noise = self.noise_inserter
         
         @qml.qnode(self.device)
         def circuit(params):
@@ -122,12 +126,16 @@ class HardwareEfficientVQE(BaseVQE):
                         qml.RY(params[param_idx + 1], wires=qubit)
                         qml.RZ(params[param_idx + 2], wires=qubit)
                         param_idx += 3
+                
+                # Apply noise after each layer (no-op for statevector)
+                insert_noise()
             
             return qml.expval(H)
         
         self.cost_fn = circuit
         logger.info(f"Built HW-efficient ansatz with {self.n_parameters} parameters, "
-                   f"{n_layers} layers, {self.entangling_gate} entangling")
+                   f"{n_layers} layers, {self.entangling_gate} entangling, "
+                   f"backend={self.backend_config.label}")
         
         return circuit
     

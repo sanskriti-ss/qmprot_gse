@@ -130,6 +130,10 @@ class ResultsManager:
                 "n_parameters": r.n_parameters,
                 "runtime_seconds": r.runtime_seconds,
                 "converged": r.converged,
+                "backend_type": r.backend_type,
+                "noise_model": r.noise_model,
+                "noise_strength": r.noise_strength,
+                "hf_energy": r.hf_energy,
             })
         
         df = pd.DataFrame(rows)
@@ -178,6 +182,10 @@ class ResultsManager:
                 final_gradient_norm=rd.get("final_gradient_norm"),
                 converged=rd.get("converged", False),
                 metadata=rd.get("metadata", {}),
+                backend_type=rd.get("backend_type", "statevector"),
+                noise_model=rd.get("noise_model"),
+                noise_strength=rd.get("noise_strength", 0.0),
+                hf_energy=rd.get("hf_energy"),
             )
             results.append(result)
         

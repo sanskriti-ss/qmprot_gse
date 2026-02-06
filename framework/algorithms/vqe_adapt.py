@@ -56,11 +56,12 @@ class AdaptVQE(BaseVQE):
     def build_ansatz(self) -> Any:
         """Build the operator pool for ADAPT-VQE"""
         import pennylane as qml
+        from core.backend_manager import create_device
         
         n_qubits = self.n_qubits
         
-        # Create device
-        self.device = qml.device("lightning.qubit", wires=n_qubits) # switch to default if needed
+        # Create device via backend manager
+        self.device = create_device(self.backend_config)
         
         # Build operator pool (single and double excitations)
         self.operator_pool = []
@@ -89,6 +90,7 @@ class AdaptVQE(BaseVQE):
         import pennylane as qml
         
         n_qubits = self.n_qubits
+        insert_noise = self.noise_inserter
         
         @qml.qnode(self.device)
         def circuit(params):
@@ -117,6 +119,9 @@ class AdaptVQE(BaseVQE):
                     qml.RY(theta/2, wires=j)
                     qml.CNOT(wires=[k, l % n_qubits])
                     qml.RY(-theta/2, wires=l % n_qubits)
+                
+                # Apply noise after each operator (no-op for statevector)
+                insert_noise()
             
             H = self.hamiltonian.to_pennylane()
             return qml.expval(H)
@@ -161,9 +166,22 @@ class AdaptVQE(BaseVQE):
         """Run ADAPT-VQE with iterative operator selection"""
         import time
         from scipy.optimize import minimize
+        from core.hf_verification import compute_hf_energy
         
         logger.info(f"Running {self.name} on {self.hamiltonian.molecule.name}")
+        logger.info(f"Backend: {self.backend_config.label}")
         start_time = time.time()
+        
+        # ── Hartree-Fock energy verification ──────────────────────────
+        try:
+            self.hf_energy = compute_hf_energy(self.hamiltonian)
+            logger.info(
+                f"HF energy ⟨HF|H|HF⟩ = {self.hf_energy:.8f} Ha  "
+                f"(reference = {self.hamiltonian.molecule.reference_energy:.8f} Ha)"
+            )
+        except Exception as exc:
+            logger.warning(f"Could not compute HF energy: {exc}")
+            self.hf_energy = None
         
         # Build operator pool
         self.build_ansatz()
@@ -231,7 +249,11 @@ class AdaptVQE(BaseVQE):
                 "optimizer": self.optimizer_name,
                 "n_operators_selected": len(self.selected_operators),
                 "selected_operators": self.selected_operators,
-            }
+            },
+            backend_type=self.backend_config.backend_type,
+            noise_model=self.backend_config.noise_model,
+            noise_strength=self.backend_config.noise_strength,
+            hf_energy=self.hf_energy,
         )
         
         logger.info(f"Completed {self.name}: Energy = {optimal_energy:.8f}, "
