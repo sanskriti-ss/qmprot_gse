@@ -32,7 +32,7 @@ logging.basicConfig(
     handlers=[
         logging.StreamHandler(sys.stdout),
         logging.FileHandler(LOG_FILE) if LOG_FILE else logging.NullHandler()
-    ]
+    ]   
 )
 logger = logging.getLogger(__name__)
 

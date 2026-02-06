@@ -7,7 +7,7 @@ def download_hamiltonian(max_terms=1000, save_path="data/hamiltonians/hamiltonia
     operators = []
     hamiltonian_chunks = []
 
-    ds = qml.data.load('other', name='gln')
+    ds = qml.data.load('other', name='ala')
     print(f"Dataset type: {type(ds)}")
     print(f"Dataset content: {ds}")
 

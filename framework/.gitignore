@@ -64,6 +64,7 @@ coverage.xml
 *.cover
 .hypothesis/
 
+docs/excited_state_vqe_methods.md
 # ============================================
 # Framework Specific
 # ============================================
