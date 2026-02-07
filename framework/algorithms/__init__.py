@@ -7,6 +7,7 @@ from .vqe_vanilla import VanillaVQE
 from .vqe_adapt import AdaptVQE
 from .vqe_hardware_efficient import HardwareEfficientVQE
 from .vqe_qaoa_inspired import QAOAInspiredVQE
+from .vqe_iqcc import iQCC_VQE
 
 # Registry of all available algorithms
 ALGORITHMS = {
@@ -14,6 +15,7 @@ ALGORITHMS = {
     "adapt_vqe": AdaptVQE,
     "hardware_efficient_vqe": HardwareEfficientVQE,
     "qaoa_inspired_vqe": QAOAInspiredVQE,
+    "iqcc_vqe": iQCC_VQE,
 }
 
 def get_algorithm(name: str):
@@ -31,6 +33,7 @@ __all__ = [
     "AdaptVQE", 
     "HardwareEfficientVQE",
     "QAOAInspiredVQE",
+    "iQCC_VQE"
     "ALGORITHMS",
     "get_algorithm",
     "list_algorithms",
