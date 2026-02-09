@@ -708,7 +708,163 @@ class VQEVisualizer:
         # Computation vs Error plot
         self.plot_computation_vs_error(save=True)
         
+        # Backend comparison (statevector vs noisy) — if both exist
+        self.plot_backend_comparison(save=True)
+        
+        # HF energy verification plot
+        self.plot_hf_verification(save=True)
+        
         logger.info(f"All plots saved to {self.output_dir}")
+
+    # ── Backend comparison plots ──────────────────────────────────────────
+
+    def plot_backend_comparison(self,
+                                molecules: Optional[List[str]] = None,
+                                save: bool = True,
+                                figsize: tuple = (14, 6)) -> Optional[plt.Figure]:
+        """
+        Side-by-side comparison of statevector vs noisy results for each
+        algorithm/molecule combination.
+        """
+        df = self.results_manager.to_dataframe()
+        if df.empty:
+            logger.warning("No results to plot")
+            return None
+
+        # Ensure column exists (backward compat with old results)
+        if "backend_type" not in df.columns:
+            logger.info("No backend_type column – skipping backend comparison plot")
+            return None
+
+        backend_types = df["backend_type"].dropna().unique()
+        if len(backend_types) < 2:
+            logger.info("Only one backend type found – skipping backend comparison plot")
+            return None
+
+        if molecules is not None:
+            df = df[df["molecule_abbrev"].isin(molecules)]
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
+
+        # ---- Left: Grouped bars of calculated energy per backend ----
+        unique_mols = df["molecule_abbrev"].unique()
+        unique_algs = df["algorithm_name"].unique()
+
+        x = np.arange(len(unique_mols))
+        total_groups = len(unique_algs) * len(backend_types)
+        bar_width = 0.8 / max(total_groups, 1)
+
+        backend_hatches = {"statevector": "", "noisy": "//"}
+        alg_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
+
+        idx = 0
+        for ai, alg in enumerate(unique_algs):
+            for bt in sorted(backend_types):
+                subset = df[(df["algorithm_name"] == alg) & (df["backend_type"] == bt)]
+                energies = []
+                for m in unique_mols:
+                    vals = subset[subset["molecule_abbrev"] == m]["calculated_energy"].values
+                    energies.append(float(vals[-1]) if len(vals) else np.nan)
+
+                label = f"{alg} ({bt})"
+                ax1.bar(x + idx * bar_width, energies, bar_width,
+                        color=alg_colors[ai % len(alg_colors)],
+                        hatch=backend_hatches.get(bt, ""),
+                        alpha=0.85, label=label, edgecolor="black", linewidth=0.5)
+                idx += 1
+
+        ax1.set_xticks(x + bar_width * (total_groups - 1) / 2)
+        ax1.set_xticklabels(unique_mols, rotation=30, ha="right")
+        ax1.set_ylabel("Energy (Hartree)")
+        ax1.set_title("Calculated Energy: Statevector vs Noisy")
+        ax1.legend(fontsize=7, loc="best")
+
+        # ---- Right: Error comparison ----
+        idx = 0
+        for ai, alg in enumerate(unique_algs):
+            for bt in sorted(backend_types):
+                subset = df[(df["algorithm_name"] == alg) & (df["backend_type"] == bt)]
+                errors = []
+                for m in unique_mols:
+                    vals = subset[subset["molecule_abbrev"] == m]["error"].values
+                    errors.append(float(vals[-1]) if len(vals) else np.nan)
+
+                label = f"{alg} ({bt})"
+                ax2.bar(x + idx * bar_width, errors, bar_width,
+                        color=alg_colors[ai % len(alg_colors)],
+                        hatch=backend_hatches.get(bt, ""),
+                        alpha=0.85, label=label, edgecolor="black", linewidth=0.5)
+                idx += 1
+
+        ax2.axhline(y=0, color="black", linestyle="--", linewidth=0.5)
+        ax2.set_xticks(x + bar_width * (total_groups - 1) / 2)
+        ax2.set_xticklabels(unique_mols, rotation=30, ha="right")
+        ax2.set_ylabel("Error (Hartree)")
+        ax2.set_title("Error: Statevector vs Noisy")
+        ax2.legend(fontsize=7, loc="best")
+
+        plt.tight_layout()
+
+        if save:
+            filepath = self.output_dir / "backend_comparison.png"
+            fig.savefig(filepath, dpi=150, bbox_inches="tight")
+            logger.info(f"Saved plot to {filepath}")
+
+        return fig
+
+    def plot_hf_verification(self,
+                              save: bool = True,
+                              figsize: tuple = (10, 6)) -> Optional[plt.Figure]:
+        """
+        Plot the Hartree-Fock energy alongside the VQE optimised energy and
+        the reference energy for every molecule/algorithm result.
+        """
+        df = self.results_manager.to_dataframe()
+        if df.empty or "hf_energy" not in df.columns:
+            logger.info("No HF energy data – skipping HF verification plot")
+            return None
+
+        # Drop rows where hf_energy is NaN
+        df_hf = df.dropna(subset=["hf_energy"])
+        if df_hf.empty:
+            return None
+
+        fig, ax = plt.subplots(figsize=figsize)
+
+        # One group per unique molecule
+        molecules = df_hf["molecule_abbrev"].unique()
+        x = np.arange(len(molecules))
+        width = 0.25
+
+        ref_energies = []
+        hf_energies = []
+        vqe_energies = []
+
+        for m in molecules:
+            sub = df_hf[df_hf["molecule_abbrev"] == m]
+            ref_energies.append(float(sub["reference_energy"].iloc[0]))
+            hf_energies.append(float(sub["hf_energy"].iloc[0]))
+            # Best VQE energy (lowest) for this molecule
+            vqe_energies.append(float(sub["calculated_energy"].min()))
+
+        ax.bar(x - width, ref_energies, width, label="Reference (exact)", color="#7f7f7f", alpha=0.8)
+        ax.bar(x, hf_energies, width, label="⟨HF|H|HF⟩", color="#ff7f0e", alpha=0.8)
+        ax.bar(x + width, vqe_energies, width, label="Best VQE", color="#1f77b4", alpha=0.8)
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(molecules, rotation=30, ha="right")
+        ax.set_ylabel("Energy (Hartree)")
+        ax.set_title("Hartree-Fock Verification: Reference vs ⟨HF|H|HF⟩ vs VQE")
+        ax.legend()
+
+        plt.tight_layout()
+
+        if save:
+            filepath = self.output_dir / "hf_verification.png"
+            fig.savefig(filepath, dpi=150, bbox_inches="tight")
+            logger.info(f"Saved plot to {filepath}")
+
+        return fig
 
 
 # Convenience functions
