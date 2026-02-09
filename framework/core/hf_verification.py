@@ -24,6 +24,60 @@ logger = logging.getLogger(__name__)
 # Core helpers
 # ---------------------------------------------------------------------------
 
+def _parse_pauli_string(pauli_str_raw, n_qubits):
+    """
+    Convert PennyLane format to simple IXYZ format.
+    
+    Examples:
+        'Identity(0)' -> 'I' on qubit 0
+        'PauliX(2)' -> 'X' on qubit 2
+        ['Identity(0)', 'PauliZ(1)'] -> 'IZ'
+    """
+    # Initialize with all identities
+    pauli_chars = ['I'] * n_qubits
+    
+    if isinstance(pauli_str_raw, str):
+        # Single operator
+        pauli_ops = [pauli_str_raw]
+    elif isinstance(pauli_str_raw, (list, tuple)):
+        # Multiple operators
+        pauli_ops = pauli_str_raw
+    else:
+        # Fallback: try to convert to string
+        pauli_ops = [str(pauli_str_raw)]
+    
+    for op_str in pauli_ops:
+        op_str = str(op_str).strip()
+        
+        # Extract operator type and qubit index
+        if 'Identity(' in op_str:
+            op_type = 'I'
+        elif 'PauliX(' in op_str:
+            op_type = 'X'
+        elif 'PauliY(' in op_str:
+            op_type = 'Y'
+        elif 'PauliZ(' in op_str:
+            op_type = 'Z'
+        else:
+            # Try to extract just the first character if it's a simple format
+            op_type = op_str[0] if op_str and op_str[0] in 'IXYZ' else 'I'
+        
+        # Extract qubit index
+        try:
+            # Look for number in parentheses
+            import re
+            match = re.search(r'\((\d+)\)', op_str)
+            if match:
+                qubit_idx = int(match.group(1))
+                if 0 <= qubit_idx < n_qubits:
+                    pauli_chars[qubit_idx] = op_type
+        except (ValueError, IndexError):
+            # If parsing fails, assume this is the constant term (all I)
+            pass
+    
+    return ''.join(pauli_chars)
+
+
 def _hf_bitstring(n_qubits: int, n_electrons: int) -> np.ndarray:
     """
     Return the computational-basis statevector for the Hartree-Fock state.
@@ -46,6 +100,7 @@ def _hf_bitstring(n_qubits: int, n_electrons: int) -> np.ndarray:
     return state
 
 
+
 def _build_hamiltonian_matrix(hamiltonian: QubitHamiltonian) -> np.ndarray:
     """
     Build the full 2^n × 2^n Hamiltonian matrix (exact diagonalisation
@@ -63,9 +118,13 @@ def _build_hamiltonian_matrix(hamiltonian: QubitHamiltonian) -> np.ndarray:
 
     H = np.zeros((dim, dim), dtype=complex)
 
-    for coeff, pauli_str in zip(hamiltonian.coefficients, hamiltonian.pauli_strings):
+    for coeff, pauli_str_raw in zip(hamiltonian.coefficients, hamiltonian.pauli_strings):
         if abs(coeff) < 1e-15:
             continue
+            
+        # Parse the PennyLane format to simple format
+        pauli_str = _parse_pauli_string(pauli_str_raw, n_qubits)
+        
         # Tensor product of single-qubit Pauli matrices
         op = pauli_mats[pauli_str[0]]
         for ch in pauli_str[1:]:
@@ -99,14 +158,28 @@ def compute_hf_energy(
     Returns:
         The Hartree-Fock energy (float).
     """
-    n_qubits = hamiltonian.n_qubits
-    if n_electrons is None:
-        n_electrons = hamiltonian.molecule.n_electrons or n_qubits // 2
+    try:
+        n_qubits = hamiltonian.n_qubits
+        if n_electrons is None:
+            n_electrons = hamiltonian.molecule.n_electrons or n_qubits // 2
 
-    if n_qubits <= 14:
-        return _compute_hf_energy_matrix(hamiltonian, n_electrons)
-    else:
-        return _compute_hf_energy_diagonal(hamiltonian, n_electrons)
+        # Debug: examine a few pauli strings to understand the format
+        logger.debug(f"HF energy computation: n_qubits={n_qubits}, n_electrons={n_electrons}")
+        if len(hamiltonian.pauli_strings) > 0:
+            logger.debug(f"First pauli string: {repr(hamiltonian.pauli_strings[0])}")
+            logger.debug(f"First coefficient: {hamiltonian.coefficients[0]}")
+
+        if n_qubits <= 14:
+            return _compute_hf_energy_matrix(hamiltonian, n_electrons)
+        else:
+            return _compute_hf_energy_diagonal(hamiltonian, n_electrons)
+    except Exception as e:
+        logger.error(f"Error in compute_hf_energy: {e}")
+        logger.debug(f"Hamiltonian type: {type(hamiltonian)}")
+        logger.debug(f"Pauli strings type: {type(hamiltonian.pauli_strings)}")
+        if len(hamiltonian.pauli_strings) > 0:
+            logger.debug(f"First pauli string repr: {repr(hamiltonian.pauli_strings[0])}")
+        raise
 
 
 def _compute_hf_energy_matrix(
@@ -141,19 +214,32 @@ def _compute_hf_energy_diagonal(
     occupation[:n_occ] = 1  # first n_occ qubits occupied
 
     energy = 0.0
-    for coeff, pauli_str in zip(hamiltonian.coefficients, hamiltonian.pauli_strings):
-        if abs(coeff) < 1e-15:
+    for coeff, pauli_str_raw in zip(hamiltonian.coefficients, hamiltonian.pauli_strings):
+        try:
+            if abs(coeff) < 1e-15:
+                continue
+            
+            # Parse the PennyLane format to simple format
+            pauli_str = _parse_pauli_string(pauli_str_raw, n_qubits)
+            
+            # Any X or Y → off-diagonal → skip
+            if "X" in pauli_str or "Y" in pauli_str:
+                continue
+            
+            # Product of eigenvalues for Z on occupied (|1⟩→-1) / virtual (|0⟩→+1)
+            eigenvalue = 1.0
+            for q, ch in enumerate(pauli_str):
+                if q >= n_qubits:
+                    break  # Safety check
+                if ch == "Z":
+                    eigenvalue *= (-1.0 if occupation[q] == 1 else 1.0)
+                # 'I' contributes factor 1
+            energy += float(coeff) * eigenvalue
+            
+        except Exception as e:
+            # Log the problematic term and continue
+            logger.debug(f"Skipping term due to parsing error: coeff={coeff}, pauli_str={pauli_str_raw}, error={e}")
             continue
-        # Any X or Y → off-diagonal → skip
-        if "X" in pauli_str or "Y" in pauli_str:
-            continue
-        # Product of eigenvalues for Z on occupied (|1⟩→-1) / virtual (|0⟩→+1)
-        eigenvalue = 1.0
-        for q, ch in enumerate(pauli_str):
-            if ch == "Z":
-                eigenvalue *= (-1.0 if occupation[q] == 1 else 1.0)
-            # 'I' contributes factor 1
-        energy += coeff * eigenvalue
 
     return float(energy)
 

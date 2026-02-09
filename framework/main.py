@@ -30,6 +30,7 @@ from core.hamiltonian_loader import QubitHamiltonian
 from core.backend_manager import BackendConfig
 from algorithms import ALGORITHMS, get_algorithm, list_algorithms
 from plotting import VQEVisualizer
+from plotting import molecule_plots
 
 # Setup logging
 logging.basicConfig(
@@ -261,12 +262,28 @@ class VQEFramework:
         """Save all results to files"""
         self.results_manager.save_all_results(filename)
         self.results_manager.save_to_csv()
+        
+        # Also use molecule_plots CSV export for consistency
+        if self.results_manager.results:
+            from utils.csv_export import export_results_to_csv
+            csv_path = self.results_dir / "results" / "csv" / "molecule_plots_summary.csv"
+            csv_path.parent.mkdir(parents=True, exist_ok=True)
+            export_results_to_csv(self.results_manager.results, str(csv_path))
     
     def generate_plots(self):
         """Generate all visualization plots"""
         if self.visualizer is None:
             self.visualizer = VQEVisualizer(self.results_manager, self.plots_dir)
         self.visualizer.generate_all_plots()
+        
+        # Also generate specialized molecule plots with HF reference
+        if self.results_manager.results:
+            logger.info("Generating specialized molecule plots with HF reference...")
+            molecule_plots.plot_selected_molecules_with_hf_ref(
+                results=self.results_manager.results,
+                output_dir=str(self.plots_dir),
+                filename="selected_molecules_withHFref.png"
+            )
     
     def plot_molecule(self, molecule: str):
         """Generate plot for a specific molecule"""
