@@ -211,6 +211,23 @@ class BaseVQE(ABC):
         if self.iteration_count % 10 == 0:
             logger.debug(f"Iteration {self.iteration_count}: Energy = {energy:.8f}")
     
+    def _perform_hf_verification(self) -> None:
+        """
+        Perform Hartree-Fock energy verification.
+        
+        This method computes the HF energy and logs the results.
+        Sets self.hf_energy attribute.
+        """
+        try:
+            self.hf_energy = compute_hf_energy(self.hamiltonian)
+            logger.info(
+                f"HF energy ⟨HF|H|HF⟩ = {self.hf_energy:.8f} Ha  "
+                f"(reference = {self.hamiltonian.molecule.reference_energy:.8f} Ha)"
+            )
+        except Exception as exc:
+            logger.warning(f"Could not compute HF energy: {exc}")
+            self.hf_energy = None
+    
     def optimize(self, initial_parameters: Optional[np.ndarray] = None) -> Tuple[np.ndarray, float]:
         """
         Run the optimization.
@@ -279,15 +296,7 @@ class BaseVQE(ABC):
         logger.info(f"Backend: {self.backend_config.label}")
         
         # ── Hartree-Fock energy verification ──────────────────────────
-        try:
-            self.hf_energy = compute_hf_energy(self.hamiltonian)
-            logger.info(
-                f"HF energy ⟨HF|H|HF⟩ = {self.hf_energy:.8f} Ha  "
-                f"(reference = {self.hamiltonian.molecule.reference_energy:.8f} Ha)"
-            )
-        except Exception as exc:
-            logger.warning(f"Could not compute HF energy: {exc}")
-            self.hf_energy = None
+        self._perform_hf_verification()
         
         # Initialize progress bar
         self.progress_bar = tqdm(total=self.max_iterations, 

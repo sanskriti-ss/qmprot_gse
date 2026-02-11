@@ -166,22 +166,14 @@ class AdaptVQE(BaseVQE):
         """Run ADAPT-VQE with iterative operator selection"""
         import time
         from scipy.optimize import minimize
-        from core.hf_verification import compute_hf_energy
+        # HF verification handled by parent class
         
         logger.info(f"Running {self.name} on {self.hamiltonian.molecule.name}")
         logger.info(f"Backend: {self.backend_config.label}")
         start_time = time.time()
         
         # ── Hartree-Fock energy verification ──────────────────────────
-        try:
-            self.hf_energy = compute_hf_energy(self.hamiltonian)
-            logger.info(
-                f"HF energy ⟨HF|H|HF⟩ = {self.hf_energy:.8f} Ha  "
-                f"(reference = {self.hamiltonian.molecule.reference_energy:.8f} Ha)"
-            )
-        except Exception as exc:
-            logger.warning(f"Could not compute HF energy: {exc}")
-            self.hf_energy = None
+        self._perform_hf_verification()
         
         # Build operator pool
         self.build_ansatz()

@@ -485,6 +485,17 @@ def callback(self, parameters: np.ndarray):
     """Called after each optimization step. Updates progress bar."""
     ...
 
+def _perform_hf_verification(self) -> None:
+    """
+    Centralized Hartree-Fock energy verification.
+    
+    This method computes the HF energy ⟨HF|H|HF⟩ and compares it with the
+    reference energy. Sets self.hf_energy attribute.
+    
+    Called automatically by run() - do not duplicate in subclasses.
+    """
+    ...
+
 def optimize(self, initial_parameters=None) -> Tuple[np.ndarray, float]:
     """Runs scipy.optimize.minimize with self.cost_function"""
     ...
@@ -492,7 +503,7 @@ def optimize(self, initial_parameters=None) -> Tuple[np.ndarray, float]:
 def run(self) -> VQEResult:
     """
     Full VQE workflow:
-    1. Compute HF energy (verification)
+    1. Compute HF energy (verification) via _perform_hf_verification()
     2. Build ansatz
     3. Run optimization
     4. Package results into VQEResult
@@ -500,7 +511,42 @@ def run(self) -> VQEResult:
     ...
 ```
 
-### 7.4 Key Instance Variables Set During Execution
+### 7.4 Hartree-Fock Verification Pattern
+
+⚠️ **IMPORTANT**: HF verification is now centralized in `BaseVQE._perform_hf_verification()`.
+
+**DO NOT** duplicate HF verification code in algorithm subclasses. The `run()` method in `BaseVQE` automatically calls this method.
+
+**Previous Pattern (DEPRECATED)**:
+```python
+# ❌ Don't do this in your algorithm's run() method
+def run(self):
+    try:
+        self.hf_energy = compute_hf_energy(self.hamiltonian)
+        logger.info(f"HF energy ⟨HF|H|HF⟩ = {self.hf_energy:.8f} Ha")
+    except Exception as exc:
+        logger.warning(f"Could not compute HF energy: {exc}")
+        self.hf_energy = None
+```
+
+**Current Pattern (RECOMMENDED)**:
+```python
+# ✅ Simply call parent run() or use the centralized method
+def run(self):
+    # For algorithms that need custom optimization logic
+    self._perform_hf_verification()  # Handles HF verification
+    
+    # Your custom algorithm logic here...
+    # OR simply inherit the full BaseVQE.run() method
+```
+
+This pattern ensures:
+- Consistent HF verification across all algorithms
+- Reduced code duplication
+- Centralized error handling for HF computation
+- Easier maintenance and debugging
+
+### 7.5 Key Instance Variables Set During Execution
 
 | Variable | Set In | Type | Description |
 |----------|--------|------|-------------|
@@ -645,6 +691,27 @@ ALGORITHMS = {
 - [ ] Initialize HF state in circuit
 - [ ] Call `self.noise_inserter()` after each layer
 - [ ] Return `qml.expval(H)` from QNode
+- [ ] **DO NOT** duplicate HF verification - use `BaseVQE._perform_hf_verification()` or inherit `BaseVQE.run()`
+
+### 9.3 HF Verification Guidelines
+
+When implementing custom algorithms:
+
+1. **If using `BaseVQE.run()`**: No action needed - HF verification is automatic
+2. **If overriding `run()`**: Call `self._perform_hf_verification()` at the beginning
+3. **Never import** `compute_hf_energy` directly in algorithm files
+
+```python
+# ✅ GOOD: Use centralized verification
+def run(self) -> VQEResult:
+    self._perform_hf_verification()  # Centralized HF verification
+    # Your custom algorithm logic...
+
+# ❌ BAD: Don't duplicate verification
+def run(self) -> VQEResult:
+    from core.hf_verification import compute_hf_energy  # Don't do this
+    self.hf_energy = compute_hf_energy(self.hamiltonian)  # Duplicated code
+```
 
 ---
 
@@ -738,7 +805,25 @@ This table shows which variables must be compatible across modules:
 
 ## 12. Common Pitfalls & Debugging
 
-### 12.1 "Molecule not found" Error
+### 12.1 HF Verification Refactoring (Recent Update)
+
+**Issue**: Previously, each VQE algorithm duplicated Hartree-Fock verification code in their `run()` methods.
+
+**Solution**: Centralized HF verification in `BaseVQE._perform_hf_verification()`.
+
+**Key Changes**:
+- ✅ Added `_perform_hf_verification()` method to `BaseVQE`
+- ✅ Updated `BaseVQE.run()` to call centralized method
+- ✅ Removed duplicate HF verification from `AdaptVQE.run()`
+- ✅ Updated guide documentation to reflect new patterns
+
+**Benefits**:
+- Eliminates code duplication across algorithms
+- Provides consistent HF verification behavior
+- Centralized error handling for HF computation
+- Easier maintenance and debugging
+
+### 12.2 "Molecule not found" Error
 
 **Cause**: Abbreviation not in `qmprot.json` AND no matching H5 file.
 
@@ -751,7 +836,7 @@ python main.py --list-molecules
 ls framework/datasets/<abbrev>/<abbrev>.h5
 ```
 
-### 12.2 "No valid Hamiltonian terms found"
+### 12.3 "No valid Hamiltonian terms found"
 
 **Cause**: Empty or malformed H5/txt file.
 
@@ -882,4 +967,4 @@ python main.py --molecule h2 --algorithm vanilla_vqe --legacy
 
 ---
 
-*Document version: 1.0 | Last updated: February 2026*
+*Document version: 1.0 | Last updated: February 10 2026*
