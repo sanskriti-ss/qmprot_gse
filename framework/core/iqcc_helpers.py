@@ -16,13 +16,13 @@ class PauliOperatorPool:
     def __init__(self, max_weight=2):
         self.max_weight = max_weight
 
-        def generate(self, n_qubits):
-            paulis = ["X", "Y", "Z"]
-            pool = []
+    def generate(self, n_qubits):
+        paulis = ["X", "Y", "Z"]
+        pool = []
 
-            for weight in range(1, self.max_weight + 1):
-                for qubits in itertools.combinations(range(n_qubits), weight):
-                    for ops in itertools.product(paulis, repeat=weight):
-                        word = " ".join(f"{op}{q}" for op, q in zip(ops, qubits))
-                        pool.append(word)
-            return pool
+        for weight in range(1, self.max_weight + 1):
+            for qubits in itertools.combinations(range(n_qubits), weight):
+                for ops in itertools.product(paulis, repeat=weight):
+                    word = " ".join(f"{op}{q}" for op, q in zip(ops, qubits))
+                    pool.append(word)
+        return pool
