@@ -14,7 +14,7 @@ import time
 sys.path.append('..')
 from core.base_vqe import BaseVQE, VQEResult
 from core.hamiltonian_loader import QubitHamiltonian
-from core.iqcc_helpers import IQCC_Operator, PauliOperatorPool
+from core.iqcc_helpers import IQCC_Operator, PauliOperatorPool, of_to_pennylane
 from core.algebraic_operators import of_commutator
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,6 @@ class iQCC_VQE(BaseVQE):
         super().__init__(hamiltonian, kwargs)
         self.name = 'iqcc_vqe'
         self.description = 'Iterative Qubit Coupled Cluster'
-        
         self.max_operators = max_operators
         self.gradient_threshold = gradient_threshold
 
@@ -51,7 +50,8 @@ class iQCC_VQE(BaseVQE):
         H = self.hamiltonian.to_pennylane()
         # Maybe experiment with insert_noise = self.noise_inserter
 
-        def circuit(params, observable):
+        def circuit(params):
+
             for i in range(n_qubits // 2):
                 qml.PauliX(wires=i)
             
@@ -60,10 +60,31 @@ class iQCC_VQE(BaseVQE):
                 #qml.PauliRot(2*theta, op, wires=range(self.n_qubits))
 
             # insert_noise() <-- could be interesting
-            return qml.expval(observable)
+            return qml.expval(H)
         self.cost_fn = circuit
-        # TODO: add logger
+        #TODO: Add logger
         return circuit
+    
+    def compute_expectation(self, observable, params):
+        import pennylane as qml
+
+        @qml.qnode(self.device)
+        def circuit(p):
+
+            for i in range(self.n_qubits // 2):
+                qml.PauliX(wires=i)
+
+            for theta, op_string in zip(p, self.selected_operators):
+                qml.PauliRot(
+                    2 * theta,
+                    op_string,
+                    wires=list(range(self.n_qubits))
+                )
+
+            return qml.expval(observable)
+
+        return float(circuit(params))
+
     
     def cost_function(self, parameters: np.ndarray) -> float:
         """Evaluate the cost function"""
@@ -96,6 +117,7 @@ class iQCC_VQE(BaseVQE):
         # Initial empty ansatz
         self.selected_operators = []
         parameters = np.array([])
+        self.build_ansatz()
 
         for k in range(self.max_operators):
 
@@ -106,12 +128,12 @@ class iQCC_VQE(BaseVQE):
             H_of = self.hamiltonian.to_openfermion()
             for op in self.operator_pool:
                 op_of = QubitOperator(op)
-                comm = of_commutator(H_of, op)
-                if comm.is_zero():
-                    continue
-
-                grad = self._compute_expectation(comm, parameters)
-                gradients[op] = abs(grad)
+                comm = of_commutator(H_of, op_of)
+               # if comm.is_zero():
+               #     continue
+                comm_pl = of_to_pennylane(comm)
+                grad = self.compute_expectation(comm_pl, parameters)
+                gradients[op] = abs(float(grad))
 
             if not gradients:
                 break
@@ -126,12 +148,9 @@ class iQCC_VQE(BaseVQE):
             # Append operator
             self.selected_operators.append(best_op)
 
-            # Rebuild ansatz
-            self.build_ansatz()
-
-            # Expand parameter vector
             parameters = np.append(parameters, 0.0)
-
+            
+            self.build_ansatz()
             # Optimize full parameter vector
             parameters, energy = self.optimize(parameters)
 

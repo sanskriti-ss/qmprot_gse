@@ -291,6 +291,8 @@ class QubitHamiltonian:
         hamiltonian = QubitOperator()
         
         for coeff, pauli_string in zip(self.coefficients, self.pauli_strings):
+            if '(' in str(pauli_string):
+                pauli_string = self._openfermion_to_pauli_string(pauli_string,self.n_qubits)
             if np.abs(coeff) < 1e-12:
                 continue
             
