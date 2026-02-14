@@ -10,6 +10,10 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
+# hide warnings
+import warnings
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+
 # Add framework to path
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -17,13 +21,16 @@ from config import (
     DATASETS_DIR, HAMILTONIANS_DIR, MOLECULES_JSON, RESULTS_DIR, PLOTS_DIR,
     DEFAULT_OPTIMIZER, MAX_ITERATIONS, CONVERGENCE_THRESHOLD,
     N_SHOTS, RANDOM_SEED, LOG_LEVEL, LOG_FILE, HAMILTONIAN_MODE,
-    HAMILTONIAN_MAX_TERMS, HAMILTONIAN_TARGET_QUBITS
+    HAMILTONIAN_MAX_TERMS, HAMILTONIAN_TARGET_QUBITS,
+    BACKEND_TYPE, NOISE_MODEL, NOISE_STRENGTH,
 )
 import ast
 from core import HamiltonianLoader, ResultsManager
 from core.hamiltonian_loader import QubitHamiltonian
+from core.backend_manager import BackendConfig
 from algorithms import ALGORITHMS, get_algorithm, list_algorithms
 from plotting import VQEVisualizer
+from plotting import molecule_plots
 
 # Setup logging
 logging.basicConfig(
@@ -136,6 +143,23 @@ class VQEFramework:
         }
         params.update(kwargs)
         
+        # Build backend config from params
+        backend_type = params.pop("backend_type", BACKEND_TYPE)
+        noise_model = params.pop("noise_model", None)
+        noise_strength = params.pop("noise_strength", NOISE_STRENGTH)
+        
+        if backend_type == "noisy" and noise_model:
+            backend_config = BackendConfig.noisy(
+                n_qubits=hamiltonian.n_qubits,
+                noise_model=noise_model,
+                noise_strength=noise_strength,
+            )
+        else:
+            backend_config = BackendConfig.statevector(
+                n_qubits=hamiltonian.n_qubits,
+            )
+        params["backend_config"] = backend_config
+        
         # Create and run algorithm
         vqe = AlgorithmClass(hamiltonian, **params)
         result = vqe.run()
@@ -238,12 +262,28 @@ class VQEFramework:
         """Save all results to files"""
         self.results_manager.save_all_results(filename)
         self.results_manager.save_to_csv()
+        
+        # Also use molecule_plots CSV export for consistency
+        if self.results_manager.results:
+            from utils.csv_export import export_results_to_csv
+            csv_path = self.results_dir / "results" / "csv" / "molecule_plots_summary.csv"
+            csv_path.parent.mkdir(parents=True, exist_ok=True)
+            export_results_to_csv(self.results_manager.results, str(csv_path))
     
     def generate_plots(self):
         """Generate all visualization plots"""
         if self.visualizer is None:
             self.visualizer = VQEVisualizer(self.results_manager, self.plots_dir)
         self.visualizer.generate_all_plots()
+        
+        # Also generate specialized molecule plots with HF reference
+        if self.results_manager.results:
+            logger.info("Generating specialized molecule plots with HF reference...")
+            molecule_plots.plot_selected_molecules_with_hf_ref(
+                results=self.results_manager.results,
+                output_dir=str(self.plots_dir),
+                filename="selected_molecules_withHFref.png"
+            )
     
     def plot_molecule(self, molecule: str):
         """Generate plot for a specific molecule"""
@@ -336,6 +376,19 @@ Examples:
     parser.add_argument('--target-qubits', type=int, default=HAMILTONIAN_TARGET_QUBITS,
                        help=f'Target number of qubits for truncation (default: {HAMILTONIAN_TARGET_QUBITS})')
     
+    # Backend & noise parameters
+    parser.add_argument('--backend-type', type=str, default=BACKEND_TYPE,
+                       choices=['statevector', 'noisy'],
+                       help='Simulation backend type (default: statevector)')
+    parser.add_argument('--noise-model', type=str, default=None,
+                       choices=['depolarizing', 'bitflip', 'phaseflip',
+                                'amplitude_damping', 'phase_damping'],
+                       help='Noise model for noisy backend')
+    parser.add_argument('--noise-strength', type=float, default=NOISE_STRENGTH,
+                       help=f'Noise strength / error probability (default: {NOISE_STRENGTH})')
+    parser.add_argument('--run-both-backends', action='store_true',
+                       help='Run every experiment twice: once statevector, once noisy')
+    
     # Listing
     parser.add_argument('--list-algorithms', action='store_true',
                        help='List available algorithms')
@@ -394,8 +447,32 @@ Examples:
         "random_seed": args.seed,
         "max_hamiltonian_terms": args.max_hamiltonian_terms,
         "target_qubits": args.target_qubits,
+        "backend_type": args.backend_type,
+        "noise_model": args.noise_model,
+        "noise_strength": args.noise_strength,
     }
     
+    # ── Helper: run with --run-both-backends support ────────────────────
+    def _run_experiment(run_fn, *run_args, **run_kwargs):
+        """Execute run_fn once per requested backend."""
+        if args.run_both_backends:
+            # First pass: statevector
+            sv_params = dict(run_kwargs)
+            sv_params["backend_type"] = "statevector"
+            sv_params["noise_model"] = None
+            logger.info("=== Running with STATEVECTOR backend ===")
+            run_fn(*run_args, **sv_params)
+
+            # Second pass: noisy
+            noisy_params = dict(run_kwargs)
+            noisy_params["backend_type"] = "noisy"
+            noisy_params["noise_model"] = args.noise_model or "depolarizing"
+            noisy_params["noise_strength"] = args.noise_strength
+            logger.info("=== Running with NOISY backend ===")
+            run_fn(*run_args, **noisy_params)
+        else:
+            run_fn(*run_args, **run_kwargs)
+
     # Run VQE
     if args.plot_only:
         if args.results_file:
@@ -404,30 +481,32 @@ Examples:
         framework.generate_plots()
         
     elif args.all:
-        framework.run_all(
+        _run_experiment(
+            framework.run_all,
             molecules=args.molecules,
             algorithms=args.algorithms,
-            **vqe_params
+            **vqe_params,
         )
         
     elif args.all_algorithms and args.molecule:
-        # Support single or multiple molecules for --molecule
         if isinstance(args.molecule, list):
             for mol in args.molecule:
-                framework.run_molecule(mol, algorithms=args.algorithms, **vqe_params)
+                _run_experiment(framework.run_molecule, mol,
+                                algorithms=args.algorithms, **vqe_params)
         else:
-            framework.run_molecule(args.molecule, algorithms=args.algorithms, **vqe_params)
+            _run_experiment(framework.run_molecule, args.molecule,
+                            algorithms=args.algorithms, **vqe_params)
         
     elif args.all_molecules and args.algorithm:
-        framework.run_algorithm(args.algorithm, molecules=args.molecules, **vqe_params)
+        _run_experiment(framework.run_algorithm, args.algorithm,
+                        molecules=args.molecules, **vqe_params)
         
     elif args.molecule and args.algorithm:
-        # If multiple molecules provided, run the single algorithm on each
         if isinstance(args.molecule, list):
             for mol in args.molecule:
-                framework.run_single(mol, args.algorithm, **vqe_params)
+                _run_experiment(framework.run_single, mol, args.algorithm, **vqe_params)
         else:
-            framework.run_single(args.molecule, args.algorithm, **vqe_params)
+            _run_experiment(framework.run_single, args.molecule, args.algorithm, **vqe_params)
         
     else:
         parser.print_help()

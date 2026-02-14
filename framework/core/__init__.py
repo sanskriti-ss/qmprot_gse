@@ -4,15 +4,17 @@ Core module for VQE Framework
 from .hamiltonian_loader import HamiltonianLoader
 from .base_vqe import BaseVQE
 from .results_manager import ResultsManager
-from .excited_states_1st import VQD, SSVQE, ExcitedStateResult, VQDResult, compute_first_excited_state
+from .hf_verification import compute_hf_energy, verify_hf_energy, compute_hf_energy_pennylane
+from .backend_manager import BackendConfig, create_device, get_noise_inserter
 
 __all__ = [
-    "HamiltonianLoader", 
-    "BaseVQE", 
+    "HamiltonianLoader",
+    "BaseVQE",
     "ResultsManager",
-    "VQD",
-    "SSVQE", 
-    "ExcitedStateResult",
-    "VQDResult",
-    "compute_first_excited_state",
+    "compute_hf_energy",
+    "verify_hf_energy",
+    "compute_hf_energy_pennylane",
+    "BackendConfig",
+    "create_device",
+    "get_noise_inserter",
 ]

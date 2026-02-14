@@ -47,6 +47,7 @@ class VanillaVQE(BaseVQE):
     def build_ansatz(self) -> Any:
         """Build the UCCSD-inspired ansatz circuit"""
         import pennylane as qml
+        from core.backend_manager import create_device
         
         n_qubits = self.n_qubits
         n_layers = self.n_layers
@@ -55,11 +56,14 @@ class VanillaVQE(BaseVQE):
         # 3 rotation angles per qubit per layer + CNOT structure
         self.n_parameters = n_qubits * 3 * n_layers
         
-        # Create device
-        self.device = qml.device("lightning.qubit", wires=n_qubits) # switch to default if needed
+        # Create device via backend manager
+        self.device = create_device(self.backend_config)
         
         # Get Hamiltonian in PennyLane format
         H = self.hamiltonian.to_pennylane()
+        
+        # Noise insertion callback (no-op for statevector)
+        insert_noise = self.noise_inserter
         
         @qml.qnode(self.device)
         def circuit(params):
@@ -83,11 +87,15 @@ class VanillaVQE(BaseVQE):
                     qml.CNOT(wires=[i, i + 1])
                 for i in range(1, n_qubits - 1, 2):
                     qml.CNOT(wires=[i, i + 1])
+                
+                # Apply noise after each layer (no-op for statevector)
+                insert_noise()
             
             return qml.expval(H)
         
         self.cost_fn = circuit
-        logger.info(f"Built ansatz with {self.n_parameters} parameters, {n_layers} layers")
+        logger.info(f"Built ansatz with {self.n_parameters} parameters, {n_layers} layers, "
+                   f"backend={self.backend_config.label}")
         
         return circuit
     

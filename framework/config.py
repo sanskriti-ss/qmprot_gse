@@ -42,6 +42,11 @@ BACKEND = os.getenv("BACKEND", "pennylane")
 PENNYLANE_DEVICE = os.getenv("PENNYLANE_DEVICE", "default.qubit")
 QISKIT_BACKEND = os.getenv("QISKIT_BACKEND", "aer_simulator_statevector")
 
+# Noise Settings
+BACKEND_TYPE = os.getenv("BACKEND_TYPE", "statevector")  # "statevector" or "noisy"
+NOISE_MODEL = os.getenv("NOISE_MODEL", "depolarizing")  # depolarizing, bitflip, phaseflip, amplitude_damping, phase_damping
+NOISE_STRENGTH = float(os.getenv("NOISE_STRENGTH", 0.01))
+
 # Plotting Settings
 PLOT_FORMAT = os.getenv("PLOT_FORMAT", "png")
 PLOT_DPI = int(os.getenv("PLOT_DPI", 150))
