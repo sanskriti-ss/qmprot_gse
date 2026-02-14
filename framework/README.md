@@ -77,6 +77,7 @@ python main.py --plot-only
 2. **ADAPT-VQE** (`vqe_adapt.py`) - Adaptive derivative-assembled pseudo-trotter VQE
 3. **Hardware-Efficient VQE** (`vqe_hardware_efficient.py`) - Uses hardware-efficient ansatz
 4. **QAOA-Inspired VQE** (`vqe_qaoa_inspired.py`) - QAOA-style parameterized ansatz
+5. **iQCC-Inspired VQE** (`vqe_iqcc.py`) - VQE using iterative qubit coupled clustering
 # adding more
 
 ## Visualization

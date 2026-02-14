@@ -1,0 +1,2 @@
+molecule_abbrev,molecule_name,algorithm,calculated_energy,reference_energy,error,relative_error,n_iterations,n_qubits,n_parameters,runtime_seconds,converged,backend_type,noise_model,noise_strength,hf_energy
+gly,glycine,iqcc_vqe,-275.6717894942864,-279.11151,3.4397205057136375,0.012323821779021716,0,5,20,16.32990574836731,True,statevector,,0.0,101.7554398992348
