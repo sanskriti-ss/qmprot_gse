@@ -17,6 +17,9 @@ from core.hamiltonian_loader import QubitHamiltonian
 from core.iqcc_helpers import IQCC_Operator, PauliOperatorPool, of_to_pennylane
 from core.algebraic_operators import of_commutator
 
+import pennylane as qml
+from core.backend_manager import create_device
+
 logger = logging.getLogger(__name__)
 
 class iQCC_VQE(BaseVQE):
@@ -35,79 +38,75 @@ class iQCC_VQE(BaseVQE):
         self.operator_pool = PauliOperatorPool(2).generate(self.n_qubits)
 
         self.selected_operators = []
-        self.parameters = []
+        self.parameters: np.ndarray = np.array([])
 
         self.device = None
         self.cost_fn = None
 
     def build_ansatz(self):
-        import pennylane as qml
-        from core.backend_manager import create_device
-
         n_qubits = self.n_qubits
         self.device = create_device(self.backend_config)
 
         H = self.hamiltonian.to_pennylane()
-        # Maybe experiment with insert_noise = self.noise_inserter
+        hf_bitstring = np.zeros(self.n_qubits, dtype=int)
+        hf_bitstring[:self.hamiltonian.molecule.n_electrons] = 1
 
+        @qml.qnode(self.device)
         def circuit(params):
 
-            for i in range(n_qubits // 2):
-                qml.PauliX(wires=i)
-            
+            qml.BasisState(hf_bitstring, wires=range(self.n_qubits))
             for theta, op in zip(params, self.selected_operators):
-                qml.PauliRot(2 * theta * op.coefficient, op.pauli_word, wires=list(range(n_qubits)))
+                for term, coeff in op.terms.items():
+                    pauli_word = ["I"] * n_qubits
+
+                    for qubit_index, pauli_char in term:
+                        pauli_word[qubit_index] = pauli_char
+                    
+                    pauli_string = "".join(pauli_word)
+                    qml.PauliRot(2 * theta * coeff.real, pauli_string, wires=range(n_qubits))
                 #qml.PauliRot(2*theta, op, wires=range(self.n_qubits))
 
             # insert_noise() <-- could be interesting
+            
             return qml.expval(H)
         self.cost_fn = circuit
         #TODO: Add logger
         return circuit
     
     def compute_expectation(self, observable, params):
-        import pennylane as qml
+        n_qubits = self.n_qubits
+        hf_bitstring = np.zeros(n_qubits, dtype=int)
+        hf_bitstring[:self.hamiltonian.molecule.n_electrons] = 1
 
         @qml.qnode(self.device)
         def circuit(p):
 
-            for i in range(self.n_qubits // 2):
-                qml.PauliX(wires=i)
+            qml.BasisState(hf_bitstring, wires=range(n_qubits))
 
-            for theta, op_string in zip(p, self.selected_operators):
-                qml.PauliRot(
-                    2 * theta,
-                    op_string,
-                    wires=list(range(self.n_qubits))
-                )
+            for theta, op in zip(params, self.selected_operators):
+                for term, coeff in op.terms.items():
+                    pauli_word = ["I"] * n_qubits
+
+                    for qubit_index, pauli_char in term:
+                        pauli_word[qubit_index] = pauli_char
+                    
+                    pauli_string = "".join(pauli_word)
+                    qml.PauliRot(2 * theta * coeff.real, pauli_string, wires=range(n_qubits))
 
             return qml.expval(observable)
 
         return float(circuit(params))
 
-    
     def cost_function(self, parameters: np.ndarray) -> float:
         """Evaluate the cost function"""
         if self.cost_fn is None:
             raise RuntimeError("Must call build_ansatz() first")
-        return float(self.cost_fn(parameters))
+        return float(self.cost_fn(self.parameters))
     
-    ''' Legacy compute_gradients function
-    def compute_gradients(self, pool, circuit): 
-        gradients = {}
-        for pauli_word in pool:
-            A = IQCC_Operator(pauli_word)
-
-            commutator = self.hamiltonian.commutator(pauli_word)
-            if commutator.is_zero():
-                continue
-            obs = commutator.to_pennylane()
-            grad = circuit(self.parameters, obs)
-            gradients[A] = abs(float(grad))
-        return gradients'''
 
     def run(self) -> VQEResult:
         from openfermion import QubitOperator
+        from scipy.optimize import minimize
 
         logger.info(f"Running {self.name} on {self.hamiltonian.molecule.name}")
         self._perform_hf_verification()
@@ -116,8 +115,9 @@ class iQCC_VQE(BaseVQE):
 
         # Initial empty ansatz
         self.selected_operators = []
-        parameters = np.array([])
+        self.parameters = np.array([])
         self.build_ansatz()
+        energy = self.cost_function(self.parameters)
 
         for k in range(self.max_operators):
 
@@ -128,31 +128,49 @@ class iQCC_VQE(BaseVQE):
             H_of = self.hamiltonian.to_openfermion()
             for op in self.operator_pool:
                 op_of = QubitOperator(op)
-                comm = of_commutator(H_of, op_of)
-               # if comm.is_zero():
-               #     continue
+                comm = 1j * of_commutator(H_of, op_of)
+                if not comm.terms:
+                    continue
                 comm_pl = of_to_pennylane(comm)
-                grad = self.compute_expectation(comm_pl, parameters)
+                grad = self.compute_expectation(comm_pl, self.parameters)
+                #print(grad)
                 gradients[op] = abs(float(grad))
-
+            print("Number of gradients", len(gradients))
+            print("max gradient:", max(gradients.values() if gradients else None))
             if not gradients:
                 break
 
             best_op, best_grad = max(gradients.items(), key=lambda x: x[1])
-
+            
             logger.info(f"Selected operator with gradient {best_grad:.3e}")
 
             if best_grad < self.gradient_threshold:
                 break
 
             # Append operator
-            self.selected_operators.append(best_op)
+            self.selected_operators.append(QubitOperator(best_op))
 
-            parameters = np.append(parameters, 0.0)
-            
+            self.parameters = np.append(self.parameters, 0.0)
+
             self.build_ansatz()
-            # Optimize full parameter vector
-            parameters, energy = self.optimize(parameters)
+
+            cost_fn = self.cost_fn
+
+            # Optimize all parameters
+            if len(self.parameters) > 0:
+                print(type(self.optimizer_name))
+                result = minimize(
+                    cost_fn,
+                    self.parameters,
+                    method="COBYLA",
+                    options={"maxiter": 100}
+                )
+                self.parameters = result.x
+                energy = result.fun
+            else:
+                energy = self.cost_function(self.parameters)
+            
+            self.convergence_history.append(energy)
 
         runtime = time.time() - start_time
 
@@ -170,10 +188,10 @@ class iQCC_VQE(BaseVQE):
             relative_error=abs(error / ref_energy),
             n_iterations=self.iteration_count,
             n_qubits=self.n_qubits,
-            n_parameters=len(parameters),
+            n_parameters=len(self.parameters),
             runtime_seconds=runtime,
             convergence_history=self.convergence_history,
-            optimal_parameters=parameters,
+            optimal_parameters=self.parameters,
             converged=True,
             metadata={
                 "n_selected_operators": len(self.selected_operators),
