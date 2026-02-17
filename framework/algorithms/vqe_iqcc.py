@@ -66,7 +66,7 @@ class iQCC_VQE(BaseVQE):
                     qml.PauliRot(2 * theta * coeff.real, pauli_string, wires=range(n_qubits))
                 #qml.PauliRot(2*theta, op, wires=range(self.n_qubits))
 
-            # insert_noise() <-- could be interesting
+            # insert_noise()
             
             return qml.expval(H)
         self.cost_fn = circuit
