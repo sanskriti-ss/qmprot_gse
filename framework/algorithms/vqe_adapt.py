@@ -201,6 +201,7 @@ class AdaptVQE(BaseVQE):
             
             # Optimize all parameters
             if len(self.parameters) > 0:
+                #print(type(self.optimizer_name))
                 result = minimize(
                     self.cost_function,
                     self.parameters,
