@@ -34,6 +34,12 @@ class iQCC_VQE(BaseVQE):
         self.max_operators = max_operators
         self.gradient_threshold = gradient_threshold
 
+        n_el_raw = self.hamiltonian.molecule.n_electrons or self.n_qubits // 2
+        if n_el_raw >= self.n_qubits:
+            self._eff_n_electrons = max(1, self.n_qubits // 2)
+        else:
+            self._eff_n_electrons = n_el_raw
+
         # create operator_pool
         self.operator_pool = PauliOperatorPool(2).generate(self.n_qubits)
 
@@ -43,18 +49,33 @@ class iQCC_VQE(BaseVQE):
         self.device = None
         self.cost_fn = None
 
+    def _perform_hf_verification(self) -> None:
+        """Compute HF energy using the effective active-space electron count."""
+        from core.hf_verification import compute_hf_energy
+        try:
+            self.hf_energy = compute_hf_energy(
+                self.hamiltonian, n_electrons=self._eff_n_electrons
+            )
+            logger.info(
+                f"HF energy (truncated, n_el={self._eff_n_electrons}) = "
+                f"{self.hf_energy:.8f} Ha"
+            )
+        except Exception as exc:
+            logger.warning(f"Could not compute HF energy: {exc}")
+            self.hf_energy = None
+    
     def build_ansatz(self):
         n_qubits = self.n_qubits
         self.device = create_device(self.backend_config)
 
         H = self.hamiltonian.to_pennylane()
-        hf_bitstring = np.zeros(self.n_qubits, dtype=int)
-        hf_bitstring[:self.hamiltonian.molecule.n_electrons] = 1
-
+        n_electrons = self._eff_n_electrons
         @qml.qnode(self.device)
         def circuit(params):
 
-            qml.BasisState(hf_bitstring, wires=range(self.n_qubits))
+            for i in range(n_electrons):
+                qml.PauliX(wires=i)
+
             for theta, op in zip(params, self.selected_operators):
                 for term, coeff in op.terms.items():
                     pauli_word = ["I"] * n_qubits
@@ -75,13 +96,14 @@ class iQCC_VQE(BaseVQE):
     
     def compute_expectation(self, observable, params):
         n_qubits = self.n_qubits
-        hf_bitstring = np.zeros(n_qubits, dtype=int)
-        hf_bitstring[:self.hamiltonian.molecule.n_electrons] = 1
-
+        #hf_bitstring = np.zeros(n_qubits, dtype=int)
+        #hf_bitstring[:self.hamiltonian.molecule.n_electrons] = 1
+        n_electrons = self._eff_n_electrons
         @qml.qnode(self.device)
         def circuit(p):
 
-            qml.BasisState(hf_bitstring, wires=range(n_qubits))
+            for i in range(n_electrons):
+                qml.PauliX(wires=i)
 
             for theta, op in zip(params, self.selected_operators):
                 for term, coeff in op.terms.items():
@@ -118,6 +140,8 @@ class iQCC_VQE(BaseVQE):
         self.parameters = np.array([])
         self.build_ansatz()
         energy = self.cost_function(self.parameters)
+        print("Initial energy:", energy)
+        print("HF reference:", self.hf_energy)
 
         for k in range(self.max_operators):
 
@@ -175,7 +199,11 @@ class iQCC_VQE(BaseVQE):
         runtime = time.time() - start_time
 
         # Final bookkeeping
-        ref_energy = self.hamiltonian.molecule.reference_energy
+        ref_energy = (
+            self.hf_energy
+            if self.hf_energy is not None
+            else self.hamiltonian.molecule.reference_energy
+        )
         error = energy - ref_energy
 
         return VQEResult(
