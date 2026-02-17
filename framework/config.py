@@ -59,6 +59,7 @@ ALGORITHM_COLORS = {
     "hardware_efficient_vqe": "#2ca02c",  # Green
     "qaoa_inspired_vqe": "#d62728",  # Red
     "cb_vqe": "#9467bd",             # Purple
+    "hva_vqe": "#8c564b",             # Brown
     "reference": "#7f7f7f",          # Gray
 }
 

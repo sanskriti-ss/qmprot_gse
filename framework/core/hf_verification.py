@@ -26,29 +26,37 @@ logger = logging.getLogger(__name__)
 
 def _parse_pauli_string(pauli_str_raw, n_qubits):
     """
-    Convert PennyLane format to simple IXYZ format.
-    
-    Examples:
-        'Identity(0)' -> 'I' on qubit 0
-        'PauliX(2)' -> 'X' on qubit 2
-        ['Identity(0)', 'PauliZ(1)'] -> 'IZ'
+    Convert a Pauli-string representation to simple IXYZ format.
+
+    Supported inputs:
+        - Simple IXYZ string: 'ZXIIIIII' → returned as-is (truncated/padded
+          to n_qubits)
+        - OpenFermion style:  'Z(0) X(2)' or 'Z(0) @ X(2)'
+        - PennyLane style:    'PauliZ(0)' / 'Identity(0)'
+        - list/tuple of the above
     """
-    # Initialize with all identities
+    import re
+
+    # ── Fast path: simple IXYZ string ────────────────────────────────
+    if isinstance(pauli_str_raw, str) and '(' not in pauli_str_raw:
+        ps = pauli_str_raw
+        if len(ps) >= n_qubits:
+            return ps[:n_qubits]
+        return ps + 'I' * (n_qubits - len(ps))
+
+    # ── General path: parse operator(qubit) patterns ─────────────────
     pauli_chars = ['I'] * n_qubits
-    
+
     if isinstance(pauli_str_raw, str):
-        # Single operator
         pauli_ops = [pauli_str_raw]
     elif isinstance(pauli_str_raw, (list, tuple)):
-        # Multiple operators
         pauli_ops = pauli_str_raw
     else:
-        # Fallback: try to convert to string
         pauli_ops = [str(pauli_str_raw)]
-    
+
     for op_str in pauli_ops:
         op_str = str(op_str).strip()
-        
+
         # Extract operator type and qubit index
         if 'Identity(' in op_str:
             op_type = 'I'
@@ -59,24 +67,18 @@ def _parse_pauli_string(pauli_str_raw, n_qubits):
         elif 'PauliZ(' in op_str:
             op_type = 'Z'
         else:
-            # Try to extract just the first character if it's a simple format
             op_type = op_str[0] if op_str and op_str[0] in 'IXYZ' else 'I'
-        
-        # Extract qubit index
+
         try:
-            # Look for number in parentheses
-            import re
             match = re.search(r'\((\d+)\)', op_str)
             if match:
                 qubit_idx = int(match.group(1))
                 if 0 <= qubit_idx < n_qubits:
                     pauli_chars[qubit_idx] = op_type
         except (ValueError, IndexError):
-            # If parsing fails, assume this is the constant term (all I)
             pass
-    
-    return ''.join(pauli_chars)
 
+    return ''.join(pauli_chars)
 
 def _hf_bitstring(n_qubits: int, n_electrons: int) -> np.ndarray:
     """

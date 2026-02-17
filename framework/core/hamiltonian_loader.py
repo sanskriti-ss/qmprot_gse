@@ -95,9 +95,10 @@ class QubitHamiltonian:
         # Remap wires to be consecutive from 0
         if used_wires:
             wire_mapping = {old: new for new, old in enumerate(sorted(used_wires))}
+            actual_n_qubits = len(wire_mapping)
             remapped_pauli = []
             for pauli_str in truncated_pauli:
-                remapped = ['I'] * len(pauli_str)
+                remapped = ['I'] * actual_n_qubits
                 for wire, pauli in enumerate(pauli_str):
                     if wire in wire_mapping:
                         remapped[wire_mapping[wire]] = pauli
@@ -109,7 +110,6 @@ class QubitHamiltonian:
                     continue
                 remapped_pauli.append(pauli_str)  # Keep original if remap failed
             truncated_pauli = remapped_pauli
-            actual_n_qubits = len(wire_mapping)
         else:
             actual_n_qubits = self.n_qubits
         
@@ -238,38 +238,51 @@ class QubitHamiltonian:
     def to_pennylane(self):
         """Convert to PennyLane Hamiltonian format"""
         import pennylane as qml
-        
+        import re
+
+        pauli_map = {
+            'X': qml.PauliX,
+            'Y': qml.PauliY,
+            'Z': qml.PauliZ,
+        }
+
         coeffs = []
         ops = []
-        
+
         for coeff, pauli_string in zip(self.coefficients, self.pauli_strings):
             if np.abs(coeff) < 1e-12:
                 continue
-            
+
             coeffs.append(coeff)
-            
-            # Parse Pauli string to PennyLane operators
+
+            # Parse Pauli string – supports both OpenFermion "X(0) Z(2)"
+            # and simple "IXZI" formats.
             pauli_ops = []
-            for i, p in enumerate(pauli_string):
-                if p == 'X':
-                    pauli_ops.append(qml.PauliX(i))
-                elif p == 'Y':
-                    pauli_ops.append(qml.PauliY(i))
-                elif p == 'Z':
-                    pauli_ops.append(qml.PauliZ(i))
-                # 'I' is identity, skip
-            
+            ps = str(pauli_string)
+
+            if '(' in ps:
+                # OpenFermion format: "X(0) Z(2)"
+                for m in re.finditer(r'([XYZ])\((\d+)\)', ps):
+                    op_char, qubit = m.group(1), int(m.group(2))
+                    pauli_ops.append(pauli_map[op_char](qubit))
+            else:
+                # Simple IXYZ string
+                for i, p in enumerate(ps):
+                    if p in pauli_map:
+                        pauli_ops.append(pauli_map[p](i))
+
             if pauli_ops:
                 if len(pauli_ops) == 1:
                     ops.append(pauli_ops[0])
                 else:
-                    ops.append(pauli_ops[0])
-                    for op in pauli_ops[1:]:
-                        ops[-1] = ops[-1] @ op
+                    op = pauli_ops[0]
+                    for extra in pauli_ops[1:]:
+                        op = op @ extra
+                    ops.append(op)
             else:
-                # All identity - use Identity on qubit 0
+                # All identity
                 ops.append(qml.Identity(0))
-        
+
         return qml.Hamiltonian(coeffs, ops)
     
     def to_qiskit(self):
@@ -509,25 +522,66 @@ class HamiltonianLoader:
         )
     
     def _parse_hamiltonian_string(self, hamiltonian_str: str) -> Tuple[List[float], List[str]]:
-        """Parse a hamiltonian string into coefficients and pauli strings"""
+        """
+        Parse a hamiltonian string into coefficients and simple IXYZ Pauli strings.
+
+        The H5 data is tab-delimited with format:
+            Coefficient\\tOperators
+            -186.45...\\tIdentity(0)
+            13.28...\\tZ(0)
+            1.186...\\tZ(0) @ Z(1)
+            -3.97e-5\\tX(0) @ Z(1) @ X(2)
+
+        Multi-qubit terms use ' @ ' as separator between operators.
+        We convert to fixed-length IXYZ strings (length = max qubit index + 1).
+        """
+        import re
+
         lines = hamiltonian_str.split("\n")
-        valid_lines = [line.strip() for line in lines 
+        valid_lines = [line.strip() for line in lines
                       if line.strip() and "Coefficient" not in line and "Operators" not in line]
-        
+
         coefficients = []
-        pauli_strings = []
-        
+        raw_ops = []      # keep OpenFermion strings for a first pass
+        max_qubit = 0
+
         for line in valid_lines:
-            parts = line.split()
-            if len(parts) >= 2:
-                try:
-                    coeff = float(parts[0])
-                    pauli_str = parts[1].strip()
-                    coefficients.append(coeff)
-                    pauli_strings.append(pauli_str)
-                except ValueError:
-                    continue
-        
+            # Tab-delimited: coeff<TAB>operators
+            parts = line.split('\t')
+            if len(parts) < 2:
+                parts = line.split(None, 1)  # fallback: split on first whitespace
+            if len(parts) < 2:
+                continue
+            try:
+                coeff = float(parts[0])
+            except ValueError:
+                continue
+
+            op_str = parts[1].strip()
+            coefficients.append(coeff)
+            raw_ops.append(op_str)
+
+            # Track the highest qubit index
+            for m in re.finditer(r'\((\d+)\)', op_str):
+                q = int(m.group(1))
+                if q > max_qubit:
+                    max_qubit = q
+
+        # Convert OpenFermion strings to simple IXYZ format
+        n_qubits = max_qubit + 1
+        pauli_strings = []
+        for op_str in raw_ops:
+            if 'Identity' in op_str:
+                pauli_strings.append('I' * n_qubits)
+                continue
+
+            chars = ['I'] * n_qubits
+            for m in re.finditer(r'([IXYZ])\((\d+)\)', op_str):
+                p, q = m.group(1), int(m.group(2))
+                if q < n_qubits:
+                    chars[q] = p
+            pauli_strings.append(''.join(chars))
+
         return coefficients, pauli_strings
     
     def _load_from_txt(self, 
