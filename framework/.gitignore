@@ -63,6 +63,7 @@ nosetests.xml
 coverage.xml
 *.cover
 .hypothesis/
+framework/docs/excited_state_vqe_methods.md
 
 # ============================================
 # Framework Specific
