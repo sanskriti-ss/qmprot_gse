@@ -9,6 +9,7 @@ from .vqe_hardware_efficient import HardwareEfficientVQE
 from .vqe_qaoa_inspired import QAOAInspiredVQE
 from .vqe_iqcc import iQCC_VQE
 from .vqe_CB import ClassicallyBoostedVQE
+from .vqe_hva import HamiltonianVariationalVQE
 
 # Registry of all available algorithms
 ALGORITHMS = {
@@ -18,6 +19,7 @@ ALGORITHMS = {
     "qaoa_inspired_vqe": QAOAInspiredVQE,
     "iqcc_vqe": iQCC_VQE,
     "cb_vqe": ClassicallyBoostedVQE,
+    "hva_vqe": HamiltonianVariationalVQE,
 }
 
 def get_algorithm(name: str):
@@ -37,6 +39,7 @@ __all__ = [
     "QAOAInspiredVQE",
     "iQCC_VQE",
     "ClassicallyBoostedVQE",
+    "HamiltonianVariationalVQE",
     "ALGORITHMS",
     "get_algorithm",
     "list_algorithms",

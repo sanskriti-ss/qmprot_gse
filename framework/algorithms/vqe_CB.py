@@ -116,11 +116,40 @@ class ClassicallyBoostedVQE(BaseVQE):
         self.description = "Classically-Boosted VQE"
         self.n_layers = n_layers
 
+        # Effective n_electrons for the (possibly truncated) active space.
+        # When the full-molecule electron count exceeds the qubit count the
+        # Hamiltonian has been projected into an active space – use half-
+        # filling so the HF state has both occupied and virtual orbitals.
+        n_el_raw = self.hamiltonian.molecule.n_electrons or self.n_qubits // 2
+        if n_el_raw >= self.n_qubits:
+            self._eff_n_electrons = max(1, self.n_qubits // 2)
+        else:
+            self._eff_n_electrons = n_el_raw
+
         # Set during build / run
         self.device = None
         self.cost_fn = None
         self._vqe_energy: Optional[float] = None
         self._cb_energy: Optional[float] = None
+
+    # ------------------------------------------------------------------
+    # HF verification with effective n_electrons for truncated system
+    # ------------------------------------------------------------------
+
+    def _perform_hf_verification(self) -> None:
+        """Compute HF energy using the effective active-space electron count."""
+        from core.hf_verification import compute_hf_energy
+        try:
+            self.hf_energy = compute_hf_energy(
+                self.hamiltonian, n_electrons=self._eff_n_electrons
+            )
+            logger.info(
+                f"HF energy (truncated, n_el={self._eff_n_electrons}) = "
+                f"{self.hf_energy:.8f} Ha"
+            )
+        except Exception as exc:
+            logger.warning(f"Could not compute HF energy: {exc}")
+            self.hf_energy = None
 
     # ------------------------------------------------------------------
     # Ansatz (same lightweight hardware-efficient ansatz as VanillaVQE)
@@ -138,14 +167,14 @@ class ClassicallyBoostedVQE(BaseVQE):
         self.device = create_device(self.backend_config)
         H_pl = self.hamiltonian.to_pennylane()
         insert_noise = self.noise_inserter
-        n_electrons = self.hamiltonian.molecule.n_electrons or n_qubits // 2
+        n_electrons = self._eff_n_electrons
 
         @qml.qnode(self.device)
         def circuit(params):
             params = params.reshape(n_layers, n_qubits, 3)
 
-            # Hartree-Fock initial state
-            for i in range(min(n_electrons, n_qubits)):
+            # Hartree-Fock initial state (effective active-space occupancy)
+            for i in range(n_electrons):
                 qml.PauliX(wires=i)
 
             for layer in range(n_layers):
@@ -176,7 +205,8 @@ class ClassicallyBoostedVQE(BaseVQE):
         return float(self.cost_fn(parameters))
 
     def get_initial_parameters(self) -> np.ndarray:
-        return np.random.uniform(-0.1, 0.1, self.n_parameters)
+        """All zeros --> HF reference state (rotations = identity)."""
+        return np.zeros(self.n_parameters)
 
     # ------------------------------------------------------------------
     # Ansatz unitary matrix (needed for Hadamard test)
@@ -188,12 +218,12 @@ class ClassicallyBoostedVQE(BaseVQE):
 
         n_qubits = self.n_qubits
         n_layers = self.n_layers
-        n_electrons = self.hamiltonian.molecule.n_electrons or n_qubits // 2
+        n_electrons = self._eff_n_electrons
         wire_order = list(range(n_qubits))
 
         def ansatz_circuit(params, wires):
             params = params.reshape(n_layers, n_qubits, 3)
-            for i in range(min(n_electrons, n_qubits)):
+            for i in range(n_electrons):
                 qml.PauliX(wires=i)
             for layer in range(n_layers):
                 for qubit in range(n_qubits):
@@ -272,20 +302,12 @@ class ClassicallyBoostedVQE(BaseVQE):
         of the generalised eigenvalue problem.
         """
         n_qubits = self.n_qubits
-        n_electrons_raw = self.hamiltonian.molecule.n_electrons or n_qubits // 2
-        # For truncated active-space systems, ensure there are both
-        # occupied AND virtual orbitals.  If the original n_electrons
-        # exceeds or equals n_qubits we fall back to n_qubits // 2.
-        if n_electrons_raw >= n_qubits:
-            n_electrons = max(1, n_qubits // 2)
-            logger.info(
-                f"  Effective n_electrons for CB: {n_electrons} "
-                f"(original {n_electrons_raw}, n_qubits={n_qubits})"
-            )
-        else:
-            n_electrons = n_electrons_raw
+        n_electrons = self._eff_n_electrons
 
-        logger.info("CB-VQE: computing classical boost ...")
+        logger.info(
+            f"CB-VQE: computing classical boost ... "
+            f"(n_electrons={n_electrons}, n_qubits={n_qubits})"
+        )
 
         # ── Full Hamiltonian matrix (fermionic representation) ────────
         H_mat = _build_hamiltonian_matrix(self.hamiltonian)
@@ -370,7 +392,7 @@ class ClassicallyBoostedVQE(BaseVQE):
         logger.info(f"Running {self.name} on {self.hamiltonian.molecule.name}")
         logger.info(f"Backend: {self.backend_config.label}")
 
-        # ── HF verification ──────────────────────────────────────────
+        # ── HF verification (truncated active-space electron count) ─
         self._perform_hf_verification()
 
         # ── Progress bar ──────────────────────────────────────────────
@@ -401,8 +423,14 @@ class ClassicallyBoostedVQE(BaseVQE):
         best_energy = min(vqe_energy, cb_energy)
 
         # ── Build result ──────────────────────────────────────────────
-        ref_energy = self.hamiltonian.molecule.reference_energy
-        error = best_energy - ref_energy
+        # Reference = HF energy of the truncated system (params=0 state).
+        # VQE should optimise *below* this reference (variational principle).
+        ref_energy = (
+            self.hf_energy
+            if self.hf_energy is not None
+            else self.hamiltonian.molecule.reference_energy
+        )
+        error = best_energy - ref_energy          # should be ≤ 0
         relative_error = abs(error / ref_energy) if ref_energy != 0 else 0.0
 
         converged = (
