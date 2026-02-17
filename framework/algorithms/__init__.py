@@ -5,6 +5,7 @@ Contains all VQE algorithm implementations.
 """
 from .vqe_vanilla import VanillaVQE
 from .vqe_adapt import AdaptVQE
+from .vqe_qubit_adapt import QubitAdaptVQE
 from .vqe_hardware_efficient import HardwareEfficientVQE
 from .vqe_qaoa_inspired import QAOAInspiredVQE
 from .vqe_iqcc import iQCC_VQE
@@ -15,6 +16,7 @@ from .vqe_hva import HamiltonianVariationalVQE
 ALGORITHMS = {
     "vanilla_vqe": VanillaVQE,
     "adapt_vqe": AdaptVQE,
+    "qubit_adapt_vqe": QubitAdaptVQE,
     "hardware_efficient_vqe": HardwareEfficientVQE,
     "qaoa_inspired_vqe": QAOAInspiredVQE,
     "iqcc_vqe": iQCC_VQE,
@@ -34,7 +36,8 @@ def list_algorithms():
 
 __all__ = [
     "VanillaVQE",
-    "AdaptVQE", 
+    "AdaptVQE",
+    "QubitAdaptVQE",
     "HardwareEfficientVQE",
     "QAOAInspiredVQE",
     "iQCC_VQE",

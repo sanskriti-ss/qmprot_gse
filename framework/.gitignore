@@ -69,14 +69,11 @@ framework/docs/excited_state_vqe_methods.md
 # Framework Specific
 # ============================================
 # Results (can be regenerated)
-results/*.json
-results/*.csv
+results/
 !results/.gitkeep
 
 # Plots (can be regenerated)
-plots/*.png
-plots/*.pdf
-plots/*.svg
+plots/
 !plots/.gitkeep
 
 # Logs

@@ -303,7 +303,7 @@ class VQEFramework:
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(
-        description="VQE Framework for Protein Hamiltonians",
+        description="VQE Framework for Amino Acid Hamiltonians",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
