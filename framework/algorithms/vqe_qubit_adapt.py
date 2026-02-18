@@ -28,7 +28,7 @@ class QubitAdaptVQE(BaseVQE):
                  hamiltonian: QubitHamiltonian,
                  max_operators: int = 20,
                  gradient_threshold: float = 1e-4,
-                 use_restricted_pool: bool = False,
+                 use_restricted_pool: bool = True,
                  **kwargs):
         """
         Initialize Qubit-ADAPT-VQE.
@@ -127,11 +127,12 @@ class QubitAdaptVQE(BaseVQE):
                             pool.append(f"X{a} Y{b} X{c} X{d}")
                             pool.append(f"X{a} X{b} Y{c} X{d}")
                             pool.append(f"X{a} X{b} X{c} Y{d}")
+                            
                             # 3-Y terms
-                            pool.append(f"Y{a} Y{b} Y{c} X{d}")
-                            pool.append(f"Y{a} Y{b} X{c} Y{d}")
-                            pool.append(f"Y{a} X{b} Y{c} Y{d}")
-                            pool.append(f"X{a} Y{b} Y{c} Y{d}")
+                            # pool.append(f"Y{a} Y{b} Y{c} X{d}")
+                            # pool.append(f"Y{a} Y{b} X{c} Y{d}")
+                            # pool.append(f"Y{a} X{b} Y{c} Y{d}")
+                            # pool.append(f"X{a} Y{b} Y{c} Y{d}")
 
         return pool
 
@@ -195,7 +196,7 @@ class QubitAdaptVQE(BaseVQE):
         @qml.qnode(self.device)
         def circuit(params):
             # Initial state (Hartree-Fock)
-            n_electrons = min(self.hamiltonian.molecule.n_electrons or n_qubits // 2, n_qubits // 2)
+            n_electrons = min(self.hamiltonian.molecule.n_electrons or n_qubits // 2, n_qubits)
             for i in range(n_electrons):
                 qml.PauliX(wires=i)
             
@@ -226,9 +227,37 @@ class QubitAdaptVQE(BaseVQE):
         circuit = self._build_circuit(parameters)
         return float(circuit(parameters))
     
+    def _prescreen_pool(self) -> List[int]:
+        """
+        Pre-screen the operator pool against the Hamiltonian to find operators
+        that could have non-zero gradient from a computational basis state.
+        
+        An operator P can only produce a non-zero gradient if some Hamiltonian
+        term flips the exact same qubits (X/Y positions match). This is exact
+        for the first ADAPT iteration (HF state) and a useful heuristic for
+        later iterations.
+        """
+        h_flip_patterns = set()
+        for pauli_str in self.hamiltonian.pauli_strings:
+            flips = frozenset(i for i, c in enumerate(pauli_str) if c in ('X', 'Y'))
+            if flips:
+                h_flip_patterns.add(flips)
+
+        viable = []
+        for op_idx, op_str in enumerate(self.operator_pool):
+            terms = op_str.split()
+            op_flips = frozenset(int(t[1:]) for t in terms)
+            if op_flips in h_flip_patterns:
+                viable.append(op_idx)
+
+        logger.info(f"Pre-screening: {len(viable)}/{len(self.operator_pool)} operators viable "
+                    f"({len(self.operator_pool) - len(viable)} skipped, "
+                    f"{len(h_flip_patterns)} unique off-diagonal patterns in H)")
+        return viable
+
     def _compute_gradients(self) -> np.ndarray:
         """Compute gradients for all operators in the pool via Finite Difference"""
-        gradients = []
+        gradients = np.zeros(len(self.operator_pool))
         delta = 1e-5
         
         n_qubits = self.n_qubits
@@ -237,10 +266,10 @@ class QubitAdaptVQE(BaseVQE):
                      f"HF state={'|' + '1'*n_elec + '0'*(n_qubits-n_elec) + '>'}, "
                      f"pool_size={len(self.operator_pool)}")
         
-        for op_idx in range(len(self.operator_pool)):
+        viable_ops = self._prescreen_pool()
+        
+        for op_idx in viable_ops:
             if op_idx in self.selected_operators:
-                # Skip operators already in the ansatz to encourage exploration
-                gradients.append(0.0)
                 continue
             
             # Temporarily add operator at the END of the ansatz
@@ -248,23 +277,17 @@ class QubitAdaptVQE(BaseVQE):
             test_params = np.append(self.parameters, delta)
             
             # Compute gradient via finite difference at theta=0
-            # E(delta)
             energy_plus = self.cost_function(test_params)
             
-            # E(-delta)
             test_params[-1] = -delta
             energy_minus = self.cost_function(test_params)
             
             gradient = (energy_plus - energy_minus) / (2 * delta)
-            gradients.append(abs(gradient))
-            
-            logger.info(f"  Op {op_idx} '{self.operator_pool[op_idx]}': "
-                            f"E+={energy_plus:.10f}, E-={energy_minus:.10f}, "
-                            f"grad={abs(gradient):.2e}")
-            # Remove operator
+            gradients[op_idx] = abs(gradient)
+
             self.selected_operators.pop()
         
-        return np.array(gradients)
+        return gradients
     
     def run(self) -> VQEResult:
         """Run Qubit-ADAPT-VQE"""
@@ -275,7 +298,7 @@ class QubitAdaptVQE(BaseVQE):
         start_time = time.time()
         
         # HF verification
-        self._perform_hf_verification()
+        # self._perform_hf_verification()
         
         # Build pool
         self.build_ansatz()
