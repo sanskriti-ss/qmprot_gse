@@ -57,6 +57,12 @@ class VQEVisualizer:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.output_dir = base_output_dir / timestamp
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        # Copy vqe_energies_summary.csv to this output_dir
+        try:
+            from .copy_summary import copy_vqe_energies_summary_to_output
+            copy_vqe_energies_summary_to_output(self.output_dir)
+        except Exception as e:
+            logger.warning(f"Could not copy vqe_energies_summary.csv: {e}")
         
         self.colors = color_map or DEFAULT_COLORS
         
