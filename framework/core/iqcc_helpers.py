@@ -55,3 +55,28 @@ def of_to_pennylane(of_operator):
         ops.append(op)
 
     return qml.Hamiltonian(coeffs, ops)
+
+def prune_hamiltonian(H, threshold=1e-8, max_terms=None):
+    """
+    Remove small-coefficient terms and optionally cap total term count.
+    """
+    new_terms = {}
+
+    for term, coeff in H.terms.items():
+        if abs(coeff) > threshold:
+            new_terms[term] = coeff
+
+    # Optional hard cap
+    if max_terms is not None and len(new_terms) > max_terms:
+        # Keep largest coefficients only
+        sorted_terms = sorted(
+            new_terms.items(),
+            key=lambda x: abs(x[1]),
+            reverse=True
+        )[:max_terms]
+        new_terms = dict(sorted_terms)
+
+    from openfermion import QubitOperator
+    H_pruned = QubitOperator()
+    H_pruned.terms = new_terms
+    return H_pruned

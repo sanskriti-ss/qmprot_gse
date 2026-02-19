@@ -1,7 +1,10 @@
 '''
-Iterative Qubit Coupled Cluster (iQCC) Implementation
+Iterative Qubit Coupled Cluster (iQCC)-Inspired Adaptive VQE Implementation
 
-Iteratively transforms Hamiltonian and aims to minimize circuit depth
+Uses constant-depth, shallow quantum circuits which are iteratively updated through canonical transformations of the 
+Hamiltonian on a classical computer.
+
+WARNING: This can be extremely computationally expensive on classical computers. It is recommended to use the iqcc_inspired_vqe instead.
 
 '''
 
@@ -14,7 +17,7 @@ import time
 sys.path.append('..')
 from core.base_vqe import BaseVQE, VQEResult
 from core.hamiltonian_loader import QubitHamiltonian
-from core.iqcc_helpers import IQCC_Operator, PauliOperatorPool, of_to_pennylane
+from core.iqcc_helpers import IQCC_Operator, PauliOperatorPool, of_to_pennylane, prune_hamiltonian
 from core.algebraic_operators import of_commutator
 
 import pennylane as qml
@@ -22,7 +25,7 @@ from core.backend_manager import create_device
 
 logger = logging.getLogger(__name__)
 
-class iQCC_VQE(BaseVQE):
+class iQCC_true_VQE(BaseVQE):
     def __init__(self, 
                  hamiltonian: QubitHamiltonian, 
                  max_operators: int=20, 
@@ -33,6 +36,7 @@ class iQCC_VQE(BaseVQE):
         self.description = 'Iterative Qubit Coupled Cluster'
         self.max_operators = max_operators
         self.gradient_threshold = gradient_threshold
+        self.max_terms = 10000
 
         n_el_raw = self.hamiltonian.molecule.n_electrons or self.n_qubits // 2
         if n_el_raw >= self.n_qubits:
@@ -72,63 +76,38 @@ class iQCC_VQE(BaseVQE):
         n_electrons = self._eff_n_electrons
         @qml.qnode(self.device)
         def circuit(params):
-
             for i in range(n_electrons):
                 qml.PauliX(wires=i)
 
-            for theta, op in zip(params, self.selected_operators):
-                for term, coeff in op.terms.items():
-                    pauli_word = ["I"] * n_qubits
-
-                    for qubit_index, pauli_char in term:
-                        pauli_word[qubit_index] = pauli_char
-                    
-                    pauli_string = "".join(pauli_word)
-                    qml.PauliRot(2 * theta * coeff.real, pauli_string, wires=range(n_qubits))
-                #qml.PauliRot(2*theta, op, wires=range(self.n_qubits))
-
-            # insert_noise()
-            
             return qml.expval(H)
         self.cost_fn = circuit
         #TODO: Add logger
         return circuit
     
-    def compute_expectation(self, observable, params):
+    def compute_hf_energy(self, observable):
         n_qubits = self.n_qubits
-        #hf_bitstring = np.zeros(n_qubits, dtype=int)
-        #hf_bitstring[:self.hamiltonian.molecule.n_electrons] = 1
         n_electrons = self._eff_n_electrons
         @qml.qnode(self.device)
-        def circuit(p):
+        def circuit():
 
             for i in range(n_electrons):
                 qml.PauliX(wires=i)
 
-            for theta, op in zip(params, self.selected_operators):
-                for term, coeff in op.terms.items():
-                    pauli_word = ["I"] * n_qubits
-
-                    for qubit_index, pauli_char in term:
-                        pauli_word[qubit_index] = pauli_char
-                    
-                    pauli_string = "".join(pauli_word)
-                    qml.PauliRot(2 * theta * coeff.real, pauli_string, wires=range(n_qubits))
-
             return qml.expval(observable)
 
-        return float(circuit(params))
+        return float(circuit())
 
     def cost_function(self, parameters: np.ndarray) -> float:
         """Evaluate the cost function"""
         if self.cost_fn is None:
             raise RuntimeError("Must call build_ansatz() first")
         return float(self.cost_fn(self.parameters))
-    
 
     def run(self) -> VQEResult:
         from openfermion import QubitOperator
-        from scipy.optimize import minimize
+        from scipy.optimize import minimize_scalar
+
+        prune_threshold = 1e-8
 
         logger.info(f"Running {self.name} on {self.hamiltonian.molecule.name}")
         self._perform_hf_verification()
@@ -140,8 +119,8 @@ class iQCC_VQE(BaseVQE):
         self.parameters = np.array([])
         self.build_ansatz()
         energy = self.cost_function(self.parameters)
-        print("Initial energy:", energy)
-        print("HF reference:", self.hf_energy)
+
+        H_current = self.hamiltonian.to_openfermion()
 
         for k in range(self.max_operators):
 
@@ -149,18 +128,15 @@ class iQCC_VQE(BaseVQE):
 
             # Compute gradients over pool
             gradients = {}
-            H_of = self.hamiltonian.to_openfermion()
+            H_of = H_current
             for op in self.operator_pool:
                 op_of = QubitOperator(op)
                 comm = 1j * of_commutator(H_of, op_of)
                 if not comm.terms:
                     continue
                 comm_pl = of_to_pennylane(comm)
-                grad = self.compute_expectation(comm_pl, self.parameters)
-                #print(grad)
+                grad = self.compute_hf_energy(comm_pl)
                 gradients[op] = abs(float(grad))
-            print("Number of gradients", len(gradients))
-            print("max gradient:", max(gradients.values() if gradients else None))
             if not gradients:
                 break
 
@@ -170,29 +146,34 @@ class iQCC_VQE(BaseVQE):
 
             if best_grad < self.gradient_threshold:
                 break
+            best_op_of = QubitOperator(best_op)
 
-            # Append operator
-            self.selected_operators.append(QubitOperator(best_op))
+            def energy_tau(tau):
+                comm1 = of_commutator(H_current, best_op_of)
+                comm2 = of_commutator(comm1, best_op_of)
 
-            self.parameters = np.append(self.parameters, 0.0)
+                H_trial = (H_current + tau * comm1 + 0.5 * tau**2 * comm2)
 
-            self.build_ansatz()
+                H_trial = prune_hamiltonian(H_trial, threshold=prune_threshold, max_terms=self.max_terms)
+                H_trial.compress()
+                H_trial_pl = of_to_pennylane(H_trial)
+                return self.compute_hf_energy(H_trial_pl)
 
-            cost_fn = self.cost_fn
+            res = minimize_scalar(energy_tau, bounds=(-0.005,0.005), method='bounded')
+            tau_opt = res.x
 
-            # Optimize all parameters
-            if len(self.parameters) > 0:
-                print(type(self.optimizer_name))
-                result = minimize(
-                    cost_fn,
-                    self.parameters,
-                    method="COBYLA",
-                    options={"maxiter": 100}
-                )
-                self.parameters = result.x
-                energy = result.fun
-            else:
-                energy = self.cost_function(self.parameters)
+            comm1 = of_commutator(H_current, best_op_of)
+            comm2 = of_commutator(comm1, best_op_of)
+
+            H_current = (H_current + tau_opt * comm1 + 0.5 * tau_opt**2 * comm2)
+            H_current.compress()
+            
+            energy = self.compute_hf_energy(of_to_pennylane(H_current))
+
+            print("Term count:", len(H_current.terms))
+            print("Gradient max:", best_grad)
+            print("Tau:", tau_opt)
+            print("Energy:", energy)
             
             self.convergence_history.append(energy)
 
