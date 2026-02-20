@@ -275,7 +275,7 @@ class VQEFramework:
         if self.visualizer is None:
             self.visualizer = VQEVisualizer(self.results_manager, self.plots_dir)
         self.visualizer.generate_all_plots()
-        
+
         # Also generate specialized molecule plots with HF reference
         if self.results_manager.results:
             logger.info("Generating specialized molecule plots with HF reference...")
@@ -284,6 +284,24 @@ class VQEFramework:
                 output_dir=str(self.plots_dir),
                 filename="selected_molecules_withHFref.png"
             )
+
+        # Save JSON and CSV into the timestamped plot folder
+        plot_dir = self.visualizer.output_dir
+        if self.results_manager.results:
+            import json
+            # JSON
+            json_path = plot_dir / "all_results.json"
+            with open(json_path, 'w') as f:
+                json.dump([r.to_dict() for r in self.results_manager.results], f, indent=2)
+            logger.info(f"Saved results JSON to {json_path}")
+            # CSV
+            try:
+                from utils.csv_export import export_results_to_csv
+                csv_path = plot_dir / "all_results.csv"
+                export_results_to_csv(self.results_manager.results, str(csv_path))
+                logger.info(f"Saved results CSV to {csv_path}")
+            except Exception as e:
+                logger.warning(f"Could not save CSV to plot folder: {e}")
     
     def plot_molecule(self, molecule: str):
         """Generate plot for a specific molecule"""
