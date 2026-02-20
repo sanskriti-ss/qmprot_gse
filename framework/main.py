@@ -96,7 +96,8 @@ class VQEFramework:
         self.loader = HamiltonianLoader(self.hamiltonians_dir, self.molecules_json)
         self.results_manager = ResultsManager(self.results_dir)
         self.visualizer = None  # Lazy initialization
-        
+        self._run_csv_path = None  # Incremental CSV in timestamped run folder
+
         logger.info(f"VQE Framework initialized")
         logger.info(f"Hamiltonians directory: {self.hamiltonians_dir}")
         logger.info(f"Available algorithms: {list_algorithms()}")
@@ -166,9 +167,44 @@ class VQEFramework:
         
         # Store result
         self.results_manager.add_result(result)
-        
+
+        # Incrementally save to CSV in timestamped run folder
+        self._append_result_to_run_csv(result)
+
         return result.to_dict()
-    
+
+    def _append_result_to_run_csv(self, result):
+        """Append a single VQEResult to the incremental CSV in the timestamped run folder."""
+        import csv
+        from datetime import datetime
+
+        # Create timestamped run folder on first call
+        if self._run_csv_path is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            run_dir = self.plots_dir / timestamp
+            run_dir.mkdir(parents=True, exist_ok=True)
+            self._run_csv_path = run_dir / "run_results.csv"
+            self._run_dir = run_dir
+            logger.info(f"Incremental results will be saved to {self._run_csv_path}")
+
+        fields = [
+            "molecule_abbrev", "molecule_name", "algorithm_name",
+            "calculated_energy", "reference_energy", "error", "relative_error",
+            "n_iterations", "n_qubits", "n_parameters", "runtime_seconds",
+            "converged", "hf_energy",
+        ]
+
+        write_header = not self._run_csv_path.exists()
+        try:
+            with open(self._run_csv_path, "a", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fields)
+                if write_header:
+                    writer.writeheader()
+                row = {k: getattr(result, k, None) for k in fields}
+                writer.writerow(row)
+        except Exception as e:
+            logger.warning(f"Could not append to run CSV: {e}")
+
     def run_molecule(self,
                      molecule: str,
                      algorithms: Optional[List[str]] = None,
@@ -274,6 +310,9 @@ class VQEFramework:
         """Generate all visualization plots"""
         if self.visualizer is None:
             self.visualizer = VQEVisualizer(self.results_manager, self.plots_dir)
+            # If a run folder was already created for incremental CSV, reuse it
+            if hasattr(self, '_run_dir') and self._run_dir is not None:
+                self.visualizer.output_dir = self._run_dir
         self.visualizer.generate_all_plots()
 
         # Also generate specialized molecule plots with HF reference
