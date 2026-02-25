@@ -6,6 +6,7 @@ Usage:
 """
 
 import argparse
+import logging
 import time
 from typing import Optional
 
@@ -14,6 +15,15 @@ from .step1_orbitals import OrbitalDiagnostics, run_orbital_analysis
 from .step2_active_space import ActiveSpaceResult, validate_active_space
 from .step3_hamiltonian import PipelineHamiltonian, build_qubit_hamiltonian
 
+logger = logging.getLogger(__name__)
+
+
+def _log(msg: str, quiet: bool) -> None:
+    """Print to stdout when verbose, always log."""
+    logger.info(msg)
+    if not quiet:
+        print(msg)
+
 
 def run_pipeline(
     molecule: str = "gly",
@@ -21,66 +31,70 @@ def run_pipeline(
     h5_path: Optional[str] = None,
     run_casscf: bool = False,
     run_basis_comparison: bool = False,
+    quiet: bool = False,
 ) -> dict:
     """Run the full active space pipeline.
+
+    Args:
+        quiet: If True, suppress detailed print output (used when called from main.py).
 
     Returns dict with geometry, diagnostics, active_space, hamiltonian.
     """
     t0 = time.time()
 
-    print("=" * 60)
-    print(f"ACTIVE SPACE PIPELINE: {molecule.upper()}")
-    print(f"Basis: {basis}")
-    print("=" * 60)
+    _log("=" * 60, quiet)
+    _log(f"ACTIVE SPACE PIPELINE: {molecule.upper()}", quiet)
+    _log(f"Basis: {basis}", quiet)
+    _log("=" * 60, quiet)
 
     # Load geometry
-    print("\n[1/4] Loading geometry...")
+    _log("\n[1/4] Loading geometry...", quiet)
     if h5_path:
         geometry = load_geometry_from_h5(h5_path)
     else:
         geometry = get_geometry(molecule)
 
-    print(f"  Molecule: {geometry.name} ({geometry.formula})")
-    print(f"  Atoms: {geometry.n_atoms}, Electrons: {geometry.n_electrons}")
+    _log(f"  Molecule: {geometry.name} ({geometry.formula})", quiet)
+    _log(f"  Atoms: {geometry.n_atoms}, Electrons: {geometry.n_electrons}", quiet)
 
     # Step 1
-    print("\n[2/4] Running HF + MP2 orbital analysis...")
+    _log("\n[2/4] Running HF + MP2 orbital analysis...", quiet)
     t1 = time.time()
     diagnostics = run_orbital_analysis(geometry, basis=basis, run_basis_comparison=run_basis_comparison)
-    print(f"  Completed in {time.time() - t1:.1f}s")
-    print(diagnostics.summary())
+    _log(f"  Completed in {time.time() - t1:.1f}s", quiet)
+    _log(diagnostics.summary(), quiet)
 
     # Step 2
-    print("\n[3/4] Validating active space with CASCI...")
+    _log("\n[3/4] Validating active space with CASCI...", quiet)
     t2 = time.time()
     active_space = validate_active_space(geometry, diagnostics, run_casscf=run_casscf)
-    print(f"  Completed in {time.time() - t2:.1f}s")
-    print(active_space.summary())
+    _log(f"  Completed in {time.time() - t2:.1f}s", quiet)
+    _log(active_space.summary(), quiet)
 
     # Step 3
-    print("\n[4/4] Building qubit Hamiltonian...")
+    _log("\n[4/4] Building qubit Hamiltonian...", quiet)
     t3 = time.time()
     hamiltonian = build_qubit_hamiltonian(geometry, active_space, diagnostics)
-    print(f"  Completed in {time.time() - t3:.1f}s")
-    print(hamiltonian.summary())
+    _log(f"  Completed in {time.time() - t3:.1f}s", quiet)
+    _log(hamiltonian.summary(), quiet)
 
     # Summary
     total_time = time.time() - t0
-    print("\n" + "=" * 60)
-    print("PIPELINE COMPLETE")
-    print("=" * 60)
-    print(f"Total time:            {total_time:.1f}s")
-    print(f"Molecule:              {geometry.name} ({geometry.formula})")
-    print(f"Basis:                 {basis}")
-    print(f"HF energy:             {diagnostics.hf_energy:.10f} Ha")
-    print(f"MP2 energy:            {diagnostics.mp2_energy:.10f} Ha")
-    print(f"CASCI energy:          {active_space.casci_energy:.10f} Ha")
-    print(f"Active space:          ({active_space.n_active_electrons}e, {active_space.n_active_orbitals}o)")
-    print(f"Qubits:                {hamiltonian.n_qubits}")
-    print(f"Hamiltonian terms:     {hamiltonian.n_terms}")
-    print(f"CASCI below HF:        {active_space.energy_below_hf}")
-    print(f"Correlation recovered: {active_space.correlation_recovered:.1%}")
-    print("=" * 60)
+    _log("\n" + "=" * 60, quiet)
+    _log("PIPELINE COMPLETE", quiet)
+    _log("=" * 60, quiet)
+    _log(f"Total time:            {total_time:.1f}s", quiet)
+    _log(f"Molecule:              {geometry.name} ({geometry.formula})", quiet)
+    _log(f"Basis:                 {basis}", quiet)
+    _log(f"HF energy:             {diagnostics.hf_energy:.10f} Ha", quiet)
+    _log(f"MP2 energy:            {diagnostics.mp2_energy:.10f} Ha", quiet)
+    _log(f"CASCI energy:          {active_space.casci_energy:.10f} Ha", quiet)
+    _log(f"Active space:          ({active_space.n_active_electrons}e, {active_space.n_active_orbitals}o)", quiet)
+    _log(f"Qubits:                {hamiltonian.n_qubits}", quiet)
+    _log(f"Hamiltonian terms:     {hamiltonian.n_terms}", quiet)
+    _log(f"CASCI below HF:        {active_space.energy_below_hf}", quiet)
+    _log(f"Correlation recovered: {active_space.correlation_recovered:.1%}", quiet)
+    _log("=" * 60, quiet)
 
     return {
         "geometry": geometry,
