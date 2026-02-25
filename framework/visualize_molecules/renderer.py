@@ -50,7 +50,7 @@ def add_atoms(
         radius = ATOM_RADII.get(symbol, 0.5)
         color = ATOM_COLORS.get(symbol, "#808080")
         sphere = pv.Sphere(radius=radius, center=pos, theta_resolution=24, phi_resolution=24)
-        plotter.add_mesh(sphere, color=color, smooth_shading=True)
+        plotter.add_mesh(sphere, color=color, opacity=0.45, smooth_shading=True)
         if label:
             plotter.add_point_labels(
                 [pos + np.array([0, 0, radius + 0.15])],
