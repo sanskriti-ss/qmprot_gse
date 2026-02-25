@@ -11,7 +11,7 @@ import numpy as np
 from .geometry import MoleculeGeometry, CORE_ELECTRONS
 
 # Active space config
-MAX_ACTIVE_ORBITALS = 8
+MAX_ACTIVE_ORBITALS = 7
 OCCUPATION_LOWER = 0.02
 OCCUPATION_UPPER = 1.98
 HARTREE_TO_EV = 27.211386245988

@@ -23,6 +23,7 @@ from config import (
     N_SHOTS, RANDOM_SEED, LOG_LEVEL, LOG_FILE, HAMILTONIAN_MODE,
     HAMILTONIAN_MAX_TERMS, HAMILTONIAN_TARGET_QUBITS,
     BACKEND_TYPE, NOISE_MODEL, NOISE_STRENGTH,
+    TRUNCATION_MODE, ACTIVE_SPACE_BASIS,
 )
 import ast
 from core import HamiltonianLoader, ResultsManager
@@ -118,18 +119,32 @@ class VQEFramework:
             VQEResult as dictionary
         """
         logger.info(f"Running {algorithm} on {molecule}")
-        
-        # Load Hamiltonian
-        if Path(molecule).exists():
-            hamiltonian = self.loader.load_hamiltonian(hamiltonian_file=molecule)
+
+        truncation_mode = kwargs.pop("truncation_mode", TRUNCATION_MODE)
+        logger.info(f"Truncation mode: {truncation_mode}")
+
+        if truncation_mode == "active_space":
+            # Active space truncation: PySCF HF -> MP2 -> CASCI -> OpenFermion
+            from active_space_truncation.run_pipeline import run_pipeline as run_active_space_pipeline
+            basis = kwargs.pop("active_space_basis", ACTIVE_SPACE_BASIS)
+            pipeline_result = run_active_space_pipeline(molecule=molecule, basis=basis, quiet=True)
+            hamiltonian = pipeline_result["hamiltonian"].qubit_hamiltonian
+            core_energy = pipeline_result["hamiltonian"].core_energy
+            casci_energy = pipeline_result["active_space"].casci_energy
+            logger.info(f"Active space Hamiltonian: {hamiltonian.n_qubits} qubits, {hamiltonian.n_terms} terms")
+            logger.info(f"Core energy (frozen core + nuclear repulsion): {core_energy:.10f} Ha")
+            logger.info(f"CASCI reference energy: {casci_energy:.10f} Ha")
         else:
-            hamiltonian = self.loader.load_hamiltonian(molecule_abbrev=molecule)
-        
-        # Truncate hamiltonian if too many terms
-        max_terms = kwargs.get("max_hamiltonian_terms", HAMILTONIAN_MAX_TERMS)
-        target_qubits = kwargs.get("target_qubits", HAMILTONIAN_TARGET_QUBITS)
-        if hamiltonian.n_terms > max_terms:
-            hamiltonian = hamiltonian.truncate(max_terms=max_terms, target_qubits=target_qubits)
+            # Coefficient-based truncation (legacy): load H5 and keep largest |coeff| terms
+            if Path(molecule).exists():
+                hamiltonian = self.loader.load_hamiltonian(hamiltonian_file=molecule)
+            else:
+                hamiltonian = self.loader.load_hamiltonian(molecule_abbrev=molecule)
+
+            max_terms = kwargs.get("max_hamiltonian_terms", HAMILTONIAN_MAX_TERMS)
+            target_qubits = kwargs.get("target_qubits", HAMILTONIAN_TARGET_QUBITS)
+            if hamiltonian.n_terms > max_terms:
+                hamiltonian = hamiltonian.truncate(max_terms=max_terms, target_qubits=target_qubits)
         
         # Get algorithm class
         AlgorithmClass = get_algorithm(algorithm)
@@ -428,10 +443,15 @@ Examples:
                        help='Random seed')
     
     # Hamiltonian truncation parameters
+    parser.add_argument('--truncation-mode', type=str, default=TRUNCATION_MODE,
+                       choices=['active_space', 'coefficient'],
+                       help=f'Truncation method: active_space (PySCF-based, default) or coefficient (legacy magnitude-based)')
+    parser.add_argument('--active-space-basis', type=str, default=ACTIVE_SPACE_BASIS,
+                       help=f'Basis set for active space truncation (default: {ACTIVE_SPACE_BASIS})')
     parser.add_argument('--max-hamiltonian-terms', type=int, default=HAMILTONIAN_MAX_TERMS,
-                       help=f'Max hamiltonian terms to keep (default: {HAMILTONIAN_MAX_TERMS})')
+                       help=f'Max hamiltonian terms to keep for coefficient mode (default: {HAMILTONIAN_MAX_TERMS})')
     parser.add_argument('--target-qubits', type=int, default=HAMILTONIAN_TARGET_QUBITS,
-                       help=f'Target number of qubits for truncation (default: {HAMILTONIAN_TARGET_QUBITS})')
+                       help=f'Target number of qubits for coefficient truncation (default: {HAMILTONIAN_TARGET_QUBITS})')
     
     # Backend & noise parameters
     parser.add_argument('--backend-type', type=str, default=BACKEND_TYPE,
@@ -502,6 +522,8 @@ Examples:
         "max_iterations": args.max_iterations,
         "n_layers": args.n_layers,
         "random_seed": args.seed,
+        "truncation_mode": args.truncation_mode,
+        "active_space_basis": args.active_space_basis,
         "max_hamiltonian_terms": args.max_hamiltonian_terms,
         "target_qubits": args.target_qubits,
         "backend_type": args.backend_type,

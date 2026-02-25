@@ -20,6 +20,7 @@ class PipelineHamiltonian:
     n_qubits: int = 0
     n_terms: int = 0
     terms: Dict[str, complex] = field(default_factory=dict)
+    core_energy: float = 0.0          # frozen core + nuclear repulsion (identity term)
 
     def summary(self) -> str:
         lines = [
@@ -28,6 +29,7 @@ class PipelineHamiltonian:
             "=" * 60,
             f"Number of qubits:  {self.n_qubits}",
             f"Number of terms:   {self.n_terms}",
+            f"Core energy:       {self.core_energy:.10f} Ha  (frozen core + nuclear repulsion)",
         ]
         if self.n_terms <= 20:
             lines.append("\nTerms (showing all):")
@@ -90,21 +92,29 @@ def build_qubit_hamiltonian(
         pauli_str = _term_to_pauli_string(term, n_qubits)
         terms[pauli_str] = complex(coeff)
 
+    # Extract core energy: the identity term coefficient contains
+    # nuclear repulsion + frozen core electron energy.
+    identity_key = "I" * n_qubits
+    core_energy = terms.get(identity_key, 0.0).real
+
     result.openfermion_qubit_op = qubit_op
     result.n_qubits = n_qubits
     result.n_terms = len(terms)
     result.terms = terms
+    result.core_energy = core_energy
 
     # Build framework-compatible QubitHamiltonian
     coefficients = np.array([c.real for c in terms.values()])
     pauli_strings = list(terms.keys())
 
+    # Reference energy = CASCI energy (the best classical answer for this
+    # active space).  VQE should approach this; error = VQE - CASCI.
     molecule = Molecule(
         abbreviation=geometry.name[:3],
         name=geometry.name,
         n_qubits=n_qubits,
         n_coefficients=len(terms),
-        reference_energy=diagnostics.hf_energy,
+        reference_energy=active_space.casci_energy,
         hamiltonian_file=f"pipeline_{geometry.name}",
         n_electrons=active_space.n_active_electrons,
         n_orbitals=active_space.n_active_orbitals,
@@ -112,6 +122,7 @@ def build_qubit_hamiltonian(
         spin=geometry.spin,
         basis=diagnostics.mol.basis if diagnostics.mol else "cc-pvdz",
         molecular_formula=geometry.formula,
+        core_energy=core_energy,
     )
 
     qh = QubitHamiltonian(

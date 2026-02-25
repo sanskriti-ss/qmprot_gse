@@ -71,6 +71,14 @@ def run_pipeline(
     _log(f"  Completed in {time.time() - t2:.1f}s", quiet)
     _log(active_space.summary(), quiet)
 
+    # Save active orbital visualization
+    try:
+        from visualize_molecules.save_active_orbitals import save_active_orbital_summary
+        img_path = save_active_orbital_summary(geometry, diagnostics)
+        _log(f"  Active orbital image: {img_path}", quiet)
+    except Exception as e:
+        _log(f"  (Could not save orbital image: {e})", quiet)
+
     # Step 3
     _log("\n[4/4] Building qubit Hamiltonian...", quiet)
     t3 = time.time()
@@ -92,6 +100,7 @@ def run_pipeline(
     _log(f"Active space:          ({active_space.n_active_electrons}e, {active_space.n_active_orbitals}o)", quiet)
     _log(f"Qubits:                {hamiltonian.n_qubits}", quiet)
     _log(f"Hamiltonian terms:     {hamiltonian.n_terms}", quiet)
+    _log(f"Core energy:           {hamiltonian.core_energy:.10f} Ha", quiet)
     _log(f"CASCI below HF:        {active_space.energy_below_hf}", quiet)
     _log(f"Correlation recovered: {active_space.correlation_recovered:.1%}", quiet)
     _log("=" * 60, quiet)
