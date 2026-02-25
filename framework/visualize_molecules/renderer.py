@@ -11,7 +11,7 @@ from typing import List, Tuple, Optional, Dict
 # ---------- visual constants ----------
 
 ATOM_COLORS: Dict[str, str] = {
-    "H": "#FFFFFF", "C": "#404040", "N": "#3050F8", "O": "#FF0D0D",
+    "H": "#FFFFFF", "C": "#404040", "N": "#3050F8", "O": "#FF69B4",
     "F": "#90E050", "S": "#FFFF30", "P": "#FF8000", "Li": "#CC80FF",
 }
 
