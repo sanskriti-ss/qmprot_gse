@@ -9,7 +9,8 @@ from .vqe_hardware_efficient import HardwareEfficientVQE
 
 from .qubit_adapt_vqe import QubitAdaptVQE
 from .vqe_qaoa_inspired import QAOAInspiredVQE
-from .vqe_iqcc import iQCC_VQE
+from .vqe_iqcc_inspired import iQCC_inspired_VQE
+from .vqe_iqcc_true import iQCC_true_VQE
 from .vqe_CB import ClassicallyBoostedVQE
 from .vqe_hva import HamiltonianVariationalVQE
 
@@ -19,6 +20,8 @@ ALGORITHMS = {
     "adapt_vqe": AdaptVQE,
     "hardware_efficient_vqe": HardwareEfficientVQE,
     "qaoa_inspired_vqe": QAOAInspiredVQE,
+    "iqcc_inspired_vqe": iQCC_inspired_VQE,
+    "iqcc_true_vqe": iQCC_true_VQE,
     "qubit_adapt_vqe": QubitAdaptVQE,
     "iqcc_vqe": iQCC_VQE,
     "cb_vqe": ClassicallyBoostedVQE,
@@ -40,6 +43,8 @@ __all__ = [
     "AdaptVQE",
     "HardwareEfficientVQE",
     "QAOAInspiredVQE",
+    "iQCC_inspired_VQE",
+    "iQCC_true_VQE"
     "QubitAdaptVQE",
     "iQCC_VQE",
     "ClassicallyBoostedVQE",
