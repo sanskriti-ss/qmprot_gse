@@ -23,6 +23,7 @@ from config import (
     N_SHOTS, RANDOM_SEED, LOG_LEVEL, LOG_FILE, HAMILTONIAN_MODE,
     HAMILTONIAN_MAX_TERMS, HAMILTONIAN_TARGET_QUBITS,
     BACKEND_TYPE, NOISE_MODEL, NOISE_STRENGTH,
+    TRUNCATION_MODE, ACTIVE_SPACE_BASIS,
 )
 import ast
 from core import HamiltonianLoader, ResultsManager
@@ -96,7 +97,8 @@ class VQEFramework:
         self.loader = HamiltonianLoader(self.hamiltonians_dir, self.molecules_json)
         self.results_manager = ResultsManager(self.results_dir)
         self.visualizer = None  # Lazy initialization
-        
+        self._run_csv_path = None  # Incremental CSV in timestamped run folder
+
         logger.info(f"VQE Framework initialized")
         logger.info(f"Hamiltonians directory: {self.hamiltonians_dir}")
         logger.info(f"Available algorithms: {list_algorithms()}")
@@ -117,18 +119,32 @@ class VQEFramework:
             VQEResult as dictionary
         """
         logger.info(f"Running {algorithm} on {molecule}")
-        
-        # Load Hamiltonian
-        if Path(molecule).exists():
-            hamiltonian = self.loader.load_hamiltonian(hamiltonian_file=molecule)
+
+        truncation_mode = kwargs.pop("truncation_mode", TRUNCATION_MODE)
+        logger.info(f"Truncation mode: {truncation_mode}")
+
+        if truncation_mode == "active_space":
+            # Active space truncation: PySCF HF -> MP2 -> CASCI -> OpenFermion
+            from active_space_truncation.run_pipeline import run_pipeline as run_active_space_pipeline
+            basis = kwargs.pop("active_space_basis", ACTIVE_SPACE_BASIS)
+            pipeline_result = run_active_space_pipeline(molecule=molecule, basis=basis, quiet=True)
+            hamiltonian = pipeline_result["hamiltonian"].qubit_hamiltonian
+            core_energy = pipeline_result["hamiltonian"].core_energy
+            casci_energy = pipeline_result["active_space"].casci_energy
+            logger.info(f"Active space Hamiltonian: {hamiltonian.n_qubits} qubits, {hamiltonian.n_terms} terms")
+            logger.info(f"Core energy (frozen core + nuclear repulsion): {core_energy:.10f} Ha")
+            logger.info(f"CASCI reference energy: {casci_energy:.10f} Ha")
         else:
-            hamiltonian = self.loader.load_hamiltonian(molecule_abbrev=molecule)
-        
-        # Truncate hamiltonian if too many terms
-        max_terms = kwargs.get("max_hamiltonian_terms", HAMILTONIAN_MAX_TERMS)
-        target_qubits = kwargs.get("target_qubits", HAMILTONIAN_TARGET_QUBITS)
-        if hamiltonian.n_terms > max_terms:
-            hamiltonian = hamiltonian.truncate(max_terms=max_terms, target_qubits=target_qubits)
+            # Coefficient-based truncation (legacy): load H5 and keep largest |coeff| terms
+            if Path(molecule).exists():
+                hamiltonian = self.loader.load_hamiltonian(hamiltonian_file=molecule)
+            else:
+                hamiltonian = self.loader.load_hamiltonian(molecule_abbrev=molecule)
+
+            max_terms = kwargs.get("max_hamiltonian_terms", HAMILTONIAN_MAX_TERMS)
+            target_qubits = kwargs.get("target_qubits", HAMILTONIAN_TARGET_QUBITS)
+            if hamiltonian.n_terms > max_terms:
+                hamiltonian = hamiltonian.truncate(max_terms=max_terms, target_qubits=target_qubits)
         
         # Get algorithm class
         AlgorithmClass = get_algorithm(algorithm)
@@ -166,9 +182,44 @@ class VQEFramework:
         
         # Store result
         self.results_manager.add_result(result)
-        
+
+        # Incrementally save to CSV in timestamped run folder
+        self._append_result_to_run_csv(result)
+
         return result.to_dict()
-    
+
+    def _append_result_to_run_csv(self, result):
+        """Append a single VQEResult to the incremental CSV in the timestamped run folder."""
+        import csv
+        from datetime import datetime
+
+        # Create timestamped run folder on first call
+        if self._run_csv_path is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            run_dir = self.plots_dir / timestamp
+            run_dir.mkdir(parents=True, exist_ok=True)
+            self._run_csv_path = run_dir / "run_results.csv"
+            self._run_dir = run_dir
+            logger.info(f"Incremental results will be saved to {self._run_csv_path}")
+
+        fields = [
+            "molecule_abbrev", "molecule_name", "algorithm_name",
+            "calculated_energy", "reference_energy", "error", "relative_error",
+            "n_iterations", "n_qubits", "n_parameters", "runtime_seconds",
+            "converged", "hf_energy",
+        ]
+
+        write_header = not self._run_csv_path.exists()
+        try:
+            with open(self._run_csv_path, "a", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fields)
+                if write_header:
+                    writer.writeheader()
+                row = {k: getattr(result, k, None) for k in fields}
+                writer.writerow(row)
+        except Exception as e:
+            logger.warning(f"Could not append to run CSV: {e}")
+
     def run_molecule(self,
                      molecule: str,
                      algorithms: Optional[List[str]] = None,
@@ -274,8 +325,11 @@ class VQEFramework:
         """Generate all visualization plots"""
         if self.visualizer is None:
             self.visualizer = VQEVisualizer(self.results_manager, self.plots_dir)
+            # If a run folder was already created for incremental CSV, reuse it
+            if hasattr(self, '_run_dir') and self._run_dir is not None:
+                self.visualizer.output_dir = self._run_dir
         self.visualizer.generate_all_plots()
-        
+
         # Also generate specialized molecule plots with HF reference
         if self.results_manager.results:
             logger.info("Generating specialized molecule plots with HF reference...")
@@ -284,6 +338,24 @@ class VQEFramework:
                 output_dir=str(self.plots_dir),
                 filename="selected_molecules_withHFref.png"
             )
+
+        # Save JSON and CSV into the timestamped plot folder
+        plot_dir = self.visualizer.output_dir
+        if self.results_manager.results:
+            import json
+            # JSON
+            json_path = plot_dir / "all_results.json"
+            with open(json_path, 'w') as f:
+                json.dump([r.to_dict() for r in self.results_manager.results], f, indent=2)
+            logger.info(f"Saved results JSON to {json_path}")
+            # CSV
+            try:
+                from utils.csv_export import export_results_to_csv
+                csv_path = plot_dir / "all_results.csv"
+                export_results_to_csv(self.results_manager.results, str(csv_path))
+                logger.info(f"Saved results CSV to {csv_path}")
+            except Exception as e:
+                logger.warning(f"Could not save CSV to plot folder: {e}")
     
     def plot_molecule(self, molecule: str):
         """Generate plot for a specific molecule"""
@@ -371,10 +443,15 @@ Examples:
                        help='Random seed')
     
     # Hamiltonian truncation parameters
+    parser.add_argument('--truncation-mode', type=str, default=TRUNCATION_MODE,
+                       choices=['active_space', 'coefficient'],
+                       help=f'Truncation method: active_space (PySCF-based, default) or coefficient (legacy magnitude-based)')
+    parser.add_argument('--active-space-basis', type=str, default=ACTIVE_SPACE_BASIS,
+                       help=f'Basis set for active space truncation (default: {ACTIVE_SPACE_BASIS})')
     parser.add_argument('--max-hamiltonian-terms', type=int, default=HAMILTONIAN_MAX_TERMS,
-                       help=f'Max hamiltonian terms to keep (default: {HAMILTONIAN_MAX_TERMS})')
+                       help=f'Max hamiltonian terms to keep for coefficient mode (default: {HAMILTONIAN_MAX_TERMS})')
     parser.add_argument('--target-qubits', type=int, default=HAMILTONIAN_TARGET_QUBITS,
-                       help=f'Target number of qubits for truncation (default: {HAMILTONIAN_TARGET_QUBITS})')
+                       help=f'Target number of qubits for coefficient truncation (default: {HAMILTONIAN_TARGET_QUBITS})')
     
     # Backend & noise parameters
     parser.add_argument('--backend-type', type=str, default=BACKEND_TYPE,
@@ -445,6 +522,8 @@ Examples:
         "max_iterations": args.max_iterations,
         "n_layers": args.n_layers,
         "random_seed": args.seed,
+        "truncation_mode": args.truncation_mode,
+        "active_space_basis": args.active_space_basis,
         "max_hamiltonian_terms": args.max_hamiltonian_terms,
         "target_qubits": args.target_qubits,
         "backend_type": args.backend_type,

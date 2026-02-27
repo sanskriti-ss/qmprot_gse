@@ -35,11 +35,15 @@ RANDOM_SEED = int(os.getenv("RANDOM_SEED", 42))
 
 # Hamiltonian Truncation Settings (for large .h5 datasets)
 HAMILTONIAN_MAX_TERMS = int(os.getenv("HAMILTONIAN_MAX_TERMS", 1000))
-HAMILTONIAN_TARGET_QUBITS = int(os.getenv("HAMILTONIAN_TARGET_QUBITS", 8))
+HAMILTONIAN_TARGET_QUBITS = int(os.getenv("HAMILTONIAN_TARGET_QUBITS", 16))
+
+# Truncation mode: "active_space" (default, PySCF-based) or "coefficient" (legacy, magnitude-based)
+TRUNCATION_MODE = os.getenv("TRUNCATION_MODE", "active_space")
+ACTIVE_SPACE_BASIS = os.getenv("ACTIVE_SPACE_BASIS", "cc-pvdz")
 
 # Backend Settings
 BACKEND = os.getenv("BACKEND", "pennylane")
-PENNYLANE_DEVICE = os.getenv("PENNYLANE_DEVICE", "default.qubit")
+PENNYLANE_DEVICE = os.getenv("PENNYLANE_DEVICE", "lightning.qubit")
 QISKIT_BACKEND = os.getenv("QISKIT_BACKEND", "aer_simulator_statevector")
 
 # Noise Settings
