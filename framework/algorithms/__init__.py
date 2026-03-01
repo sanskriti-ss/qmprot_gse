@@ -5,9 +5,9 @@ Contains all VQE algorithm implementations.
 """
 from .vqe_vanilla import VanillaVQE
 from .vqe_adapt import AdaptVQE
+from .vqe_qubit_adapt import QubitAdaptVQE
 from .vqe_hardware_efficient import HardwareEfficientVQE
 
-from .qubit_adapt_vqe import QubitAdaptVQE
 from .vqe_qaoa_inspired import QAOAInspiredVQE
 from .vqe_iqcc_inspired import iQCC_inspired_VQE
 from .vqe_iqcc_true import iQCC_true_VQE
@@ -18,12 +18,12 @@ from .vqe_hva import HamiltonianVariationalVQE
 ALGORITHMS = {
     "vanilla_vqe": VanillaVQE,
     "adapt_vqe": AdaptVQE,
+    "qubit_adapt_vqe": QubitAdaptVQE,
     "hardware_efficient_vqe": HardwareEfficientVQE,
     "qaoa_inspired_vqe": QAOAInspiredVQE,
     "iqcc_inspired_vqe": iQCC_inspired_VQE,
     "iqcc_true_vqe": iQCC_true_VQE,
     "qubit_adapt_vqe": QubitAdaptVQE,
-    "iqcc_vqe": iQCC_VQE,
     "cb_vqe": ClassicallyBoostedVQE,
     "hva_vqe": HamiltonianVariationalVQE,
 }
@@ -41,12 +41,11 @@ def list_algorithms():
 __all__ = [
     "VanillaVQE",
     "AdaptVQE",
+    "QubitAdaptVQE",
     "HardwareEfficientVQE",
     "QAOAInspiredVQE",
     "iQCC_inspired_VQE",
-    "iQCC_true_VQE"
-    "QubitAdaptVQE",
-    "iQCC_VQE",
+    "iQCC_true_VQE",
     "ClassicallyBoostedVQE",
     "HamiltonianVariationalVQE",
     "ALGORITHMS",
