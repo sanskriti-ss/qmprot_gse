@@ -269,7 +269,8 @@ class ClassicallyBoostedVQE(BaseVQE):
         total_wires = n_qubits + 1
         wires = list(range(total_wires))
 
-        dev = qml.device("default.qubit", wires=total_wires)
+        from config import PENNYLANE_DEVICE
+        dev = qml.device(PENNYLANE_DEVICE, wires=total_wires)
 
         # Controlled unitary: Uq† @ Ucl
         controlled_U = Uq.conj().T @ Ucl

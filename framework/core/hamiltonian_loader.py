@@ -38,6 +38,7 @@ class Molecule:
     coordinates: Optional[List[Dict]] = None
     molecular_formula: Optional[str] = None
     truncated_ground_state_energy: Optional[float] = None  # Ground state of truncated system
+    core_energy: Optional[float] = None  # Frozen core + nuclear repulsion (active space mode)
     
     
 @dataclass
@@ -97,19 +98,27 @@ class QubitHamiltonian:
             wire_mapping = {old: new for new, old in enumerate(sorted(used_wires))}
             actual_n_qubits = len(wire_mapping)
             remapped_pauli = []
-            for pauli_str in truncated_pauli:
+            surviving_coeffs = []
+            n_dropped = 0
+            for pauli_str, coeff in zip(truncated_pauli, truncated_coeffs):
                 remapped = ['I'] * actual_n_qubits
+                remap_ok = True
                 for wire, pauli in enumerate(pauli_str):
-                    if wire in wire_mapping:
-                        remapped[wire_mapping[wire]] = pauli
-                    elif pauli != 'I':
-                        # Wire not in mapping, skip
-                        break
-                else:
+                    if pauli != 'I':
+                        if wire in wire_mapping:
+                            remapped[wire_mapping[wire]] = pauli
+                        else:
+                            remap_ok = False
+                            break
+                if remap_ok:
                     remapped_pauli.append(''.join(remapped))
-                    continue
-                remapped_pauli.append(pauli_str)  # Keep original if remap failed
+                    surviving_coeffs.append(coeff)
+                else:
+                    n_dropped += 1
+            if n_dropped > 0:
+                logger.info(f"Dropped {n_dropped} terms with unmapped wires")
             truncated_pauli = remapped_pauli
+            truncated_coeffs = np.array(surviving_coeffs)
         else:
             actual_n_qubits = self.n_qubits
         
@@ -181,48 +190,54 @@ class QubitHamiltonian:
         For larger systems, uses a lower bound estimate.
         """
         try:
-            if n_qubits > 10:
+            if n_qubits > 18:
                 # For large systems, use a lower bound: sum of negative terms
                 logger.info(f"System too large for exact diagonalization ({n_qubits} qubits). Using lower bound.")
                 negative_sum = sum(c for c in coefficients if c < 0)
                 return negative_sum if negative_sum < 0 else min(coefficients)
-            
+
             import numpy as np
-            from scipy.sparse.linalg import eigsh
             from scipy.sparse import csr_matrix
-            
-            # For small systems, use exact diagonalization
+            from scipy.sparse.linalg import eigsh
+
             hilbert_dim = 2 ** n_qubits
-            
-            # Pauli matrices
-            pauli_map = {
-                'I': np.array([[1, 0], [0, 1]], dtype=complex),
-                'X': np.array([[0, 1], [1, 0]], dtype=complex),
-                'Y': np.array([[0, -1j], [1j, 0]], dtype=complex),
-                'Z': np.array([[1, 0], [0, -1]], dtype=complex),
+
+            # Sparse Pauli matrices
+            I2 = csr_matrix(np.eye(2, dtype=complex))
+            pauli_sparse = {
+                'I': I2,
+                'X': csr_matrix(np.array([[0, 1], [1, 0]], dtype=complex)),
+                'Y': csr_matrix(np.array([[0, -1j], [1j, 0]], dtype=complex)),
+                'Z': csr_matrix(np.array([[1, 0], [0, -1]], dtype=complex)),
             }
-            
-            # Build Hamiltonian matrix
-            H = np.zeros((hilbert_dim, hilbert_dim), dtype=complex)
-            
+            from scipy.sparse import kron as sp_kron
+
+            # Build sparse Hamiltonian
+            from scipy.sparse import csr_matrix as _csr
+            H = _csr((hilbert_dim, hilbert_dim), dtype=complex)
+
             for coeff, pauli_str in zip(coefficients, pauli_strings):
                 if abs(coeff) < 1e-12:
                     continue
-                
+
                 # Convert OpenFermion format if needed
                 if '(' in str(pauli_str):
                     pauli_str = self._openfermion_to_pauli_string(pauli_str, n_qubits)
-                
-                # Build single-qubit operators
-                op = pauli_map[pauli_str[0]]
+
+                # Build Kronecker product of single-qubit Pauli matrices (sparse)
+                op = pauli_sparse[pauli_str[0]]
                 for i in range(1, len(pauli_str)):
-                    op = np.kron(op, pauli_map[pauli_str[i]])
-                
-                H += coeff * op
-            
-            # Diagonalize to find ground state
-            eigenvalues = np.linalg.eigvalsh(H)
-            ground_state_energy = float(eigenvalues[0])
+                    op = sp_kron(op, pauli_sparse[pauli_str[i]], format='csr')
+
+                H = H + coeff * op
+
+            # Diagonalize — use sparse eigsh for large systems, dense for small
+            if n_qubits <= 10:
+                eigenvalues = np.linalg.eigvalsh(H.toarray())
+                ground_state_energy = float(eigenvalues[0])
+            else:
+                eigenvalues, _ = eigsh(H, k=1, which='SA')
+                ground_state_energy = float(eigenvalues[0])
             
             logger.info(f"Ground state energy of {n_qubits}-qubit truncated system: {ground_state_energy:.6f}")
             return ground_state_energy
@@ -488,13 +503,13 @@ class HamiltonianLoader:
         
         # Combine and parse hamiltonian chunks
         full_hamiltonian = "".join(hamiltonian_chunks)
-        coefficients, pauli_strings = self._parse_hamiltonian_string(full_hamiltonian)
-        
+        coefficients, pauli_strings = self._parse_hamiltonian_string(full_hamiltonian, n_qubits=n_qubits)
+
         if not pauli_strings:
             raise ValueError(f"No valid Hamiltonian terms found in {h5_path}")
-        
-        # Determine actual n_qubits from pauli strings if not set
-        actual_n_qubits = len(pauli_strings[0]) if pauli_strings else n_qubits
+
+        # Use n_qubits from H5 metadata; only fallback to string length for legacy simple format
+        actual_n_qubits = n_qubits if n_qubits > 0 else (len(pauli_strings[0]) if pauli_strings else 0)
         
         molecule = Molecule(
             abbreviation=abbreviation,
@@ -521,28 +536,23 @@ class HamiltonianLoader:
             n_terms=len(coefficients),
         )
     
-    def _parse_hamiltonian_string(self, hamiltonian_str: str) -> Tuple[List[float], List[str]]:
-        """
-        Parse a hamiltonian string into coefficients and simple IXYZ Pauli strings.
+    def _parse_hamiltonian_string(self, hamiltonian_str: str, n_qubits: int = 0) -> Tuple[List[float], List[str]]:
+        """Parse a hamiltonian string into coefficients and simple IXYZ Pauli strings.
 
-        The H5 data is tab-delimited with format:
-            Coefficient\\tOperators
-            -186.45...\\tIdentity(0)
-            13.28...\\tZ(0)
-            1.186...\\tZ(0) @ Z(1)
-            -3.97e-5\\tX(0) @ Z(1) @ X(2)
+        Handles OpenFermion format: 'coeff\\tZ(0) @ Z(1) @ X(5)'
+        Converts to simple Pauli strings: 'ZZIIIXI...'
 
-        Multi-qubit terms use ' @ ' as separator between operators.
-        We convert to fixed-length IXYZ strings (length = max qubit index + 1).
+        Args:
+            hamiltonian_str: Raw hamiltonian string from H5 or txt file
+            n_qubits: Number of qubits. If 0, inferred from max qubit index.
         """
         import re
-
         lines = hamiltonian_str.split("\n")
         valid_lines = [line.strip() for line in lines
                       if line.strip() and "Coefficient" not in line and "Operators" not in line]
 
         coefficients = []
-        raw_ops = []      # keep OpenFermion strings for a first pass
+        raw_ops = []
         max_qubit = 0
 
         for line in valid_lines:
@@ -567,8 +577,11 @@ class HamiltonianLoader:
                 if q > max_qubit:
                     max_qubit = q
 
+        # Use provided n_qubits or infer from max qubit index
+        if n_qubits == 0:
+            n_qubits = max_qubit + 1
+
         # Convert OpenFermion strings to simple IXYZ format
-        n_qubits = max_qubit + 1
         pauli_strings = []
         for op_str in raw_ops:
             if 'Identity' in op_str:

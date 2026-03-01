@@ -1,6 +1,2 @@
 molecule,method,vqe_energy,hf_energy,exact_energy,error_vs_exact,error_vs_hf,iterations
-alanine,unknown,,-200.1477043054,,,,
-arginine,unknown,,-349.4631928221,,,,
-aspartic_acid,unknown,,-282.6751332273,,,,
-cysteine,unknown,,-496.9823291253,,,,
 glycine,unknown,,-178.5613557086,,,,
