@@ -78,7 +78,7 @@ plots/
 
 # Logs
 logs/
-*.log
+.log
 
 # Large Hamiltonian files (download separately)
 data/hamiltonians/*.txt
