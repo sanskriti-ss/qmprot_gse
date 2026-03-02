@@ -73,8 +73,9 @@ def build_qubit_hamiltonian(
 
     mol_data = run_pyscf(mol_data, run_scf=True, run_mp2=True, run_fci=False)
 
-    occupied_indices = diagnostics.core_orbital_indices
-    active_indices = diagnostics.proposed_active_indices
+    n_occ = geometry.n_electrons // 2
+    active_indices = list(diagnostics.proposed_active_indices)
+    occupied_indices = [i for i in range(n_occ) if i not in active_indices]
 
     molecular_hamiltonian = mol_data.get_molecular_hamiltonian(
         occupied_indices=occupied_indices,
