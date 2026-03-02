@@ -397,6 +397,16 @@ Examples:
   # List available options
   python main.py --list-algorithms
   python main.py --list-molecules
+
+  # NN-AE-VQE: run with a specific architecture on 5 molecules
+  python main.py --algorithm nn_ae_vqe -m ala arg gly cys gln \
+      --encoder-style ry_rz_brick --latent-style ry_cz_ry \
+      --decoder-style mirror --init-strategy hf_warm \
+      --n-enc-layers 2 --n-latent-layers 2 --max-iterations 500
+
+  # NN-AE-VQE: architecture grid-search on 5 molecules
+  python main.py --arch-search -m ala arg gly cys gln \
+      --arch-search-max-configs 24 --max-iterations 300
         """
     )
     
@@ -465,7 +475,33 @@ Examples:
                        help=f'Noise strength / error probability (default: {NOISE_STRENGTH})')
     parser.add_argument('--run-both-backends', action='store_true',
                        help='Run every experiment twice: once statevector, once noisy')
-    
+
+    # NN-AE-VQE specific parameters
+    parser.add_argument('--encoder-style', type=str, default='ry_brick',
+                       choices=['ry_brick', 'ry_rz_brick', 'rot_brick', 'ry_ring'],
+                       help='NN-AE-VQE encoder rotation+entangling style (default: ry_brick)')
+    parser.add_argument('--latent-style', type=str, default='ry_cz',
+                       choices=['ry_cz', 'ry_rz_cnot', 'rot_cnot', 'ry_cz_ry'],
+                       help='NN-AE-VQE latent ansatz style (default: ry_cz)')
+    parser.add_argument('--decoder-style', type=str, default='mirror',
+                       choices=['mirror', 'adjoint', 'independent'],
+                       help='NN-AE-VQE decoder topology (default: mirror)')
+    parser.add_argument('--init-strategy', type=str, default='zeros',
+                       choices=['zeros', 'random_small', 'hf_warm'],
+                       help='NN-AE-VQE parameter init strategy (default: zeros)')
+    parser.add_argument('--n-enc-layers', type=int, default=1,
+                       help='NN-AE-VQE encoder/decoder repetition blocks (default: 1)')
+    parser.add_argument('--n-latent-layers', type=int, default=2,
+                       help='NN-AE-VQE latent ansatz layers (default: 2)')
+
+    # Architecture search
+    parser.add_argument('--arch-search', action='store_true',
+                       help='Run NN-AE-VQE architecture grid-search instead of single run')
+    parser.add_argument('--arch-search-max-configs', type=int, default=24,
+                       help='Max configurations to evaluate in arch search (default: 24)')
+    parser.add_argument('--arch-search-random', action='store_true',
+                       help='Randomly sample arch-search configs instead of sequential')
+
     # Listing
     parser.add_argument('--list-algorithms', action='store_true',
                        help='List available algorithms')
@@ -529,6 +565,13 @@ Examples:
         "backend_type": args.backend_type,
         "noise_model": args.noise_model,
         "noise_strength": args.noise_strength,
+        # NN-AE-VQE specific
+        "encoder_style":   args.encoder_style,
+        "latent_style":    args.latent_style,
+        "decoder_style":   args.decoder_style,
+        "init_strategy":   args.init_strategy,
+        "n_enc_layers":    args.n_enc_layers,
+        "n_latent_layers": args.n_latent_layers,
     }
     
     # ── Helper: run with --run-both-backends support ────────────────────
@@ -551,6 +594,85 @@ Examples:
             run_fn(*run_args, **noisy_params)
         else:
             run_fn(*run_args, **run_kwargs)
+
+    # Architecture search (nn_ae_vqe only)
+    if args.arch_search:
+        from algorithms.vqe_nn_ae import NeuralNetworkAutoEncoderVQE
+        molecules_to_search = (
+            args.molecule or args.molecules
+            or framework.list_molecules()
+            or ["h2"]          # fallback for testing
+        )
+        arch_vqe_kwargs = {
+            k: v for k, v in vqe_params.items()
+            if k not in (
+                "truncation_mode", "active_space_basis",
+                "max_hamiltonian_terms", "target_qubits",
+                "backend_type", "noise_model", "noise_strength",
+                "n_layers",
+                # arch-search controls these itself
+                "encoder_style", "latent_style", "decoder_style",
+                "init_strategy", "n_enc_layers", "n_latent_layers",
+            )
+        }
+        all_dfs = []
+        for mol in molecules_to_search:
+            logger.info(f"\n{'='*60}\nArch search on {mol}\n{'='*60}")
+            try:
+                # Load / build Hamiltonian the same way run_single does
+                truncation_mode = vqe_params.get("truncation_mode", TRUNCATION_MODE)
+                if truncation_mode == "active_space":
+                    from active_space_truncation.run_pipeline import run_pipeline as _asp
+                    basis = vqe_params.get("active_space_basis", ACTIVE_SPACE_BASIS)
+                    pipeline_result = _asp(molecule=mol, basis=basis, quiet=True)
+                    hamiltonian = pipeline_result["hamiltonian"].qubit_hamiltonian
+                else:
+                    hamiltonian = framework.loader.load_hamiltonian(molecule_abbrev=mol)
+                    max_t = vqe_params.get("max_hamiltonian_terms", HAMILTONIAN_MAX_TERMS)
+                    tgt_q = vqe_params.get("target_qubits", HAMILTONIAN_TARGET_QUBITS)
+                    if hamiltonian.n_terms > max_t:
+                        hamiltonian = hamiltonian.truncate(max_terms=max_t, target_qubits=tgt_q)
+
+                backend_type   = vqe_params.get("backend_type", BACKEND_TYPE)
+                noise_mdl      = vqe_params.get("noise_model", None)
+                noise_str      = vqe_params.get("noise_strength", NOISE_STRENGTH)
+                if backend_type == "noisy" and noise_mdl:
+                    from core.backend_manager import BackendConfig
+                    bc = BackendConfig.noisy(n_qubits=hamiltonian.n_qubits,
+                                            noise_model=noise_mdl,
+                                            noise_strength=noise_str)
+                else:
+                    from core.backend_manager import BackendConfig
+                    bc = BackendConfig.statevector(n_qubits=hamiltonian.n_qubits)
+
+                import os
+                save_csv = str(
+                    framework.plots_dir
+                    / f"arch_search_{mol}.csv"
+                )
+                df = NeuralNetworkAutoEncoderVQE.run_architecture_search(
+                    hamiltonian,
+                    max_configs=args.arch_search_max_configs,
+                    random_sample=args.arch_search_random,
+                    random_seed=vqe_params.get("random_seed", RANDOM_SEED),
+                    save_csv=save_csv,
+                    backend_config=bc,
+                    **arch_vqe_kwargs,
+                )
+                all_dfs.append(df.assign(molecule=mol))
+                print(f"\nTop 5 configs for {mol}:")
+                print(df.head(5).to_string(index=False))
+            except Exception as exc:
+                logger.error(f"Arch search failed for {mol}: {exc}")
+
+        if all_dfs:
+            import pandas as pd
+            combined = pd.concat(all_dfs, ignore_index=True)
+            combined_path = str(framework.plots_dir / "arch_search_all_molecules.csv")
+            combined.to_csv(combined_path, index=False)
+            logger.info(f"Combined arch-search results saved to {combined_path}")
+            print(f"\nCombined results saved to {combined_path}")
+        return
 
     # Run VQE
     if args.plot_only:
