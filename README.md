@@ -37,11 +37,13 @@ The framework automatically generates:
 # Customization
 All runtime parameters are configurable via CLI.
 
+TODO: Add examples here.
+
 To do for the read me:
 * more sample photos
 * more specifics about input data parameters
 
-Next steps in the research:
+# Next Steps in Research 
 * Calculate not just GSE, but also 1st excited states.
 * move the ipynb hamiltonian download to a .py script
 

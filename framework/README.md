@@ -1,6 +1,6 @@
 # VQE Framework for Protein Hamiltonians
 
-A modular framework for running multiple VQE (Variational Quantum Eigensolver) algorithms on protein Hamiltonians from the QMProt dataset.
+A modular framework for running and benchmarking multiple VQE (Variational Quantum Eigensolver) algorithms on protein Hamiltonians from the QMProt dataset. Enables algorithm comparison, active-space benchmarking, and rapid prototyping of new ansatz.
 
 ## 📁 Project Structure
 
