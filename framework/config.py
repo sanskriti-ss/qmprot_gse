@@ -64,6 +64,8 @@ ALGORITHM_COLORS = {
     "qaoa_inspired_vqe": "#d62728",  # Red
     "cb_vqe": "#9467bd",             # Purple
     "hva_vqe": "#8c564b",             # Brown
+    "ucc_vqe": "#e377c2",             # Pink
+    "nn_ae_vqe": "#17becf",           # Cyan
     "reference": "#7f7f7f",          # Gray
 }
 

@@ -13,6 +13,8 @@ from .vqe_iqcc_inspired import iQCC_inspired_VQE
 from .vqe_iqcc_true import iQCC_true_VQE
 from .vqe_CB import ClassicallyBoostedVQE
 from .vqe_hva import HamiltonianVariationalVQE
+from .vqe_ucc import UCCSDVariationalVQE
+from .vqe_nn_ae import NeuralNetworkAutoEncoderVQE
 
 # Registry of all available algorithms
 ALGORITHMS = {
@@ -26,6 +28,8 @@ ALGORITHMS = {
     "qubit_adapt_vqe": QubitAdaptVQE,
     "cb_vqe": ClassicallyBoostedVQE,
     "hva_vqe": HamiltonianVariationalVQE,
+    "ucc_vqe": UCCSDVariationalVQE,
+    "nn_ae_vqe": NeuralNetworkAutoEncoderVQE,
 }
 
 def get_algorithm(name: str):
@@ -48,6 +52,8 @@ __all__ = [
     "iQCC_true_VQE",
     "ClassicallyBoostedVQE",
     "HamiltonianVariationalVQE",
+    "UCCSDVariationalVQE",
+    "NeuralNetworkAutoEncoderVQE",
     "ALGORITHMS",
     "get_algorithm",
     "list_algorithms",
