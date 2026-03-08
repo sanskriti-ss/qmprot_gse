@@ -167,15 +167,12 @@ class ClassicallyBoostedVQE(BaseVQE):
         self.device = create_device(self.backend_config)
         H_pl = self.hamiltonian.to_pennylane()
         insert_noise = self.noise_inserter
-        n_electrons = self._eff_n_electrons
 
         @qml.qnode(self.device)
         def circuit(params):
             params = params.reshape(n_layers, n_qubits, 3)
 
-            # Hartree-Fock initial state (effective active-space occupancy)
-            for i in range(n_electrons):
-                qml.PauliX(wires=i)
+            self._prepare_initial_state()
 
             for layer in range(n_layers):
                 for qubit in range(n_qubits):
@@ -218,13 +215,11 @@ class ClassicallyBoostedVQE(BaseVQE):
 
         n_qubits = self.n_qubits
         n_layers = self.n_layers
-        n_electrons = self._eff_n_electrons
         wire_order = list(range(n_qubits))
 
         def ansatz_circuit(params, wires):
             params = params.reshape(n_layers, n_qubits, 3)
-            for i in range(n_electrons):
-                qml.PauliX(wires=i)
+            self._prepare_initial_state()
             for layer in range(n_layers):
                 for qubit in range(n_qubits):
                     qml.RX(params[layer, qubit, 0], wires=qubit)

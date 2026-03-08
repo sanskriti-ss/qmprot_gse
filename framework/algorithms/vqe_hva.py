@@ -239,16 +239,13 @@ class HamiltonianVariationalVQE(BaseVQE):
         # Full Hamiltonian for expectation value
         H_full = self.hamiltonian.to_pennylane()
         insert_noise = self.noise_inserter
-        n_electrons = self._eff_n_electrons
 
         # ── 4. QNode ──────────────────────────────────────────────────
         @qml.qnode(self.device)
         def circuit(params):
             params = params.reshape(n_layers, n_groups)
 
-            # Hartree-Fock initial state (effective active-space occupancy)
-            for i in range(n_electrons):
-                qml.PauliX(wires=i)
+            self._prepare_initial_state()
 
             # HVA layers: for each rep, evolve under each group
             for r in range(n_layers):

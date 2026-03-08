@@ -69,10 +69,8 @@ class VanillaVQE(BaseVQE):
         def circuit(params):
             params = params.reshape(n_layers, n_qubits, 3)
             
-            # Initial state preparation (Hartree-Fock like)
-            n_electrons = self.hamiltonian.molecule.n_electrons or n_qubits // 2
-            for i in range(min(n_electrons, n_qubits)):
-                qml.PauliX(wires=i)
+            # Initial state preparation
+            self._prepare_initial_state()
             
             # Variational layers
             for layer in range(n_layers):
