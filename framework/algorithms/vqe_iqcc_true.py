@@ -73,26 +73,18 @@ class iQCC_true_VQE(BaseVQE):
         self.device = create_device(self.backend_config)
 
         H = self.hamiltonian.to_pennylane()
-        n_electrons = self._eff_n_electrons
         @qml.qnode(self.device)
         def circuit(params):
-            for i in range(n_electrons):
-                qml.PauliX(wires=i)
-
+            self._prepare_initial_state()
             return qml.expval(H)
         self.cost_fn = circuit
         #TODO: Add logger
         return circuit
     
     def compute_hf_energy(self, observable):
-        n_qubits = self.n_qubits
-        n_electrons = self._eff_n_electrons
         @qml.qnode(self.device)
         def circuit():
-
-            for i in range(n_electrons):
-                qml.PauliX(wires=i)
-
+            self._prepare_initial_state()
             return qml.expval(observable)
 
         return float(circuit())
