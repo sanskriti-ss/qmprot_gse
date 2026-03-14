@@ -27,7 +27,6 @@ ALGORITHMS = {
     "iqcc_inspired_vqe": iQCC_inspired_VQE,
     "iqcc_true_vqe": iQCC_true_VQE,
     "qubit_adapt_vqe": QubitAdaptVQE,
-    "iqcc_vqe": iQCC_VQE,
     "cb_vqe": ClassicallyBoostedVQE,
     "hva_vqe": HamiltonianVariationalVQE,
     "ucc_vqe": UCCSDVariationalVQE,

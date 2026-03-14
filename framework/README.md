@@ -85,6 +85,9 @@ python main.py --plot-only
 6. **iQCC-Inspired VQE** (`vqe_iqcc_inspired.py`) - Adapt-VQE using iterative qubit coupled clustering
 7. **CB VQE** (`vqe_CB.py`) - Classically boosted VQE
 8. **HVA VQE** (`vqe_hva.py`) - Hamiltonian variational ansatz
+9. **NN_AE VQE** (`vqe_nn_ae.py`) - Neural network autoencoder VQE
+10. **Qubit_Adapt VQE** (`vqe_qubit_adapt.py`) - Grows ansatz adaptively based on gradient info of Pauli string
+11. **UCC VQE** (`vqe_ucc.py`) - Unitary Coupled Cluster Singles and Doubles ansatz
 # adding more
 
 ## Visualization
