@@ -70,12 +70,9 @@ class iQCC_inspired_VQE(BaseVQE):
         self.device = create_device(self.backend_config)
 
         H = self.hamiltonian.to_pennylane()
-        n_electrons = self._eff_n_electrons
         @qml.qnode(self.device)
         def circuit(params):
-
-            for i in range(n_electrons):
-                qml.PauliX(wires=i)
+            self._prepare_initial_state()
 
             for theta, op in zip(params, self.selected_operators):
                 for term, coeff in op.terms.items():
@@ -99,12 +96,9 @@ class iQCC_inspired_VQE(BaseVQE):
         n_qubits = self.n_qubits
         #hf_bitstring = np.zeros(n_qubits, dtype=int)
         #hf_bitstring[:self.hamiltonian.molecule.n_electrons] = 1
-        n_electrons = self._eff_n_electrons
         @qml.qnode(self.device)
         def circuit(p):
-
-            for i in range(n_electrons):
-                qml.PauliX(wires=i)
+            self._prepare_initial_state()
 
             for theta, op in zip(params, self.selected_operators):
                 for term, coeff in op.terms.items():

@@ -94,10 +94,8 @@ class AdaptVQE(BaseVQE):
         
         @qml.qnode(self.device)
         def circuit(params):
-            # Initial state (Hartree-Fock like)
-            n_electrons = self.hamiltonian.molecule.n_electrons or n_qubits // 2
-            for i in range(min(n_electrons, n_qubits)):
-                qml.PauliX(wires=i)
+            # Initial state preparation
+            self._prepare_initial_state()
             
             # Apply selected operators
             for idx, op_idx in enumerate(self.selected_operators):

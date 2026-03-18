@@ -49,7 +49,26 @@ class QubitHamiltonian:
     pauli_strings: List[str]
     n_qubits: int
     n_terms: int
-    
+    cs_initial_state: Optional[np.ndarray] = None
+
+    def to_dict(self) -> Dict[str, float]:
+        """Convert to dict mapping Pauli strings to coefficients."""
+        return {ps: float(c) for ps, c in zip(self.pauli_strings, self.coefficients)}
+
+    @classmethod
+    def from_dict(cls, ham_dict: Dict[str, float], molecule: 'Molecule') -> 'QubitHamiltonian':
+        """Construct a QubitHamiltonian from a {pauli_string: coefficient} dict."""
+        pauli_strings = list(ham_dict.keys())
+        coefficients = np.array([ham_dict[ps] for ps in pauli_strings])
+        n_qubits = len(pauli_strings[0]) if pauli_strings else 0
+        return cls(
+            molecule=molecule,
+            coefficients=coefficients,
+            pauli_strings=pauli_strings,
+            n_qubits=n_qubits,
+            n_terms=len(pauli_strings),
+        )
+
     def truncate(self, max_terms: int = 1000, target_qubits: int = 8) -> 'QubitHamiltonian':
         """
         Truncate the Hamiltonian by keeping only the most important terms.

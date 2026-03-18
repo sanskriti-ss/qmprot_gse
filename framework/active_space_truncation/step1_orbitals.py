@@ -159,8 +159,8 @@ def run_orbital_analysis(
 
     diag.proposed_active_indices = candidates
     diag.proposed_n_active_orbitals = len(candidates)
-    n_active_e = mol.nelectron - 2 * n_core
-    diag.proposed_n_active_electrons = min(n_active_e, 2 * len(candidates))
+    n_active_occupied = len([i for i in candidates if i < n_occ])
+    diag.proposed_n_active_electrons = 2 * n_active_occupied
 
     # Optional basis comparison
     if run_basis_comparison:

@@ -74,7 +74,10 @@ def validate_active_space(
         mf.kernel()
 
     mc = mcscf.CASCI(mf, ncas, nelecas)
-    mc.kernel()
+    # PySCF sort_mo uses 1-based orbital indices
+    cas_list = [i + 1 for i in diagnostics.proposed_active_indices]
+    mo = mcscf.sort_mo(mc, mf.mo_coeff, cas_list)
+    mc.kernel(mo)
 
     result.casci_energy = float(mc.e_tot)
     result.casci_converged = True
@@ -86,7 +89,8 @@ def validate_active_space(
 
     if run_casscf:
         mc_scf = mcscf.CASSCF(mf, ncas, nelecas)
-        mc_scf.kernel()
+        mo_scf = mcscf.sort_mo(mc_scf, mf.mo_coeff, cas_list)
+        mc_scf.kernel(mo_scf)
         result.casscf_energy = float(mc_scf.e_tot)
         result.casscf_converged = bool(mc_scf.converged)
 

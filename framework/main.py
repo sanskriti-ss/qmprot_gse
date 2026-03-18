@@ -145,7 +145,30 @@ class VQEFramework:
             target_qubits = kwargs.get("target_qubits", HAMILTONIAN_TARGET_QUBITS)
             if hamiltonian.n_terms > max_terms:
                 hamiltonian = hamiltonian.truncate(max_terms=max_terms, target_qubits=target_qubits)
-        
+
+        # Optional contextual subspace reduction (after active space / coefficient truncation)
+        cs_enabled = kwargs.pop("contextual_subspace", False)
+        cs_target_qubits = kwargs.pop("cs_target_qubits", None)
+        if cs_enabled:
+            from contextual_subspace.cs_reduction import apply_contextual_subspace_reduction
+            if cs_target_qubits is None:
+                cs_target_qubits = max(1, hamiltonian.n_qubits // 2)
+                logger.info(f"--cs-target-qubits not set; defaulting to n_qubits // 2 = {cs_target_qubits}")
+            cs_dfs_cutoff = kwargs.pop("cs_dfs_cutoff", 60.0)
+            hamiltonian, cs_metadata = apply_contextual_subspace_reduction(
+                hamiltonian,
+                target_qubits=cs_target_qubits,
+                dfs_cutoff_seconds=cs_dfs_cutoff,
+            )
+            if cs_metadata.get("reduced"):
+                logger.info(
+                    f"CS reduction: {cs_metadata['original_qubits']} -> "
+                    f"{cs_metadata['reduced_qubits']} qubits "
+                    f"({cs_metadata['reduced_terms']} terms)"
+                )
+            else:
+                logger.info("CS reduction: no reduction applied")
+
         # Get algorithm class
         AlgorithmClass = get_algorithm(algorithm)
         
@@ -462,7 +485,15 @@ Examples:
                        help=f'Max hamiltonian terms to keep for coefficient mode (default: {HAMILTONIAN_MAX_TERMS})')
     parser.add_argument('--target-qubits', type=int, default=HAMILTONIAN_TARGET_QUBITS,
                        help=f'Target number of qubits for coefficient truncation (default: {HAMILTONIAN_TARGET_QUBITS})')
-    
+
+    # Contextual subspace reduction (optional, applied after truncation)
+    parser.add_argument('--contextual-subspace', action='store_true',
+                       help='Enable contextual subspace reduction before VQE')
+    parser.add_argument('--cs-target-qubits', type=int, default=None,
+                       help='Target number of qubits after CS reduction')
+    parser.add_argument('--cs-dfs-cutoff', type=float, default=60.0,
+                       help='Time budget (seconds) for greedy DFS search (default: 60)')
+
     # Backend & noise parameters
     parser.add_argument('--backend-type', type=str, default=BACKEND_TYPE,
                        choices=['statevector', 'noisy'],
@@ -562,6 +593,9 @@ Examples:
         "active_space_basis": args.active_space_basis,
         "max_hamiltonian_terms": args.max_hamiltonian_terms,
         "target_qubits": args.target_qubits,
+        "contextual_subspace": args.contextual_subspace,
+        "cs_target_qubits": args.cs_target_qubits,
+        "cs_dfs_cutoff": args.cs_dfs_cutoff,
         "backend_type": args.backend_type,
         "noise_model": args.noise_model,
         "noise_strength": args.noise_strength,

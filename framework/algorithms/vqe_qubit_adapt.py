@@ -146,7 +146,11 @@ class QubitAdaptVQE(BaseVQE):
         self.device = create_device(self.backend_config)
         
         # Generate Pauli Pool
-        if not self.use_restricted_pool:
+        # Use full pool when CS reduction is active (no meaningful occupied/virtual split)
+        cs_active = getattr(self.hamiltonian, "cs_initial_state", None) is not None
+        if not self.use_restricted_pool or cs_active:
+            if cs_active:
+                logger.info("CS reduction active; using FULL pool (occupied/virtual split not applicable)")
             self.operator_pool = self._generate_full_pool(n_qubits)
             logger.info(f"Built FULL Pauli operator pool with {len(self.operator_pool)} operators")
         else:
@@ -195,10 +199,8 @@ class QubitAdaptVQE(BaseVQE):
         
         @qml.qnode(self.device)
         def circuit(params):
-            # Initial state (Hartree-Fock)
-            n_electrons = min(self.hamiltonian.molecule.n_electrons or n_qubits // 2, n_qubits)
-            for i in range(n_electrons):
-                qml.PauliX(wires=i)
+            # Initial state preparation
+            self._prepare_initial_state()
             
             # Apply selected operators
             for idx, op_idx in enumerate(self.selected_operators):
@@ -261,10 +263,15 @@ class QubitAdaptVQE(BaseVQE):
         delta = 1e-5
         
         n_qubits = self.n_qubits
-        n_elec = min(self.hamiltonian.molecule.n_electrons or n_qubits // 2, n_qubits // 2)
-        logger.info(f"Gradient computation: n_qubits={n_qubits}, n_electrons_used={n_elec}, "
-                     f"HF state={'|' + '1'*n_elec + '0'*(n_qubits-n_elec) + '>'}, "
-                     f"pool_size={len(self.operator_pool)}")
+        cs_active = getattr(self.hamiltonian, "cs_initial_state", None) is not None
+        if cs_active:
+            logger.info(f"Gradient computation: n_qubits={n_qubits}, "
+                        f"initial_state=CS-rotated HF, pool_size={len(self.operator_pool)}")
+        else:
+            n_elec = min(self.hamiltonian.molecule.n_electrons or n_qubits // 2, n_qubits // 2)
+            logger.info(f"Gradient computation: n_qubits={n_qubits}, n_electrons_used={n_elec}, "
+                        f"HF state={'|' + '1'*n_elec + '0'*(n_qubits-n_elec) + '>'}, "
+                        f"pool_size={len(self.operator_pool)}")
         
         viable_ops = self._prescreen_pool()
         

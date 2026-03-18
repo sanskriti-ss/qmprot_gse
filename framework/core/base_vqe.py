@@ -158,6 +158,23 @@ class BaseVQE(ABC):
         self.n_qubits = hamiltonian.n_qubits
         self.n_parameters: int = 0
         
+    def _prepare_initial_state(self):
+        """Prepare the initial state inside a QNode circuit.
+
+        If the Hamiltonian carries a CS-rotated initial state (from contextual
+        subspace reduction), use ``qml.StatePrep``.  Otherwise fall back to
+        the standard Hartree-Fock preparation (flip first *n_electrons* qubits).
+        """
+        import pennylane as qml
+
+        cs_state = getattr(self.hamiltonian, "cs_initial_state", None)
+        if cs_state is not None:
+            qml.StatePrep(cs_state, wires=range(self.n_qubits))
+        else:
+            n_electrons = self.hamiltonian.molecule.n_electrons or self.n_qubits // 2
+            for i in range(min(n_electrons, self.n_qubits)):
+                qml.PauliX(wires=i)
+
     @abstractmethod
     def build_ansatz(self) -> Any:
         """

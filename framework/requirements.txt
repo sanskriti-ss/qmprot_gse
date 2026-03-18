@@ -27,4 +27,6 @@ qiskit-aer>=0.13.0
 pyscf>=2.4.0
 openfermion>=1.6.0
 openfermionpyscf>=0.5
-PyVista>=0.47.1
+
+# Optional: Active space visualization
+pyvista>=0.47.1

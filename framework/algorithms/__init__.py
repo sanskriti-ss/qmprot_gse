@@ -8,6 +8,7 @@ from .vqe_adapt import AdaptVQE
 from .vqe_qubit_adapt import QubitAdaptVQE
 from .vqe_hardware_efficient import HardwareEfficientVQE
 
+from .vqe_qubit_adapt import QubitAdaptVQE
 from .vqe_qaoa_inspired import QAOAInspiredVQE
 from .vqe_iqcc_inspired import iQCC_inspired_VQE
 from .vqe_iqcc_true import iQCC_true_VQE

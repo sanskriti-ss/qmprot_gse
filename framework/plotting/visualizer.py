@@ -26,7 +26,7 @@ DEFAULT_COLORS = {
     "hardware_efficient_vqe": "#2ca02c",
     "qaoa_inspired_vqe": "#d62728",
     "qubit_adapt_vqe": "#9467bd",
-    "iqcc_vqe": "#e377c2",
+    "iqcc_inspired_vqe": "#e377c2",
     "cb_vqe": "#17becf",
     "hva_vqe": "#bcbd22",
     "reference": "#7f7f7f",
