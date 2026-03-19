@@ -419,14 +419,8 @@ class ClassicallyBoostedVQE(BaseVQE):
         best_energy = min(vqe_energy, cb_energy)
 
         # ── Build result ──────────────────────────────────────────────
-        # Reference = HF energy of the truncated system (params=0 state).
-        # VQE should optimise *below* this reference (variational principle).
-        ref_energy = (
-            self.hf_energy
-            if self.hf_energy is not None
-            else self.hamiltonian.molecule.reference_energy
-        )
-        error = best_energy - ref_energy          # should be ≤ 0
+        ref_energy = self.hamiltonian.molecule.reference_energy
+        error = best_energy - ref_energy
         relative_error = abs(error / ref_energy) if ref_energy != 0 else 0.0
 
         converged = (

@@ -314,12 +314,8 @@ class HamiltonianVariationalVQE(BaseVQE):
         runtime = time.time() - start_time
 
         # ── Reference = HF energy (truncated system, params=0) ────────
-        ref_energy = (
-            self.hf_energy
-            if self.hf_energy is not None
-            else self.hamiltonian.molecule.reference_energy
-        )
-        error = optimal_energy - ref_energy          # should be ≤ 0
+        ref_energy = self.hamiltonian.molecule.reference_energy
+        error = optimal_energy - ref_energy
         relative_error = abs(error / ref_energy) if ref_energy != 0 else 0.0
 
         converged = (

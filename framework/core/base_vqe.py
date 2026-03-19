@@ -168,9 +168,14 @@ class BaseVQE(ABC):
         import pennylane as qml
 
         cs_state = getattr(self.hamiltonian, "cs_initial_state", None)
-        if cs_state is not None:
+        if cs_state is not None and np.linalg.norm(cs_state) > 1e-10:
             qml.StatePrep(cs_state, wires=range(self.n_qubits))
         else:
+            if cs_state is not None:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "CS initial state has zero norm; falling back to HF initial state"
+                )
             n_electrons = self.hamiltonian.molecule.n_electrons or self.n_qubits // 2
             for i in range(min(n_electrons, self.n_qubits)):
                 qml.PauliX(wires=i)

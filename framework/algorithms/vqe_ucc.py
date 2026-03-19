@@ -278,7 +278,6 @@ class UCCSDVariationalVQE(BaseVQE):
 
         H_full = self.hamiltonian.to_pennylane()
         insert_noise = self.noise_inserter
-        n_el = n_electrons
         _singles = self._singles
         _doubles = self._doubles
         _beta_singles = self._beta_singles
@@ -286,9 +285,8 @@ class UCCSDVariationalVQE(BaseVQE):
 
         @qml.qnode(self.device)
         def circuit(params):
-            # ── 1. Hartree-Fock reference state ──────────────────────
-            for i in range(n_el):
-                qml.PauliX(wires=i)
+            # ── 1. Initial state (HF or CS-rotated HF if CS reduction applied) ──
+            self._prepare_initial_state()
 
             # ── 2. Single excitations ─────────────────────────────────
             for k, (i, a) in enumerate(_singles):
@@ -364,12 +362,7 @@ class UCCSDVariationalVQE(BaseVQE):
         optimal_params, optimal_energy = self.optimize()
         runtime = time.time() - start_time
 
-        # ── Reference = HF energy ─────────────────────────────────────
-        ref_energy = (
-            self.hf_energy
-            if self.hf_energy is not None
-            else self.hamiltonian.molecule.reference_energy
-        )
+        ref_energy = self.hamiltonian.molecule.reference_energy
         error = optimal_energy - ref_energy
         relative_error = abs(error / ref_energy) if ref_energy != 0 else 0.0
 

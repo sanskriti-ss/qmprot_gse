@@ -1,0 +1,1156 @@
+2026-03-18 20:04:33,869 - __main__ - INFO - Using H5 mode (.h5 dataset files)
+2026-03-18 20:04:33,872 - core.hamiltonian_loader - INFO - Loaded metadata for 13 molecules
+2026-03-18 20:04:33,876 - __main__ - INFO - VQE Framework initialized
+2026-03-18 20:04:33,876 - __main__ - INFO - Hamiltonians directory: /mnt/c/qmprot_2026/qmprot_gse/framework/datasets
+2026-03-18 20:04:33,876 - __main__ - INFO - Available algorithms: ['vanilla_vqe', 'adapt_vqe', 'qubit_adapt_vqe', 'hardware_efficient_vqe', 'qaoa_inspired_vqe', 'iqcc_inspired_vqe', 'iqcc_true_vqe', 'cb_vqe', 'hva_vqe', 'ucc_vqe', 'nn_ae_vqe']
+2026-03-18 20:04:33,876 - __main__ - INFO - Running vanilla_vqe on ala
+2026-03-18 20:04:33,876 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:04:33,922 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:04:33,922 - active_space_truncation.run_pipeline - INFO - ACTIVE SPACE PIPELINE: ALA
+2026-03-18 20:04:33,923 - active_space_truncation.run_pipeline - INFO - Basis: cc-pvdz
+2026-03-18 20:04:33,923 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:04:33,923 - active_space_truncation.run_pipeline - INFO - 
+[1/4] Loading geometry...
+2026-03-18 20:04:33,962 - active_space_truncation.run_pipeline - INFO -   Molecule: alanine (C3H7NO2)
+2026-03-18 20:04:33,962 - active_space_truncation.run_pipeline - INFO -   Atoms: 13, Electrons: 48
+2026-03-18 20:04:33,963 - active_space_truncation.run_pipeline - INFO - 
+[2/4] Running HF + MP2 orbital analysis...
+converged SCF energy = -321.889756423795
+E(RMP2) = -322.858511469762  E_corr = -0.968755045966962
+E(SCS-RMP2) = -322.835024726965  E_corr = -0.945268303170596
+2026-03-18 20:04:51,073 - active_space_truncation.run_pipeline - INFO -   Completed in 17.1s
+2026-03-18 20:04:51,074 - active_space_truncation.run_pipeline - INFO - ============================================================
+ORBITAL ANALYSIS DIAGNOSTICS
+============================================================
+Basis functions:       119
+Molecular orbitals:    119
+
+HF energy:             -321.8897564238 Ha
+HF converged:          True
+MP2 total energy:      -322.8585114698 Ha
+MP2 correlation:       -0.9687550460 Ha
+
+HOMO-LUMO gap:         15.0584 eV
+Dipole moment:         2.9583 Debye
+
+Core orbitals frozen:  6
+Proposed active space: (10e, 7o)
+Qubits needed:         14
+
+Natural orbital occupations (active region):
+  MO  19: 1.960938
+  MO  20: 1.958550
+  MO  21: 1.954288
+  MO  22: 1.953722
+  MO  23: 1.940805
+  MO  24: 0.060011
+  MO  25: 0.037101
+============================================================
+2026-03-18 20:04:51,074 - active_space_truncation.run_pipeline - INFO - 
+[3/4] Validating active space with CASCI...
+CASCI E = -321.892078724005  E(CI) = -17.0515301382703  S^2 = 0.0000000
+2026-03-18 20:04:51,541 - active_space_truncation.run_pipeline - INFO -   Completed in 0.5s
+2026-03-18 20:04:51,541 - active_space_truncation.run_pipeline - INFO - ============================================================
+ACTIVE SPACE VALIDATION
+============================================================
+Active space:          (10e, 7o)
+Qubits:                14
+
+HF energy:             -321.8897564238 Ha
+CASCI energy:          -321.8920787240 Ha
+CASCI converged:       True
+CASCI below HF:        True
+Correlation recovered:  0.2%
+============================================================
+Saved active orbital summary: /mnt/c/qmprot_2026/qmprot_gse/framework/visualize_molecules/output/alanine_active_orbitals.png
+2026-03-18 20:04:57,441 - active_space_truncation.run_pipeline - INFO -   Active orbital image: /mnt/c/qmprot_2026/qmprot_gse/framework/visualize_molecules/output/alanine_active_orbitals.png
+2026-03-18 20:04:57,441 - active_space_truncation.run_pipeline - INFO - 
+[4/4] Building qubit Hamiltonian...
+2026-03-18 20:04:58,120 - active_space_truncation.run_pipeline - INFO -   Completed in 0.7s
+2026-03-18 20:04:58,121 - active_space_truncation.run_pipeline - INFO - ============================================================
+QUBIT HAMILTONIAN
+============================================================
+Number of qubits:  14
+Number of terms:   3382
+Core energy:       -317.8711096542 Ha  (frozen core + nuclear repulsion)
+
+Top 10 terms by magnitude:
+  -317.87110965+0.00000000j  IIIIIIIIIIIIII
+  +0.67075839+0.00000000j  IIIIIIZIIIIIII
+  +0.67075839+0.00000000j  IIIIIIIZIIIIII
+  +0.65927357+0.00000000j  IIIIZIIIIIIIII
+  +0.65927357+0.00000000j  IIIIIZIIIIIIII
+  +0.65763014+0.00000000j  IZIIIIIIIIIIII
+  +0.65763014+0.00000000j  ZIIIIIIIIIIIII
+  +0.62940947+0.00000000j  IIZIIIIIIIIIII
+  +0.62940947+0.00000000j  IIIZIIIIIIIIII
+  +0.61021965+0.00000000j  IIIIIIIIZIIIII
+  ... and 3372 more terms
+============================================================
+2026-03-18 20:04:58,121 - active_space_truncation.run_pipeline - INFO - 
+============================================================
+2026-03-18 20:04:58,122 - active_space_truncation.run_pipeline - INFO - PIPELINE COMPLETE
+2026-03-18 20:04:58,122 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:04:58,122 - active_space_truncation.run_pipeline - INFO - Total time:            24.2s
+2026-03-18 20:04:58,122 - active_space_truncation.run_pipeline - INFO - Molecule:              alanine (C3H7NO2)
+2026-03-18 20:04:58,122 - active_space_truncation.run_pipeline - INFO - Basis:                 cc-pvdz
+2026-03-18 20:04:58,123 - active_space_truncation.run_pipeline - INFO - HF energy:             -321.8897564238 Ha
+2026-03-18 20:04:58,123 - active_space_truncation.run_pipeline - INFO - MP2 energy:            -322.8585114698 Ha
+2026-03-18 20:04:58,123 - active_space_truncation.run_pipeline - INFO - CASCI energy:          -321.8920787240 Ha
+2026-03-18 20:04:58,123 - active_space_truncation.run_pipeline - INFO - Active space:          (10e, 7o)
+2026-03-18 20:04:58,123 - active_space_truncation.run_pipeline - INFO - Qubits:                14
+2026-03-18 20:04:58,124 - active_space_truncation.run_pipeline - INFO - Hamiltonian terms:     3382
+2026-03-18 20:04:58,124 - active_space_truncation.run_pipeline - INFO - Core energy:           -317.8711096542 Ha
+2026-03-18 20:04:58,124 - active_space_truncation.run_pipeline - INFO - CASCI below HF:        True
+2026-03-18 20:04:58,124 - active_space_truncation.run_pipeline - INFO - Correlation recovered: 0.2%
+2026-03-18 20:04:58,124 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:04:58,125 - __main__ - INFO - Active space Hamiltonian: 14 qubits, 3382 terms
+2026-03-18 20:04:58,125 - __main__ - INFO - Core energy (frozen core + nuclear repulsion): -317.8711096542 Ha
+2026-03-18 20:04:58,125 - __main__ - INFO - CASCI reference energy: -321.8920787240 Ha
+2026-03-18 20:04:58,142 - contextual_subspace.cs_reduction - INFO - CS reduction: searching for noncontextual sub-Hamiltonian (cutoff=60.0s, criterion=weight)...
+2026-03-18 20:06:00,695 - contextual_subspace.cs_reduction - INFO - Noncontextual sub-Hamiltonian: 132/3382 terms (331.0908/335.1310 total weight, DFS took 62.6s)
+2026-03-18 20:06:00,742 - contextual_subspace.cs_reduction - INFO - Building quasi-quantized model and solving noncontextual ground state...
+2026-03-18 20:06:07,488 - contextual_subspace.cs_reduction - INFO - Noncontextual ground state energy: -321.88975642 Ha
+2026-03-18 20:06:07,490 - contextual_subspace.cs_reduction - INFO - CS reduction: 14 -> 8 qubits (6 generators stabilized, 8 released to quantum)
+2026-03-18 20:06:07,558 - contextual_subspace.cs_reduction - INFO - Rotated HF state: 1 non-zero amplitudes in 256-dim Hilbert space
+2026-03-18 20:06:07,561 - __main__ - INFO - CS reduction: 14 -> 8 qubits (361 terms)
+2026-03-18 20:06:07,561 - core.base_vqe - INFO - Running vanilla_vqe on alanine
+2026-03-18 20:06:07,561 - core.base_vqe - INFO - Backend: statevector
+2026-03-18 20:06:07,764 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -317.37063240 Ha  (reference = -321.89207872 Ha)
+2026-03-18 20:06:07,830 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:06:07,856 - algorithms.vqe_vanilla - INFO - Built ansatz with 48 parameters, 2 layers, backend=statevector
+2026-03-18 20:06:09,311 - core.base_vqe - INFO - Completed vanilla_vqe: Energy = -320.44737225, Error = 1.44470647, Runtime = 1.50s
+2026-03-18 20:06:09,312 - __main__ - INFO - Incremental results will be saved to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/run_results.csv
+2026-03-18 20:06:09,317 - __main__ - INFO - Running adapt_vqe on ala
+2026-03-18 20:06:09,317 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:06:09,317 - __main__ - INFO - Using cached Hamiltonian for ala (8 qubits, 361 terms)
+2026-03-18 20:06:09,318 - algorithms.vqe_adapt - INFO - Running adapt_vqe on alanine
+2026-03-18 20:06:09,318 - algorithms.vqe_adapt - INFO - Backend: statevector
+2026-03-18 20:06:09,460 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -317.37063240 Ha  (reference = -321.89207872 Ha)
+2026-03-18 20:06:09,461 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:06:09,461 - algorithms.vqe_adapt - INFO - Built operator pool with 56 operators
+2026-03-18 20:06:14,961 - algorithms.vqe_adapt - INFO - Converged at iteration 0 (gradient below threshold)
+2026-03-18 20:06:15,001 - algorithms.vqe_adapt - INFO - Completed adapt_vqe: Energy = -321.88975642, Error = 0.00232230, Operators = 0
+2026-03-18 20:06:15,004 - __main__ - INFO - Running qubit_adapt_vqe on ala
+2026-03-18 20:06:15,004 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:06:15,004 - __main__ - INFO - Using cached Hamiltonian for ala (8 qubits, 361 terms)
+2026-03-18 20:06:15,004 - algorithms.vqe_qubit_adapt - INFO - Running qubit_adapt_vqe on alanine
+2026-03-18 20:06:15,005 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:06:15,005 - algorithms.vqe_qubit_adapt - INFO - CS reduction active; using FULL pool (occupied/virtual split not applicable)
+2026-03-18 20:06:15,005 - algorithms.vqe_qubit_adapt - INFO - Built FULL Pauli operator pool with 616 operators
+2026-03-18 20:06:15,005 - algorithms.vqe_qubit_adapt - INFO - Gradient computation: n_qubits=8, initial_state=CS-rotated HF, pool_size=616
+2026-03-18 20:06:15,006 - algorithms.vqe_qubit_adapt - INFO - Pre-screening: 328/616 operators viable (288 skipped, 50 unique off-diagonal patterns in H)
+2026-03-18 20:06:45,585 - algorithms.vqe_qubit_adapt - INFO - Converged at iteration 0 (gradient 0.00e+00 < 0.0001)
+2026-03-18 20:06:45,629 - __main__ - INFO - Running hardware_efficient_vqe on ala
+2026-03-18 20:06:45,630 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:06:45,630 - __main__ - INFO - Using cached Hamiltonian for ala (8 qubits, 361 terms)
+2026-03-18 20:06:45,630 - core.base_vqe - INFO - Running hardware_efficient_vqe on alanine
+2026-03-18 20:06:45,630 - core.base_vqe - INFO - Backend: statevector
+2026-03-18 20:06:45,785 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -317.37063240 Ha  (reference = -321.89207872 Ha)
+2026-03-18 20:06:45,786 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:06:45,821 - algorithms.vqe_hardware_efficient - INFO - Built HW-efficient ansatz with 48 parameters, 2 layers, CNOT entangling, backend=statevector
+2026-03-18 20:06:47,109 - core.base_vqe - INFO - Completed hardware_efficient_vqe: Energy = -320.05861639, Error = 1.83346233, Runtime = 1.32s
+2026-03-18 20:06:47,112 - __main__ - INFO - Running qaoa_inspired_vqe on ala
+2026-03-18 20:06:47,112 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:06:47,112 - __main__ - INFO - Using cached Hamiltonian for ala (8 qubits, 361 terms)
+2026-03-18 20:06:47,113 - core.base_vqe - INFO - Running qaoa_inspired_vqe on alanine
+2026-03-18 20:06:47,113 - core.base_vqe - INFO - Backend: statevector
+2026-03-18 20:06:47,267 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -317.37063240 Ha  (reference = -321.89207872 Ha)
+2026-03-18 20:06:47,268 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:06:47,302 - algorithms.vqe_qaoa_inspired - INFO - Built QAOA-inspired ansatz with 12 parameters, 2 layers, backend=statevector
+2026-03-18 20:06:48,878 - core.base_vqe - INFO - Completed qaoa_inspired_vqe: Energy = -321.63282654, Error = 0.25925219, Runtime = 1.61s
+2026-03-18 20:06:48,881 - __main__ - INFO - Running iqcc_inspired_vqe on ala
+2026-03-18 20:06:48,881 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:06:48,882 - __main__ - INFO - Using cached Hamiltonian for ala (8 qubits, 361 terms)
+2026-03-18 20:06:48,882 - algorithms.vqe_iqcc_inspired - INFO - Running iqcc_inspired_vqe on alanine
+2026-03-18 20:06:49,048 - algorithms.vqe_iqcc_inspired - INFO - HF energy (truncated, n_el=4) = -317.37063240 Ha
+2026-03-18 20:06:49,050 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+Initial energy: -321.88975642379455
+HF reference: -317.37063240037514
+2026-03-18 20:06:49,120 - algorithms.vqe_iqcc_inspired - INFO - iQCC step 1/20
+Number of gradients 276
+max gradient: 1.9014476972112337e-10
+2026-03-18 20:06:56,290 - algorithms.vqe_iqcc_inspired - INFO - Selected operator with gradient 1.901e-10
+2026-03-18 20:06:56,294 - __main__ - INFO - Running iqcc_true_vqe on ala
+2026-03-18 20:06:56,294 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:06:56,294 - __main__ - INFO - Using cached Hamiltonian for ala (8 qubits, 361 terms)
+2026-03-18 20:06:56,295 - algorithms.vqe_iqcc_true - INFO - Running iqcc_vqe on alanine
+2026-03-18 20:06:56,468 - algorithms.vqe_iqcc_true - INFO - HF energy (truncated, n_el=4) = -317.37063240 Ha
+2026-03-18 20:06:56,469 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:06:56,540 - algorithms.vqe_iqcc_true - INFO - iQCC step 1/20
+2026-03-18 20:07:04,067 - algorithms.vqe_iqcc_true - INFO - Selected operator with gradient 1.901e-10
+2026-03-18 20:07:04,071 - __main__ - INFO - Running cb_vqe on ala
+2026-03-18 20:07:04,071 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:07:04,071 - __main__ - INFO - Using cached Hamiltonian for ala (8 qubits, 361 terms)
+2026-03-18 20:07:04,071 - algorithms.vqe_CB - INFO - Running cb_vqe on alanine
+2026-03-18 20:07:04,072 - algorithms.vqe_CB - INFO - Backend: statevector
+2026-03-18 20:07:04,246 - algorithms.vqe_CB - INFO - HF energy (truncated, n_el=4) = -317.37063240 Ha
+2026-03-18 20:07:04,248 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:07:04,283 - algorithms.vqe_CB - INFO - CB-VQE ansatz: 48 params, 2 layers, backend=statevector
+2026-03-18 20:07:05,579 - algorithms.vqe_CB - INFO - CB-VQE: computing classical boost ... (n_electrons=4, n_qubits=8)
+2026-03-18 20:07:05,737 - algorithms.vqe_CB - INFO -   H11 Classical Entry(HF energy)     = -317.37063240
+2026-03-18 20:07:05,737 - algorithms.vqe_CB - INFO -   H22 Quantum Entry (VQE energy)    = -320.03054683
+2026-03-18 20:07:05,738 - algorithms.vqe_CB - INFO -   Relevant basis states: 53
+2026-03-18 20:07:06,959 - algorithms.vqe_CB - WARNING - Classical boost failed (ControlledQubitUnitary.__init__() missing 1 required positional argument: 'control_wires'); using VQE energy.
+2026-03-18 20:07:06,960 - algorithms.vqe_CB - INFO - Completed cb_vqe: VQE=-320.03054683, CB=-320.03054683, Best=-320.03054683, Error=1.86153190, Runtime=2.71s
+2026-03-18 20:07:06,981 - __main__ - INFO - Running hva_vqe on ala
+2026-03-18 20:07:06,981 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:07:06,982 - __main__ - INFO - Using cached Hamiltonian for ala (8 qubits, 361 terms)
+2026-03-18 20:07:06,982 - algorithms.vqe_hva - INFO - Running hva_vqe on alanine
+2026-03-18 20:07:06,982 - algorithms.vqe_hva - INFO - Backend: statevector
+2026-03-18 20:07:07,158 - algorithms.vqe_hva - INFO - HF energy (truncated, n_el=4) = -317.37063240 Ha
+2026-03-18 20:07:07,167 - algorithms.vqe_hva - INFO - HVA: 361 terms -> 24 commuting groups
+2026-03-18 20:07:07,204 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:07:07,239 - algorithms.vqe_hva - INFO - HVA ansatz built: 48 params (24 groups x 2 layers), backend=statevector
+2026-03-18 20:07:20,242 - algorithms.vqe_hva - INFO - Completed hva_vqe: Energy=-321.88975642, HF ref=-321.89207872, Error=0.00232230, Runtime=13.08s
+2026-03-18 20:07:20,246 - __main__ - INFO - Running ucc_vqe on ala
+2026-03-18 20:07:20,246 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:07:20,246 - __main__ - INFO - Using cached Hamiltonian for ala (8 qubits, 361 terms)
+2026-03-18 20:07:20,247 - algorithms.vqe_ucc - INFO - Running ucc_vqe on alanine
+2026-03-18 20:07:20,247 - algorithms.vqe_ucc - INFO - Backend: statevector
+2026-03-18 20:07:20,447 - algorithms.vqe_ucc - INFO - HF energy (n_el=4) = -317.37063240 Ha
+2026-03-18 20:07:20,479 - algorithms.vqe_ucc - INFO - UCCSD: n_electrons=4, n_qubits=8, singles=4, doubles=4, beta_singles=4, use_spin_symmetry=True
+2026-03-18 20:07:20,480 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:07:20,517 - algorithms.vqe_ucc - INFO - UCCSD ansatz built: 8 params, backend=statevector
+2026-03-18 20:07:21,122 - algorithms.vqe_ucc - INFO - Completed ucc_vqe: Energy=-321.88975642, HF ref=-321.89207872, Error=0.00232230, Runtime=0.64s
+2026-03-18 20:07:21,125 - __main__ - INFO - Running nn_ae_vqe on ala
+2026-03-18 20:07:21,125 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:07:21,125 - __main__ - INFO - Using cached Hamiltonian for ala (8 qubits, 361 terms)
+2026-03-18 20:07:21,126 - algorithms.vqe_nn_ae - INFO - Running nn_ae_vqe on alanine
+2026-03-18 20:07:21,126 - algorithms.vqe_nn_ae - INFO - Config: enc=ry_brick, lat=ry_cz, dec=mirror, init=zeros
+2026-03-18 20:07:21,126 - algorithms.vqe_nn_ae - INFO - Backend: statevector
+2026-03-18 20:07:21,286 - algorithms.vqe_nn_ae - INFO - HF energy (n_el=4) = -317.37063240 Ha
+2026-03-18 20:07:21,293 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:07:21,329 - algorithms.vqe_nn_ae - INFO - NN-AE-VQE ansatz built: n_qubits=8, n_latent=4, enc_layers=1, lat_layers=2, enc=ry_brick, lat=ry_cz, dec=mirror, n_params=24, backend=statevector
+2026-03-18 20:07:22,734 - algorithms.vqe_nn_ae - INFO - Completed nn_ae_vqe: Energy=-321.88975642, HF ref=-321.89207872, Error=0.00232230, Runtime=1.44s
+2026-03-18 20:07:22,737 - __main__ - INFO - Running vanilla_vqe on arg
+2026-03-18 20:07:22,738 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:07:22,738 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:07:22,738 - active_space_truncation.run_pipeline - INFO - ACTIVE SPACE PIPELINE: ARG
+2026-03-18 20:07:22,738 - active_space_truncation.run_pipeline - INFO - Basis: cc-pvdz
+2026-03-18 20:07:22,738 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:07:22,738 - active_space_truncation.run_pipeline - INFO - 
+[1/4] Loading geometry...
+2026-03-18 20:07:22,798 - active_space_truncation.run_pipeline - INFO -   Molecule: arginine (C6H14N4O2)
+2026-03-18 20:07:22,799 - active_space_truncation.run_pipeline - INFO -   Atoms: 26, Electrons: 94
+2026-03-18 20:07:22,799 - active_space_truncation.run_pipeline - INFO - 
+[2/4] Running HF + MP2 orbital analysis...
+converged SCF energy = -602.933910817056
+E(RMP2) = -604.827181791812  E_corr = -1.89327097475676
+E(SCS-RMP2) = -604.778760713661  E_corr = -1.84484989660511
+2026-03-18 20:09:34,915 - active_space_truncation.run_pipeline - INFO -   Completed in 132.1s
+2026-03-18 20:09:34,915 - active_space_truncation.run_pipeline - INFO - ============================================================
+ORBITAL ANALYSIS DIAGNOSTICS
+============================================================
+Basis functions:       238
+Molecular orbitals:    238
+
+HF energy:             -602.9339108171 Ha
+HF converged:          True
+MP2 total energy:      -604.8271817918 Ha
+MP2 correlation:       -1.8932709748 Ha
+
+HOMO-LUMO gap:         13.1059 eV
+Dipole moment:         5.5881 Debye
+
+Core orbitals frozen:  12
+Proposed active space: (10e, 7o)
+Qubits needed:         14
+
+Natural orbital occupations (active region):
+  MO  42: 1.953301
+  MO  43: 1.951700
+  MO  44: 1.950047
+  MO  45: 1.940741
+  MO  46: 1.939347
+  MO  47: 0.060207
+  MO  48: 0.058167
+============================================================
+2026-03-18 20:09:34,916 - active_space_truncation.run_pipeline - INFO - 
+[3/4] Validating active space with CASCI...
+CASCI E = -602.934009286484  E(CI) = -12.6212364062203  S^2 = 0.0000000
+2026-03-18 20:09:45,844 - active_space_truncation.run_pipeline - INFO -   Completed in 10.9s
+2026-03-18 20:09:45,844 - active_space_truncation.run_pipeline - INFO - ============================================================
+ACTIVE SPACE VALIDATION
+============================================================
+Active space:          (10e, 7o)
+Qubits:                14
+
+HF energy:             -602.9339108171 Ha
+CASCI energy:          -602.9340092865 Ha
+CASCI converged:       True
+CASCI below HF:        True
+Correlation recovered:  0.0%
+============================================================
+Saved active orbital summary: /mnt/c/qmprot_2026/qmprot_gse/framework/visualize_molecules/output/arginine_active_orbitals.png
+2026-03-18 20:09:50,464 - active_space_truncation.run_pipeline - INFO -   Active orbital image: /mnt/c/qmprot_2026/qmprot_gse/framework/visualize_molecules/output/arginine_active_orbitals.png
+2026-03-18 20:09:50,464 - active_space_truncation.run_pipeline - INFO - 
+[4/4] Building qubit Hamiltonian...
+2026-03-18 20:09:58,045 - active_space_truncation.run_pipeline - INFO -   Completed in 7.6s
+2026-03-18 20:09:58,046 - active_space_truncation.run_pipeline - INFO - ============================================================
+QUBIT HAMILTONIAN
+============================================================
+Number of qubits:  14
+Number of terms:   3354
+Core energy:       -599.7602676961 Ha  (frozen core + nuclear repulsion)
+
+Top 10 terms by magnitude:
+  -599.76026770+0.00000000j  IIIIIIIIIIIIII
+  +0.54886514+0.00000000j  IIIIIIZIIIIIII
+  +0.54886514+0.00000000j  IIIIIIIZIIIIII
+  +0.52778049+0.00000000j  IIIIIIIIZIIIII
+  +0.52778049+0.00000000j  IIIIIIIIIZIIII
+  +0.46043189+0.00000000j  IIIIIZIIIIIIII
+  +0.46043189+0.00000000j  IIIIZIIIIIIIII
+  +0.45673019+0.00000000j  IIZIIIIIIIIIII
+  +0.45673019+0.00000000j  IIIZIIIIIIIIII
+  +0.42637852+0.00000000j  ZIIIIIIIIIIIII
+  ... and 3344 more terms
+============================================================
+2026-03-18 20:09:58,046 - active_space_truncation.run_pipeline - INFO - 
+============================================================
+2026-03-18 20:09:58,047 - active_space_truncation.run_pipeline - INFO - PIPELINE COMPLETE
+2026-03-18 20:09:58,047 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:09:58,047 - active_space_truncation.run_pipeline - INFO - Total time:            155.3s
+2026-03-18 20:09:58,047 - active_space_truncation.run_pipeline - INFO - Molecule:              arginine (C6H14N4O2)
+2026-03-18 20:09:58,047 - active_space_truncation.run_pipeline - INFO - Basis:                 cc-pvdz
+2026-03-18 20:09:58,048 - active_space_truncation.run_pipeline - INFO - HF energy:             -602.9339108171 Ha
+2026-03-18 20:09:58,048 - active_space_truncation.run_pipeline - INFO - MP2 energy:            -604.8271817918 Ha
+2026-03-18 20:09:58,048 - active_space_truncation.run_pipeline - INFO - CASCI energy:          -602.9340092865 Ha
+2026-03-18 20:09:58,048 - active_space_truncation.run_pipeline - INFO - Active space:          (10e, 7o)
+2026-03-18 20:09:58,048 - active_space_truncation.run_pipeline - INFO - Qubits:                14
+2026-03-18 20:09:58,049 - active_space_truncation.run_pipeline - INFO - Hamiltonian terms:     3354
+2026-03-18 20:09:58,049 - active_space_truncation.run_pipeline - INFO - Core energy:           -599.7602676961 Ha
+2026-03-18 20:09:58,049 - active_space_truncation.run_pipeline - INFO - CASCI below HF:        True
+2026-03-18 20:09:58,049 - active_space_truncation.run_pipeline - INFO - Correlation recovered: 0.0%
+2026-03-18 20:09:58,049 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:09:58,050 - __main__ - INFO - Active space Hamiltonian: 14 qubits, 3354 terms
+2026-03-18 20:09:58,050 - __main__ - INFO - Core energy (frozen core + nuclear repulsion): -599.7602676961 Ha
+2026-03-18 20:09:58,050 - __main__ - INFO - CASCI reference energy: -602.9340092865 Ha
+2026-03-18 20:09:58,050 - contextual_subspace.cs_reduction - INFO - CS reduction: searching for noncontextual sub-Hamiltonian (cutoff=60.0s, criterion=weight)...
+2026-03-18 20:11:07,226 - contextual_subspace.cs_reduction - INFO - Noncontextual sub-Hamiltonian: 132/3354 terms (609.6943/611.2945 total weight, DFS took 69.2s)
+2026-03-18 20:11:07,274 - contextual_subspace.cs_reduction - INFO - Building quasi-quantized model and solving noncontextual ground state...
+2026-03-18 20:11:14,982 - contextual_subspace.cs_reduction - INFO - Noncontextual ground state energy: -602.93391082 Ha
+2026-03-18 20:11:14,983 - contextual_subspace.cs_reduction - INFO - CS reduction: 14 -> 8 qubits (6 generators stabilized, 8 released to quantum)
+2026-03-18 20:11:15,068 - contextual_subspace.cs_reduction - INFO - Rotated HF state: 1 non-zero amplitudes in 256-dim Hilbert space
+2026-03-18 20:11:15,071 - __main__ - INFO - CS reduction: 14 -> 8 qubits (361 terms)
+2026-03-18 20:11:15,071 - core.base_vqe - INFO - Running vanilla_vqe on arginine
+2026-03-18 20:11:15,072 - core.base_vqe - INFO - Backend: statevector
+2026-03-18 20:11:15,276 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -600.08947301 Ha  (reference = -602.93400929 Ha)
+2026-03-18 20:11:15,324 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:11:15,366 - algorithms.vqe_vanilla - INFO - Built ansatz with 48 parameters, 2 layers, backend=statevector
+2026-03-18 20:11:16,862 - core.base_vqe - INFO - Completed vanilla_vqe: Energy = -601.61498690, Error = 1.31902239, Runtime = 1.56s
+2026-03-18 20:11:16,867 - __main__ - INFO - Running adapt_vqe on arg
+2026-03-18 20:11:16,868 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:11:16,868 - __main__ - INFO - Using cached Hamiltonian for arg (8 qubits, 361 terms)
+2026-03-18 20:11:16,868 - algorithms.vqe_adapt - INFO - Running adapt_vqe on arginine
+2026-03-18 20:11:16,868 - algorithms.vqe_adapt - INFO - Backend: statevector
+2026-03-18 20:11:17,034 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -600.08947301 Ha  (reference = -602.93400929 Ha)
+2026-03-18 20:11:17,035 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:11:17,035 - algorithms.vqe_adapt - INFO - Built operator pool with 56 operators
+2026-03-18 20:11:21,518 - algorithms.vqe_adapt - INFO - Converged at iteration 0 (gradient below threshold)
+2026-03-18 20:11:21,559 - algorithms.vqe_adapt - INFO - Completed adapt_vqe: Energy = -602.93391082, Error = 0.00009847, Operators = 0
+2026-03-18 20:11:21,562 - __main__ - INFO - Running qubit_adapt_vqe on arg
+2026-03-18 20:11:21,562 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:11:21,562 - __main__ - INFO - Using cached Hamiltonian for arg (8 qubits, 361 terms)
+2026-03-18 20:11:21,563 - algorithms.vqe_qubit_adapt - INFO - Running qubit_adapt_vqe on arginine
+2026-03-18 20:11:21,563 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:11:21,563 - algorithms.vqe_qubit_adapt - INFO - CS reduction active; using FULL pool (occupied/virtual split not applicable)
+2026-03-18 20:11:21,564 - algorithms.vqe_qubit_adapt - INFO - Built FULL Pauli operator pool with 616 operators
+2026-03-18 20:11:21,564 - algorithms.vqe_qubit_adapt - INFO - Gradient computation: n_qubits=8, initial_state=CS-rotated HF, pool_size=616
+2026-03-18 20:11:21,564 - algorithms.vqe_qubit_adapt - INFO - Pre-screening: 328/616 operators viable (288 skipped, 50 unique off-diagonal patterns in H)
+2026-03-18 20:11:51,443 - algorithms.vqe_qubit_adapt - INFO - Converged at iteration 0 (gradient 5.68e-09 < 0.0001)
+2026-03-18 20:11:51,576 - __main__ - INFO - Running hardware_efficient_vqe on arg
+2026-03-18 20:11:51,576 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:11:51,576 - __main__ - INFO - Using cached Hamiltonian for arg (8 qubits, 361 terms)
+2026-03-18 20:11:51,577 - core.base_vqe - INFO - Running hardware_efficient_vqe on arginine
+2026-03-18 20:11:51,577 - core.base_vqe - INFO - Backend: statevector
+2026-03-18 20:11:51,745 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -600.08947301 Ha  (reference = -602.93400929 Ha)
+2026-03-18 20:11:51,760 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:11:51,825 - algorithms.vqe_hardware_efficient - INFO - Built HW-efficient ansatz with 48 parameters, 2 layers, CNOT entangling, backend=statevector
+2026-03-18 20:11:53,108 - core.base_vqe - INFO - Completed hardware_efficient_vqe: Energy = -601.79545025, Error = 1.13855904, Runtime = 1.35s
+2026-03-18 20:11:53,111 - __main__ - INFO - Running qaoa_inspired_vqe on arg
+2026-03-18 20:11:53,112 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:11:53,112 - __main__ - INFO - Using cached Hamiltonian for arg (8 qubits, 361 terms)
+2026-03-18 20:11:53,112 - core.base_vqe - INFO - Running qaoa_inspired_vqe on arginine
+2026-03-18 20:11:53,112 - core.base_vqe - INFO - Backend: statevector
+2026-03-18 20:11:53,277 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -600.08947301 Ha  (reference = -602.93400929 Ha)
+2026-03-18 20:11:53,278 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:11:53,319 - algorithms.vqe_qaoa_inspired - INFO - Built QAOA-inspired ansatz with 12 parameters, 2 layers, backend=statevector
+2026-03-18 20:11:54,958 - core.base_vqe - INFO - Completed qaoa_inspired_vqe: Energy = -602.87827517, Error = 0.05573412, Runtime = 1.68s
+2026-03-18 20:11:54,962 - __main__ - INFO - Running iqcc_inspired_vqe on arg
+2026-03-18 20:11:54,962 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:11:54,962 - __main__ - INFO - Using cached Hamiltonian for arg (8 qubits, 361 terms)
+2026-03-18 20:11:54,962 - algorithms.vqe_iqcc_inspired - INFO - Running iqcc_inspired_vqe on arginine
+2026-03-18 20:11:55,128 - algorithms.vqe_iqcc_inspired - INFO - HF energy (truncated, n_el=4) = -600.08947301 Ha
+2026-03-18 20:11:55,129 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+Initial energy: -602.9339108170591
+HF reference: -600.0894730077101
+2026-03-18 20:11:55,190 - algorithms.vqe_iqcc_inspired - INFO - iQCC step 1/20
+Number of gradients 276
+max gradient: 4.1338805794287337e-10
+2026-03-18 20:12:02,374 - algorithms.vqe_iqcc_inspired - INFO - Selected operator with gradient 4.134e-10
+2026-03-18 20:12:02,378 - __main__ - INFO - Running iqcc_true_vqe on arg
+2026-03-18 20:12:02,378 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:12:02,378 - __main__ - INFO - Using cached Hamiltonian for arg (8 qubits, 361 terms)
+2026-03-18 20:12:02,379 - algorithms.vqe_iqcc_true - INFO - Running iqcc_vqe on arginine
+2026-03-18 20:12:02,545 - algorithms.vqe_iqcc_true - INFO - HF energy (truncated, n_el=4) = -600.08947301 Ha
+2026-03-18 20:12:02,546 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:12:02,612 - algorithms.vqe_iqcc_true - INFO - iQCC step 1/20
+2026-03-18 20:12:09,889 - algorithms.vqe_iqcc_true - INFO - Selected operator with gradient 4.134e-10
+2026-03-18 20:12:09,893 - __main__ - INFO - Running cb_vqe on arg
+2026-03-18 20:12:09,893 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:12:09,893 - __main__ - INFO - Using cached Hamiltonian for arg (8 qubits, 361 terms)
+2026-03-18 20:12:09,894 - algorithms.vqe_CB - INFO - Running cb_vqe on arginine
+2026-03-18 20:12:09,894 - algorithms.vqe_CB - INFO - Backend: statevector
+2026-03-18 20:12:10,064 - algorithms.vqe_CB - INFO - HF energy (truncated, n_el=4) = -600.08947301 Ha
+2026-03-18 20:12:10,065 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:12:10,100 - algorithms.vqe_CB - INFO - CB-VQE ansatz: 48 params, 2 layers, backend=statevector
+2026-03-18 20:12:11,342 - algorithms.vqe_CB - INFO - CB-VQE: computing classical boost ... (n_electrons=4, n_qubits=8)
+2026-03-18 20:12:11,512 - algorithms.vqe_CB - INFO -   H11 Classical Entry(HF energy)     = -600.08947301
+2026-03-18 20:12:11,513 - algorithms.vqe_CB - INFO -   H22 Quantum Entry (VQE energy)    = -601.75461282
+2026-03-18 20:12:11,513 - algorithms.vqe_CB - INFO -   Relevant basis states: 53
+2026-03-18 20:12:12,754 - algorithms.vqe_CB - WARNING - Classical boost failed (ControlledQubitUnitary.__init__() missing 1 required positional argument: 'control_wires'); using VQE energy.
+2026-03-18 20:12:12,755 - algorithms.vqe_CB - INFO - Completed cb_vqe: VQE=-601.75461282, CB=-601.75461282, Best=-601.75461282, Error=1.17939647, Runtime=2.69s
+2026-03-18 20:12:12,762 - __main__ - INFO - Running hva_vqe on arg
+2026-03-18 20:12:12,763 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:12:12,763 - __main__ - INFO - Using cached Hamiltonian for arg (8 qubits, 361 terms)
+2026-03-18 20:12:12,764 - algorithms.vqe_hva - INFO - Running hva_vqe on arginine
+2026-03-18 20:12:12,764 - algorithms.vqe_hva - INFO - Backend: statevector
+2026-03-18 20:12:12,943 - algorithms.vqe_hva - INFO - HF energy (truncated, n_el=4) = -600.08947301 Ha
+2026-03-18 20:12:12,950 - algorithms.vqe_hva - INFO - HVA: 361 terms -> 24 commuting groups
+2026-03-18 20:12:12,995 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:12:13,025 - algorithms.vqe_hva - INFO - HVA ansatz built: 48 params (24 groups x 2 layers), backend=statevector
+2026-03-18 20:12:25,978 - algorithms.vqe_hva - INFO - Completed hva_vqe: Energy=-602.93391082, HF ref=-602.93400929, Error=0.00009847, Runtime=13.03s
+2026-03-18 20:12:25,982 - __main__ - INFO - Running ucc_vqe on arg
+2026-03-18 20:12:25,982 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:12:25,982 - __main__ - INFO - Using cached Hamiltonian for arg (8 qubits, 361 terms)
+2026-03-18 20:12:25,983 - algorithms.vqe_ucc - INFO - Running ucc_vqe on arginine
+2026-03-18 20:12:25,983 - algorithms.vqe_ucc - INFO - Backend: statevector
+2026-03-18 20:12:26,181 - algorithms.vqe_ucc - INFO - HF energy (n_el=4) = -600.08947301 Ha
+2026-03-18 20:12:26,204 - algorithms.vqe_ucc - INFO - UCCSD: n_electrons=4, n_qubits=8, singles=4, doubles=4, beta_singles=4, use_spin_symmetry=True
+2026-03-18 20:12:26,204 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:12:26,252 - algorithms.vqe_ucc - INFO - UCCSD ansatz built: 8 params, backend=statevector
+2026-03-18 20:12:26,852 - algorithms.vqe_ucc - INFO - Completed ucc_vqe: Energy=-602.93391082, HF ref=-602.93400929, Error=0.00009847, Runtime=0.65s
+2026-03-18 20:12:26,855 - __main__ - INFO - Running nn_ae_vqe on arg
+2026-03-18 20:12:26,855 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:12:26,855 - __main__ - INFO - Using cached Hamiltonian for arg (8 qubits, 361 terms)
+2026-03-18 20:12:26,856 - algorithms.vqe_nn_ae - INFO - Running nn_ae_vqe on arginine
+2026-03-18 20:12:26,856 - algorithms.vqe_nn_ae - INFO - Config: enc=ry_brick, lat=ry_cz, dec=mirror, init=zeros
+2026-03-18 20:12:26,856 - algorithms.vqe_nn_ae - INFO - Backend: statevector
+2026-03-18 20:12:27,023 - algorithms.vqe_nn_ae - INFO - HF energy (n_el=4) = -600.08947301 Ha
+2026-03-18 20:12:27,036 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:12:27,077 - algorithms.vqe_nn_ae - INFO - NN-AE-VQE ansatz built: n_qubits=8, n_latent=4, enc_layers=1, lat_layers=2, enc=ry_brick, lat=ry_cz, dec=mirror, n_params=24, backend=statevector
+2026-03-18 20:12:28,376 - algorithms.vqe_nn_ae - INFO - Completed nn_ae_vqe: Energy=-602.93391082, HF ref=-602.93400929, Error=0.00009847, Runtime=1.34s
+2026-03-18 20:12:28,379 - __main__ - INFO - Running vanilla_vqe on asp
+2026-03-18 20:12:28,380 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:12:28,380 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:12:28,380 - active_space_truncation.run_pipeline - INFO - ACTIVE SPACE PIPELINE: ASP
+2026-03-18 20:12:28,380 - active_space_truncation.run_pipeline - INFO - Basis: cc-pvdz
+2026-03-18 20:12:28,381 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:12:28,381 - active_space_truncation.run_pipeline - INFO - 
+[1/4] Loading geometry...
+2026-03-18 20:12:28,425 - active_space_truncation.run_pipeline - INFO -   Molecule: aspartic_acid (C4H7NO4)
+2026-03-18 20:12:28,425 - active_space_truncation.run_pipeline - INFO -   Atoms: 16, Electrons: 70
+2026-03-18 20:12:28,425 - active_space_truncation.run_pipeline - INFO - 
+[2/4] Running HF + MP2 orbital analysis...
+converged SCF energy = -509.511642197816
+E(RMP2) = -510.973142027536  E_corr = -1.46149982971966
+E(SCS-RMP2) = -510.926248056042  E_corr = -1.4146058582262
+2026-03-18 20:14:00,760 - active_space_truncation.run_pipeline - INFO -   Completed in 92.3s
+2026-03-18 20:14:00,761 - active_space_truncation.run_pipeline - INFO - ============================================================
+ORBITAL ANALYSIS DIAGNOSTICS
+============================================================
+Basis functions:       161
+Molecular orbitals:    161
+
+HF energy:             -509.5116421978 Ha
+HF converged:          True
+MP2 total energy:      -510.9731420275 Ha
+MP2 correlation:       -1.4614998297 Ha
+
+HOMO-LUMO gap:         15.1505 eV
+Dipole moment:         2.1355 Debye
+
+Core orbitals frozen:  9
+Proposed active space: (10e, 7o)
+Qubits needed:         14
+
+Natural orbital occupations (active region):
+  MO  30: 1.956361
+  MO  31: 1.953142
+  MO  32: 1.952015
+  MO  33: 1.940807
+  MO  34: 1.939657
+  MO  35: 0.061847
+  MO  36: 0.060085
+============================================================
+2026-03-18 20:14:00,761 - active_space_truncation.run_pipeline - INFO - 
+[3/4] Validating active space with CASCI...
+CASCI E = -509.517186630630  E(CI) = -15.5836858641052  S^2 = 0.0000000
+2026-03-18 20:14:16,882 - active_space_truncation.run_pipeline - INFO -   Completed in 16.1s
+2026-03-18 20:14:16,882 - active_space_truncation.run_pipeline - INFO - ============================================================
+ACTIVE SPACE VALIDATION
+============================================================
+Active space:          (10e, 7o)
+Qubits:                14
+
+HF energy:             -509.5116421978 Ha
+CASCI energy:          -509.5171866306 Ha
+CASCI converged:       True
+CASCI below HF:        True
+Correlation recovered:  0.4%
+============================================================
+Saved active orbital summary: /mnt/c/qmprot_2026/qmprot_gse/framework/visualize_molecules/output/aspartic_acid_active_orbitals.png
+2026-03-18 20:14:19,671 - active_space_truncation.run_pipeline - INFO -   Active orbital image: /mnt/c/qmprot_2026/qmprot_gse/framework/visualize_molecules/output/aspartic_acid_active_orbitals.png
+2026-03-18 20:14:19,672 - active_space_truncation.run_pipeline - INFO - 
+[4/4] Building qubit Hamiltonian...
+2026-03-18 20:14:21,695 - active_space_truncation.run_pipeline - INFO -   Completed in 2.0s
+2026-03-18 20:14:21,696 - active_space_truncation.run_pipeline - INFO - ============================================================
+QUBIT HAMILTONIAN
+============================================================
+Number of qubits:  14
+Number of terms:   3382
+Core energy:       -505.9581614503 Ha  (frozen core + nuclear repulsion)
+
+Top 10 terms by magnitude:
+  -505.95816145+0.00000000j  IIIIIIIIIIIIII
+  +0.60387465+0.00000000j  ZIIIIIIIIIIIII
+  +0.60387465+0.00000000j  IZIIIIIIIIIIII
+  +0.60131852+0.00000000j  IIIIZIIIIIIIII
+  +0.60131852+0.00000000j  IIIIIZIIIIIIII
+  +0.59431869+0.00000000j  IIZIIIIIIIIIII
+  +0.59431869+0.00000000j  IIIZIIIIIIIIII
+  +0.58705938+0.00000000j  IIIIIIZIIIIIII
+  +0.58705938+0.00000000j  IIIIIIIZIIIIII
+  +0.46500212+0.00000000j  IIIIIIIIIZIIII
+  ... and 3372 more terms
+============================================================
+2026-03-18 20:14:21,697 - active_space_truncation.run_pipeline - INFO - 
+============================================================
+2026-03-18 20:14:21,697 - active_space_truncation.run_pipeline - INFO - PIPELINE COMPLETE
+2026-03-18 20:14:21,697 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:14:21,697 - active_space_truncation.run_pipeline - INFO - Total time:            113.3s
+2026-03-18 20:14:21,697 - active_space_truncation.run_pipeline - INFO - Molecule:              aspartic_acid (C4H7NO4)
+2026-03-18 20:14:21,698 - active_space_truncation.run_pipeline - INFO - Basis:                 cc-pvdz
+2026-03-18 20:14:21,698 - active_space_truncation.run_pipeline - INFO - HF energy:             -509.5116421978 Ha
+2026-03-18 20:14:21,698 - active_space_truncation.run_pipeline - INFO - MP2 energy:            -510.9731420275 Ha
+2026-03-18 20:14:21,698 - active_space_truncation.run_pipeline - INFO - CASCI energy:          -509.5171866306 Ha
+2026-03-18 20:14:21,698 - active_space_truncation.run_pipeline - INFO - Active space:          (10e, 7o)
+2026-03-18 20:14:21,699 - active_space_truncation.run_pipeline - INFO - Qubits:                14
+2026-03-18 20:14:21,699 - active_space_truncation.run_pipeline - INFO - Hamiltonian terms:     3382
+2026-03-18 20:14:21,699 - active_space_truncation.run_pipeline - INFO - Core energy:           -505.9581614503 Ha
+2026-03-18 20:14:21,699 - active_space_truncation.run_pipeline - INFO - CASCI below HF:        True
+2026-03-18 20:14:21,699 - active_space_truncation.run_pipeline - INFO - Correlation recovered: 0.4%
+2026-03-18 20:14:21,699 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:14:21,700 - __main__ - INFO - Active space Hamiltonian: 14 qubits, 3382 terms
+2026-03-18 20:14:21,700 - __main__ - INFO - Core energy (frozen core + nuclear repulsion): -505.9581614503 Ha
+2026-03-18 20:14:21,700 - __main__ - INFO - CASCI reference energy: -509.5171866306 Ha
+2026-03-18 20:14:21,700 - contextual_subspace.cs_reduction - INFO - CS reduction: searching for noncontextual sub-Hamiltonian (cutoff=60.0s, criterion=weight)...
+2026-03-18 20:15:23,524 - contextual_subspace.cs_reduction - INFO - Noncontextual sub-Hamiltonian: 132/3382 terms (518.2229/523.8172 total weight, DFS took 61.8s)
+2026-03-18 20:15:23,571 - contextual_subspace.cs_reduction - INFO - Building quasi-quantized model and solving noncontextual ground state...
+2026-03-18 20:15:31,354 - contextual_subspace.cs_reduction - INFO - Noncontextual ground state energy: -509.51164220 Ha
+2026-03-18 20:15:31,354 - contextual_subspace.cs_reduction - INFO - CS reduction: 14 -> 8 qubits (6 generators stabilized, 8 released to quantum)
+2026-03-18 20:15:31,416 - contextual_subspace.cs_reduction - INFO - Rotated HF state: 1 non-zero amplitudes in 256-dim Hilbert space
+2026-03-18 20:15:31,419 - __main__ - INFO - CS reduction: 14 -> 8 qubits (361 terms)
+2026-03-18 20:15:31,420 - core.base_vqe - INFO - Running vanilla_vqe on aspartic_acid
+2026-03-18 20:15:31,420 - core.base_vqe - INFO - Backend: statevector
+2026-03-18 20:15:31,611 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -506.08812425 Ha  (reference = -509.51718663 Ha)
+2026-03-18 20:15:31,621 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:15:31,673 - algorithms.vqe_vanilla - INFO - Built ansatz with 48 parameters, 2 layers, backend=statevector
+2026-03-18 20:15:33,190 - core.base_vqe - INFO - Completed vanilla_vqe: Energy = -508.23510196, Error = 1.28208467, Runtime = 1.57s
+2026-03-18 20:15:33,196 - __main__ - INFO - Running adapt_vqe on asp
+2026-03-18 20:15:33,196 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:15:33,196 - __main__ - INFO - Using cached Hamiltonian for asp (8 qubits, 361 terms)
+2026-03-18 20:15:33,197 - algorithms.vqe_adapt - INFO - Running adapt_vqe on aspartic_acid
+2026-03-18 20:15:33,197 - algorithms.vqe_adapt - INFO - Backend: statevector
+2026-03-18 20:15:33,347 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -506.08812425 Ha  (reference = -509.51718663 Ha)
+2026-03-18 20:15:33,348 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:15:33,348 - algorithms.vqe_adapt - INFO - Built operator pool with 56 operators
+2026-03-18 20:15:38,972 - algorithms.vqe_adapt - INFO - Converged at iteration 0 (gradient below threshold)
+2026-03-18 20:15:39,021 - algorithms.vqe_adapt - INFO - Completed adapt_vqe: Energy = -509.51164220, Error = 0.00554443, Operators = 0
+2026-03-18 20:15:39,024 - __main__ - INFO - Running qubit_adapt_vqe on asp
+2026-03-18 20:15:39,024 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:15:39,024 - __main__ - INFO - Using cached Hamiltonian for asp (8 qubits, 361 terms)
+2026-03-18 20:15:39,025 - algorithms.vqe_qubit_adapt - INFO - Running qubit_adapt_vqe on aspartic_acid
+2026-03-18 20:15:39,025 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:15:39,025 - algorithms.vqe_qubit_adapt - INFO - CS reduction active; using FULL pool (occupied/virtual split not applicable)
+2026-03-18 20:15:39,025 - algorithms.vqe_qubit_adapt - INFO - Built FULL Pauli operator pool with 616 operators
+2026-03-18 20:15:39,026 - algorithms.vqe_qubit_adapt - INFO - Gradient computation: n_qubits=8, initial_state=CS-rotated HF, pool_size=616
+2026-03-18 20:15:39,026 - algorithms.vqe_qubit_adapt - INFO - Pre-screening: 328/616 operators viable (288 skipped, 50 unique off-diagonal patterns in H)
+2026-03-18 20:16:10,327 - algorithms.vqe_qubit_adapt - INFO - Converged at iteration 0 (gradient 2.84e-09 < 0.0001)
+2026-03-18 20:16:10,370 - __main__ - INFO - Running hardware_efficient_vqe on asp
+2026-03-18 20:16:10,371 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:16:10,371 - __main__ - INFO - Using cached Hamiltonian for asp (8 qubits, 361 terms)
+2026-03-18 20:16:10,371 - core.base_vqe - INFO - Running hardware_efficient_vqe on aspartic_acid
+2026-03-18 20:16:10,371 - core.base_vqe - INFO - Backend: statevector
+2026-03-18 20:16:10,521 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -506.08812425 Ha  (reference = -509.51718663 Ha)
+2026-03-18 20:16:10,523 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:16:10,566 - algorithms.vqe_hardware_efficient - INFO - Built HW-efficient ansatz with 48 parameters, 2 layers, CNOT entangling, backend=statevector
+2026-03-18 20:16:11,840 - core.base_vqe - INFO - Completed hardware_efficient_vqe: Energy = -508.15684180, Error = 1.36034483, Runtime = 1.32s
+2026-03-18 20:16:11,843 - __main__ - INFO - Running qaoa_inspired_vqe on asp
+2026-03-18 20:16:11,843 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:16:11,843 - __main__ - INFO - Using cached Hamiltonian for asp (8 qubits, 361 terms)
+2026-03-18 20:16:11,843 - core.base_vqe - INFO - Running qaoa_inspired_vqe on aspartic_acid
+2026-03-18 20:16:11,844 - core.base_vqe - INFO - Backend: statevector
+2026-03-18 20:16:11,997 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -506.08812425 Ha  (reference = -509.51718663 Ha)
+2026-03-18 20:16:11,998 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:16:12,033 - algorithms.vqe_qaoa_inspired - INFO - Built QAOA-inspired ansatz with 12 parameters, 2 layers, backend=statevector
+2026-03-18 20:16:13,827 - core.base_vqe - INFO - Completed qaoa_inspired_vqe: Energy = -509.37936976, Error = 0.13781687, Runtime = 1.83s
+2026-03-18 20:16:13,831 - __main__ - INFO - Running iqcc_inspired_vqe on asp
+2026-03-18 20:16:13,831 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:16:13,831 - __main__ - INFO - Using cached Hamiltonian for asp (8 qubits, 361 terms)
+2026-03-18 20:16:13,831 - algorithms.vqe_iqcc_inspired - INFO - Running iqcc_inspired_vqe on aspartic_acid
+2026-03-18 20:16:13,989 - algorithms.vqe_iqcc_inspired - INFO - HF energy (truncated, n_el=4) = -506.08812425 Ha
+2026-03-18 20:16:13,989 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+Initial energy: -509.51164219781595
+HF reference: -506.0881242533257
+2026-03-18 20:16:14,055 - algorithms.vqe_iqcc_inspired - INFO - iQCC step 1/20
+Number of gradients 276
+max gradient: 6.159388190457582e-11
+2026-03-18 20:16:21,634 - algorithms.vqe_iqcc_inspired - INFO - Selected operator with gradient 6.159e-11
+2026-03-18 20:16:21,643 - __main__ - INFO - Running iqcc_true_vqe on asp
+2026-03-18 20:16:21,643 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:16:21,644 - __main__ - INFO - Using cached Hamiltonian for asp (8 qubits, 361 terms)
+2026-03-18 20:16:21,644 - algorithms.vqe_iqcc_true - INFO - Running iqcc_vqe on aspartic_acid
+2026-03-18 20:16:21,807 - algorithms.vqe_iqcc_true - INFO - HF energy (truncated, n_el=4) = -506.08812425 Ha
+2026-03-18 20:16:21,808 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:16:21,870 - algorithms.vqe_iqcc_true - INFO - iQCC step 1/20
+2026-03-18 20:16:29,135 - algorithms.vqe_iqcc_true - INFO - Selected operator with gradient 6.159e-11
+2026-03-18 20:16:29,139 - __main__ - INFO - Running cb_vqe on asp
+2026-03-18 20:16:29,139 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:16:29,139 - __main__ - INFO - Using cached Hamiltonian for asp (8 qubits, 361 terms)
+2026-03-18 20:16:29,140 - algorithms.vqe_CB - INFO - Running cb_vqe on aspartic_acid
+2026-03-18 20:16:29,140 - algorithms.vqe_CB - INFO - Backend: statevector
+2026-03-18 20:16:29,287 - algorithms.vqe_CB - INFO - HF energy (truncated, n_el=4) = -506.08812425 Ha
+2026-03-18 20:16:29,288 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:16:29,324 - algorithms.vqe_CB - INFO - CB-VQE ansatz: 48 params, 2 layers, backend=statevector
+2026-03-18 20:16:30,604 - algorithms.vqe_CB - INFO - CB-VQE: computing classical boost ... (n_electrons=4, n_qubits=8)
+2026-03-18 20:16:30,755 - algorithms.vqe_CB - INFO -   H11 Classical Entry(HF energy)     = -506.08812425
+2026-03-18 20:16:30,756 - algorithms.vqe_CB - INFO -   H22 Quantum Entry (VQE energy)    = -508.30641928
+2026-03-18 20:16:30,756 - algorithms.vqe_CB - INFO -   Relevant basis states: 53
+2026-03-18 20:16:32,356 - algorithms.vqe_CB - WARNING - Classical boost failed (ControlledQubitUnitary.__init__() missing 1 required positional argument: 'control_wires'); using VQE energy.
+2026-03-18 20:16:32,356 - algorithms.vqe_CB - INFO - Completed cb_vqe: VQE=-508.30641928, CB=-508.30641928, Best=-508.30641928, Error=1.21076735, Runtime=3.07s
+2026-03-18 20:16:32,362 - __main__ - INFO - Running hva_vqe on asp
+2026-03-18 20:16:32,368 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:16:32,368 - __main__ - INFO - Using cached Hamiltonian for asp (8 qubits, 361 terms)
+2026-03-18 20:16:32,369 - algorithms.vqe_hva - INFO - Running hva_vqe on aspartic_acid
+2026-03-18 20:16:32,369 - algorithms.vqe_hva - INFO - Backend: statevector
+2026-03-18 20:16:32,538 - algorithms.vqe_hva - INFO - HF energy (truncated, n_el=4) = -506.08812425 Ha
+2026-03-18 20:16:32,545 - algorithms.vqe_hva - INFO - HVA: 361 terms -> 24 commuting groups
+2026-03-18 20:16:32,589 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:16:32,621 - algorithms.vqe_hva - INFO - HVA ansatz built: 48 params (24 groups x 2 layers), backend=statevector
+2026-03-18 20:16:46,212 - algorithms.vqe_hva - INFO - Completed hva_vqe: Energy=-509.51164220, HF ref=-509.51718663, Error=0.00554443, Runtime=13.67s
+2026-03-18 20:16:46,216 - __main__ - INFO - Running ucc_vqe on asp
+2026-03-18 20:16:46,216 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:16:46,216 - __main__ - INFO - Using cached Hamiltonian for asp (8 qubits, 361 terms)
+2026-03-18 20:16:46,217 - algorithms.vqe_ucc - INFO - Running ucc_vqe on aspartic_acid
+2026-03-18 20:16:46,217 - algorithms.vqe_ucc - INFO - Backend: statevector
+2026-03-18 20:16:46,402 - algorithms.vqe_ucc - INFO - HF energy (n_el=4) = -506.08812425 Ha
+2026-03-18 20:16:46,420 - algorithms.vqe_ucc - INFO - UCCSD: n_electrons=4, n_qubits=8, singles=4, doubles=4, beta_singles=4, use_spin_symmetry=True
+2026-03-18 20:16:46,422 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:16:46,476 - algorithms.vqe_ucc - INFO - UCCSD ansatz built: 8 params, backend=statevector
+2026-03-18 20:16:47,149 - algorithms.vqe_ucc - INFO - Completed ucc_vqe: Energy=-509.51164220, HF ref=-509.51718663, Error=0.00554443, Runtime=0.73s
+2026-03-18 20:16:47,153 - __main__ - INFO - Running nn_ae_vqe on asp
+2026-03-18 20:16:47,153 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:16:47,153 - __main__ - INFO - Using cached Hamiltonian for asp (8 qubits, 361 terms)
+2026-03-18 20:16:47,153 - algorithms.vqe_nn_ae - INFO - Running nn_ae_vqe on aspartic_acid
+2026-03-18 20:16:47,154 - algorithms.vqe_nn_ae - INFO - Config: enc=ry_brick, lat=ry_cz, dec=mirror, init=zeros
+2026-03-18 20:16:47,154 - algorithms.vqe_nn_ae - INFO - Backend: statevector
+2026-03-18 20:16:47,302 - algorithms.vqe_nn_ae - INFO - HF energy (n_el=4) = -506.08812425 Ha
+2026-03-18 20:16:47,304 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:16:47,337 - algorithms.vqe_nn_ae - INFO - NN-AE-VQE ansatz built: n_qubits=8, n_latent=4, enc_layers=1, lat_layers=2, enc=ry_brick, lat=ry_cz, dec=mirror, n_params=24, backend=statevector
+2026-03-18 20:16:48,781 - algorithms.vqe_nn_ae - INFO - Completed nn_ae_vqe: Energy=-509.51164220, HF ref=-509.51718663, Error=0.00554443, Runtime=1.48s
+2026-03-18 20:16:48,785 - __main__ - INFO - Running vanilla_vqe on cys
+2026-03-18 20:16:48,785 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:16:48,785 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:16:48,785 - active_space_truncation.run_pipeline - INFO - ACTIVE SPACE PIPELINE: CYS
+2026-03-18 20:16:48,786 - active_space_truncation.run_pipeline - INFO - Basis: cc-pvdz
+2026-03-18 20:16:48,786 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:16:48,786 - active_space_truncation.run_pipeline - INFO - 
+[1/4] Loading geometry...
+2026-03-18 20:16:48,825 - active_space_truncation.run_pipeline - INFO -   Molecule: cysteine (C3H7NO2S)
+2026-03-18 20:16:48,825 - active_space_truncation.run_pipeline - INFO -   Atoms: 14, Electrons: 48
+2026-03-18 20:16:48,826 - active_space_truncation.run_pipeline - INFO - 
+[2/4] Running HF + MP2 orbital analysis...
+converged SCF energy = -719.413302434066
+E(RMP2) = -720.519366863608  E_corr = -1.10606442954205
+E(SCS-RMP2) = -720.490472367347  E_corr = -1.07716993328164
+2026-03-18 20:17:39,315 - active_space_truncation.run_pipeline - INFO -   Completed in 50.5s
+2026-03-18 20:17:39,315 - active_space_truncation.run_pipeline - INFO - ============================================================
+ORBITAL ANALYSIS DIAGNOSTICS
+============================================================
+Basis functions:       137
+Molecular orbitals:    137
+
+HF energy:             -719.4133024341 Ha
+HF converged:          True
+MP2 total energy:      -720.5193668636 Ha
+MP2 correlation:       -1.1060644295 Ha
+
+HOMO-LUMO gap:         13.9552 eV
+Dipole moment:         2.6275 Debye
+
+Core orbitals frozen:  6
+Proposed active space: (12e, 7o)
+Qubits needed:         14
+
+Natural orbital occupations (active region):
+  MO  26: 1.959795
+  MO  27: 1.958187
+  MO  28: 1.955177
+  MO  29: 1.953152
+  MO  30: 1.947902
+  MO  31: 1.939867
+  MO  32: 0.061727
+============================================================
+2026-03-18 20:17:39,315 - active_space_truncation.run_pipeline - INFO - 
+[3/4] Validating active space with CASCI...
+CASCI E = -719.414409558583  E(CI) = -21.1723388596932  S^2 = 0.0000000
+2026-03-18 20:17:53,072 - active_space_truncation.run_pipeline - INFO -   Completed in 13.8s
+2026-03-18 20:17:53,072 - active_space_truncation.run_pipeline - INFO - ============================================================
+ACTIVE SPACE VALIDATION
+============================================================
+Active space:          (12e, 7o)
+Qubits:                14
+
+HF energy:             -719.4133024341 Ha
+CASCI energy:          -719.4144095586 Ha
+CASCI converged:       True
+CASCI below HF:        True
+Correlation recovered:  0.1%
+============================================================
+Saved active orbital summary: /mnt/c/qmprot_2026/qmprot_gse/framework/visualize_molecules/output/cysteine_active_orbitals.png
+2026-03-18 20:17:55,537 - active_space_truncation.run_pipeline - INFO -   Active orbital image: /mnt/c/qmprot_2026/qmprot_gse/framework/visualize_molecules/output/cysteine_active_orbitals.png
+2026-03-18 20:17:55,537 - active_space_truncation.run_pipeline - INFO - 
+[4/4] Building qubit Hamiltonian...
+2026-03-18 20:17:58,058 - active_space_truncation.run_pipeline - INFO -   Completed in 2.5s
+2026-03-18 20:17:58,060 - active_space_truncation.run_pipeline - INFO - ============================================================
+QUBIT HAMILTONIAN
+============================================================
+Number of qubits:  14
+Number of terms:   3382
+Core energy:       -713.7863469354 Ha  (frozen core + nuclear repulsion)
+
+Top 10 terms by magnitude:
+  -713.78634694+0.00000000j  IIIIIIIIIIIIII
+  +0.83352358+0.00000000j  ZIIIIIIIIIIIII
+  +0.83352358+0.00000000j  IZIIIIIIIIIIII
+  +0.80708953+0.00000000j  IIIIIIZIIIIIII
+  +0.80708953+0.00000000j  IIIIIIIZIIIIII
+  +0.80565156+0.00000000j  IIIIIZIIIIIIII
+  +0.80565156+0.00000000j  IIIIZIIIIIIIII
+  +0.80199628+0.00000000j  IIIZIIIIIIIIII
+  +0.80199628+0.00000000j  IIZIIIIIIIIIII
+  +0.75779744+0.00000000j  IIIIIIIIIIZIII
+  ... and 3372 more terms
+============================================================
+2026-03-18 20:17:58,060 - active_space_truncation.run_pipeline - INFO - 
+============================================================
+2026-03-18 20:17:58,060 - active_space_truncation.run_pipeline - INFO - PIPELINE COMPLETE
+2026-03-18 20:17:58,060 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:17:58,061 - active_space_truncation.run_pipeline - INFO - Total time:            69.3s
+2026-03-18 20:17:58,061 - active_space_truncation.run_pipeline - INFO - Molecule:              cysteine (C3H7NO2S)
+2026-03-18 20:17:58,061 - active_space_truncation.run_pipeline - INFO - Basis:                 cc-pvdz
+2026-03-18 20:17:58,061 - active_space_truncation.run_pipeline - INFO - HF energy:             -719.4133024341 Ha
+2026-03-18 20:17:58,061 - active_space_truncation.run_pipeline - INFO - MP2 energy:            -720.5193668636 Ha
+2026-03-18 20:17:58,062 - active_space_truncation.run_pipeline - INFO - CASCI energy:          -719.4144095586 Ha
+2026-03-18 20:17:58,062 - active_space_truncation.run_pipeline - INFO - Active space:          (12e, 7o)
+2026-03-18 20:17:58,062 - active_space_truncation.run_pipeline - INFO - Qubits:                14
+2026-03-18 20:17:58,063 - active_space_truncation.run_pipeline - INFO - Hamiltonian terms:     3382
+2026-03-18 20:17:58,063 - active_space_truncation.run_pipeline - INFO - Core energy:           -713.7863469354 Ha
+2026-03-18 20:17:58,063 - active_space_truncation.run_pipeline - INFO - CASCI below HF:        True
+2026-03-18 20:17:58,063 - active_space_truncation.run_pipeline - INFO - Correlation recovered: 0.1%
+2026-03-18 20:17:58,063 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:17:58,064 - __main__ - INFO - Active space Hamiltonian: 14 qubits, 3382 terms
+2026-03-18 20:17:58,064 - __main__ - INFO - Core energy (frozen core + nuclear repulsion): -713.7863469354 Ha
+2026-03-18 20:17:58,064 - __main__ - INFO - CASCI reference energy: -719.4144095586 Ha
+2026-03-18 20:17:58,064 - contextual_subspace.cs_reduction - INFO - CS reduction: searching for noncontextual sub-Hamiltonian (cutoff=60.0s, criterion=weight)...
+2026-03-18 20:18:59,117 - contextual_subspace.cs_reduction - INFO - Noncontextual sub-Hamiltonian: 132/3382 terms (729.4670/732.8158 total weight, DFS took 61.1s)
+2026-03-18 20:18:59,175 - contextual_subspace.cs_reduction - INFO - Building quasi-quantized model and solving noncontextual ground state...
+2026-03-18 20:19:06,837 - contextual_subspace.cs_reduction - INFO - Noncontextual ground state energy: -719.41330243 Ha
+2026-03-18 20:19:06,838 - contextual_subspace.cs_reduction - INFO - CS reduction: 14 -> 8 qubits (6 generators stabilized, 8 released to quantum)
+2026-03-18 20:19:06,930 - contextual_subspace.cs_reduction - INFO - Rotated HF state: 1 non-zero amplitudes in 256-dim Hilbert space
+2026-03-18 20:19:06,932 - __main__ - INFO - CS reduction: 14 -> 8 qubits (361 terms)
+2026-03-18 20:19:06,933 - core.base_vqe - INFO - Running vanilla_vqe on cysteine
+2026-03-18 20:19:06,933 - core.base_vqe - INFO - Backend: statevector
+2026-03-18 20:19:07,176 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -716.73228292 Ha  (reference = -719.41440956 Ha)
+2026-03-18 20:19:07,204 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:19:07,244 - algorithms.vqe_vanilla - INFO - Built ansatz with 48 parameters, 2 layers, backend=statevector
+2026-03-18 20:19:08,676 - core.base_vqe - INFO - Completed vanilla_vqe: Energy = -718.46463279, Error = 0.94977676, Runtime = 1.47s
+2026-03-18 20:19:08,681 - __main__ - INFO - Running adapt_vqe on cys
+2026-03-18 20:19:08,681 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:19:08,681 - __main__ - INFO - Using cached Hamiltonian for cys (8 qubits, 361 terms)
+2026-03-18 20:19:08,682 - algorithms.vqe_adapt - INFO - Running adapt_vqe on cysteine
+2026-03-18 20:19:08,682 - algorithms.vqe_adapt - INFO - Backend: statevector
+2026-03-18 20:19:08,840 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -716.73228292 Ha  (reference = -719.41440956 Ha)
+2026-03-18 20:19:08,841 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:19:08,842 - algorithms.vqe_adapt - INFO - Built operator pool with 56 operators
+2026-03-18 20:19:13,172 - algorithms.vqe_adapt - INFO - Converged at iteration 0 (gradient below threshold)
+2026-03-18 20:19:13,214 - algorithms.vqe_adapt - INFO - Completed adapt_vqe: Energy = -719.41330243, Error = 0.00110712, Operators = 0
+2026-03-18 20:19:13,218 - __main__ - INFO - Running qubit_adapt_vqe on cys
+2026-03-18 20:19:13,218 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:19:13,218 - __main__ - INFO - Using cached Hamiltonian for cys (8 qubits, 361 terms)
+2026-03-18 20:19:13,218 - algorithms.vqe_qubit_adapt - INFO - Running qubit_adapt_vqe on cysteine
+2026-03-18 20:19:13,219 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:19:13,219 - algorithms.vqe_qubit_adapt - INFO - CS reduction active; using FULL pool (occupied/virtual split not applicable)
+2026-03-18 20:19:13,219 - algorithms.vqe_qubit_adapt - INFO - Built FULL Pauli operator pool with 616 operators
+2026-03-18 20:19:13,219 - algorithms.vqe_qubit_adapt - INFO - Gradient computation: n_qubits=8, initial_state=CS-rotated HF, pool_size=616
+2026-03-18 20:19:13,220 - algorithms.vqe_qubit_adapt - INFO - Pre-screening: 328/616 operators viable (288 skipped, 50 unique off-diagonal patterns in H)
+2026-03-18 20:19:43,364 - algorithms.vqe_qubit_adapt - INFO - Converged at iteration 0 (gradient 3.30e-07 < 0.0001)
+2026-03-18 20:19:43,408 - __main__ - INFO - Running hardware_efficient_vqe on cys
+2026-03-18 20:19:43,408 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:19:43,408 - __main__ - INFO - Using cached Hamiltonian for cys (8 qubits, 361 terms)
+2026-03-18 20:19:43,409 - core.base_vqe - INFO - Running hardware_efficient_vqe on cysteine
+2026-03-18 20:19:43,409 - core.base_vqe - INFO - Backend: statevector
+2026-03-18 20:19:43,559 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -716.73228292 Ha  (reference = -719.41440956 Ha)
+2026-03-18 20:19:43,561 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:19:43,599 - algorithms.vqe_hardware_efficient - INFO - Built HW-efficient ansatz with 48 parameters, 2 layers, CNOT entangling, backend=statevector
+2026-03-18 20:19:45,009 - core.base_vqe - INFO - Completed hardware_efficient_vqe: Energy = -718.20841374, Error = 1.20599581, Runtime = 1.45s
+2026-03-18 20:19:45,012 - __main__ - INFO - Running qaoa_inspired_vqe on cys
+2026-03-18 20:19:45,012 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:19:45,013 - __main__ - INFO - Using cached Hamiltonian for cys (8 qubits, 361 terms)
+2026-03-18 20:19:45,013 - core.base_vqe - INFO - Running qaoa_inspired_vqe on cysteine
+2026-03-18 20:19:45,013 - core.base_vqe - INFO - Backend: statevector
+2026-03-18 20:19:45,170 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -716.73228292 Ha  (reference = -719.41440956 Ha)
+2026-03-18 20:19:45,171 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:19:45,205 - algorithms.vqe_qaoa_inspired - INFO - Built QAOA-inspired ansatz with 12 parameters, 2 layers, backend=statevector
+2026-03-18 20:19:46,859 - core.base_vqe - INFO - Completed qaoa_inspired_vqe: Energy = -719.09011121, Error = 0.32429835, Runtime = 1.69s
+2026-03-18 20:19:46,863 - __main__ - INFO - Running iqcc_inspired_vqe on cys
+2026-03-18 20:19:46,863 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:19:46,863 - __main__ - INFO - Using cached Hamiltonian for cys (8 qubits, 361 terms)
+2026-03-18 20:19:46,864 - algorithms.vqe_iqcc_inspired - INFO - Running iqcc_inspired_vqe on cysteine
+2026-03-18 20:19:47,016 - algorithms.vqe_iqcc_inspired - INFO - HF energy (truncated, n_el=4) = -716.73228292 Ha
+2026-03-18 20:19:47,018 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+Initial energy: -719.4133024340704
+HF reference: -716.7322829176494
+2026-03-18 20:19:47,076 - algorithms.vqe_iqcc_inspired - INFO - iQCC step 1/20
+Number of gradients 276
+max gradient: 3.3945310872482773e-07
+2026-03-18 20:19:53,775 - algorithms.vqe_iqcc_inspired - INFO - Selected operator with gradient 3.395e-07
+2026-03-18 20:19:53,778 - __main__ - INFO - Running iqcc_true_vqe on cys
+2026-03-18 20:19:53,779 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:19:53,779 - __main__ - INFO - Using cached Hamiltonian for cys (8 qubits, 361 terms)
+2026-03-18 20:19:53,779 - algorithms.vqe_iqcc_true - INFO - Running iqcc_vqe on cysteine
+2026-03-18 20:19:53,933 - algorithms.vqe_iqcc_true - INFO - HF energy (truncated, n_el=4) = -716.73228292 Ha
+2026-03-18 20:19:53,934 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:19:54,000 - algorithms.vqe_iqcc_true - INFO - iQCC step 1/20
+2026-03-18 20:20:00,697 - algorithms.vqe_iqcc_true - INFO - Selected operator with gradient 3.395e-07
+2026-03-18 20:20:00,701 - __main__ - INFO - Running cb_vqe on cys
+2026-03-18 20:20:00,701 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:20:00,702 - __main__ - INFO - Using cached Hamiltonian for cys (8 qubits, 361 terms)
+2026-03-18 20:20:00,702 - algorithms.vqe_CB - INFO - Running cb_vqe on cysteine
+2026-03-18 20:20:00,702 - algorithms.vqe_CB - INFO - Backend: statevector
+2026-03-18 20:20:00,858 - algorithms.vqe_CB - INFO - HF energy (truncated, n_el=4) = -716.73228292 Ha
+2026-03-18 20:20:00,859 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:20:00,896 - algorithms.vqe_CB - INFO - CB-VQE ansatz: 48 params, 2 layers, backend=statevector
+2026-03-18 20:20:02,120 - algorithms.vqe_CB - INFO - CB-VQE: computing classical boost ... (n_electrons=4, n_qubits=8)
+2026-03-18 20:20:02,272 - algorithms.vqe_CB - INFO -   H11 Classical Entry(HF energy)     = -716.73228292
+2026-03-18 20:20:02,272 - algorithms.vqe_CB - INFO -   H22 Quantum Entry (VQE energy)    = -718.80253998
+2026-03-18 20:20:02,272 - algorithms.vqe_CB - INFO -   Relevant basis states: 53
+2026-03-18 20:20:03,221 - algorithms.vqe_CB - WARNING - Classical boost failed (ControlledQubitUnitary.__init__() missing 1 required positional argument: 'control_wires'); using VQE energy.
+2026-03-18 20:20:03,222 - algorithms.vqe_CB - INFO - Completed cb_vqe: VQE=-718.80253998, CB=-718.80253998, Best=-718.80253998, Error=0.61186958, Runtime=2.36s
+2026-03-18 20:20:03,232 - __main__ - INFO - Running hva_vqe on cys
+2026-03-18 20:20:03,234 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:20:03,239 - __main__ - INFO - Using cached Hamiltonian for cys (8 qubits, 361 terms)
+2026-03-18 20:20:03,242 - algorithms.vqe_hva - INFO - Running hva_vqe on cysteine
+2026-03-18 20:20:03,242 - algorithms.vqe_hva - INFO - Backend: statevector
+2026-03-18 20:20:03,407 - algorithms.vqe_hva - INFO - HF energy (truncated, n_el=4) = -716.73228292 Ha
+2026-03-18 20:20:03,414 - algorithms.vqe_hva - INFO - HVA: 361 terms -> 25 commuting groups
+2026-03-18 20:20:03,454 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:20:03,487 - algorithms.vqe_hva - INFO - HVA ansatz built: 50 params (25 groups x 2 layers), backend=statevector
+2026-03-18 20:20:15,295 - algorithms.vqe_hva - INFO - Completed hva_vqe: Energy=-719.41330243, HF ref=-719.41440956, Error=0.00110712, Runtime=11.89s
+2026-03-18 20:20:15,299 - __main__ - INFO - Running ucc_vqe on cys
+2026-03-18 20:20:15,299 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:20:15,299 - __main__ - INFO - Using cached Hamiltonian for cys (8 qubits, 361 terms)
+2026-03-18 20:20:15,299 - algorithms.vqe_ucc - INFO - Running ucc_vqe on cysteine
+2026-03-18 20:20:15,299 - algorithms.vqe_ucc - INFO - Backend: statevector
+2026-03-18 20:20:15,473 - algorithms.vqe_ucc - INFO - HF energy (n_el=4) = -716.73228292 Ha
+2026-03-18 20:20:15,490 - algorithms.vqe_ucc - INFO - UCCSD: n_electrons=4, n_qubits=8, singles=4, doubles=4, beta_singles=4, use_spin_symmetry=True
+2026-03-18 20:20:15,506 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:20:15,549 - algorithms.vqe_ucc - INFO - UCCSD ansatz built: 8 params, backend=statevector
+2026-03-18 20:20:16,860 - algorithms.vqe_ucc - INFO - Completed ucc_vqe: Energy=-719.41330243, HF ref=-719.41440956, Error=0.00110712, Runtime=1.37s
+2026-03-18 20:20:16,863 - __main__ - INFO - Running nn_ae_vqe on cys
+2026-03-18 20:20:16,863 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:20:16,863 - __main__ - INFO - Using cached Hamiltonian for cys (8 qubits, 361 terms)
+2026-03-18 20:20:16,864 - algorithms.vqe_nn_ae - INFO - Running nn_ae_vqe on cysteine
+2026-03-18 20:20:16,864 - algorithms.vqe_nn_ae - INFO - Config: enc=ry_brick, lat=ry_cz, dec=mirror, init=zeros
+2026-03-18 20:20:16,864 - algorithms.vqe_nn_ae - INFO - Backend: statevector
+2026-03-18 20:20:17,015 - algorithms.vqe_nn_ae - INFO - HF energy (n_el=4) = -716.73228292 Ha
+2026-03-18 20:20:17,017 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:20:17,064 - algorithms.vqe_nn_ae - INFO - NN-AE-VQE ansatz built: n_qubits=8, n_latent=4, enc_layers=1, lat_layers=2, enc=ry_brick, lat=ry_cz, dec=mirror, n_params=24, backend=statevector
+2026-03-18 20:20:18,343 - algorithms.vqe_nn_ae - INFO - Completed nn_ae_vqe: Energy=-719.41330243, HF ref=-719.41440956, Error=0.00110712, Runtime=1.33s
+2026-03-18 20:20:18,347 - __main__ - INFO - Running vanilla_vqe on gly
+2026-03-18 20:20:18,347 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:20:18,347 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:20:18,347 - active_space_truncation.run_pipeline - INFO - ACTIVE SPACE PIPELINE: GLY
+2026-03-18 20:20:18,348 - active_space_truncation.run_pipeline - INFO - Basis: cc-pvdz
+2026-03-18 20:20:18,348 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:20:18,348 - active_space_truncation.run_pipeline - INFO - 
+[1/4] Loading geometry...
+2026-03-18 20:20:18,400 - active_space_truncation.run_pipeline - INFO -   Molecule: glycine (C2H5NO2)
+2026-03-18 20:20:18,400 - active_space_truncation.run_pipeline - INFO -   Atoms: 10, Electrons: 40
+2026-03-18 20:20:18,400 - active_space_truncation.run_pipeline - INFO - 
+[2/4] Running HF + MP2 orbital analysis...
+converged SCF energy = -282.854923582453
+E(RMP2) = -283.67462693341  E_corr = -0.819703350956778
+E(SCS-RMP2) = -283.652139936835  E_corr = -0.797216354381881
+2026-03-18 20:20:26,103 - active_space_truncation.run_pipeline - INFO -   Completed in 7.7s
+2026-03-18 20:20:26,103 - active_space_truncation.run_pipeline - INFO - ============================================================
+ORBITAL ANALYSIS DIAGNOSTICS
+============================================================
+Basis functions:       95
+Molecular orbitals:    95
+
+HF energy:             -282.8549235825 Ha
+HF converged:          True
+MP2 total energy:      -283.6746269334 Ha
+MP2 correlation:       -0.8197033510 Ha
+
+HOMO-LUMO gap:         15.6651 eV
+Dipole moment:         1.6030 Debye
+
+Core orbitals frozen:  5
+Proposed active space: (10e, 7o)
+Qubits needed:         14
+
+Natural orbital occupations (active region):
+  MO  15: 1.963248
+  MO  16: 1.959367
+  MO  17: 1.958747
+  MO  18: 1.954570
+  MO  19: 1.941936
+  MO  20: 0.058698
+  MO  21: 0.036809
+============================================================
+2026-03-18 20:20:26,106 - active_space_truncation.run_pipeline - INFO - 
+[3/4] Validating active space with CASCI...
+CASCI E = -282.862255568860  E(CI) = -18.6380948994784  S^2 = 0.0000000
+2026-03-18 20:20:26,425 - active_space_truncation.run_pipeline - INFO -   Completed in 0.3s
+2026-03-18 20:20:26,426 - active_space_truncation.run_pipeline - INFO - ============================================================
+ACTIVE SPACE VALIDATION
+============================================================
+Active space:          (10e, 7o)
+Qubits:                14
+
+HF energy:             -282.8549235825 Ha
+CASCI energy:          -282.8622555689 Ha
+CASCI converged:       True
+CASCI below HF:        True
+Correlation recovered:  0.9%
+============================================================
+Saved active orbital summary: /mnt/c/qmprot_2026/qmprot_gse/framework/visualize_molecules/output/glycine_active_orbitals.png
+2026-03-18 20:20:28,283 - active_space_truncation.run_pipeline - INFO -   Active orbital image: /mnt/c/qmprot_2026/qmprot_gse/framework/visualize_molecules/output/glycine_active_orbitals.png
+2026-03-18 20:20:28,283 - active_space_truncation.run_pipeline - INFO - 
+[4/4] Building qubit Hamiltonian...
+2026-03-18 20:20:28,728 - active_space_truncation.run_pipeline - INFO -   Completed in 0.4s
+2026-03-18 20:20:28,729 - active_space_truncation.run_pipeline - INFO - ============================================================
+QUBIT HAMILTONIAN
+============================================================
+Number of qubits:  14
+Number of terms:   3382
+Core energy:       -278.6639831662 Ha  (frozen core + nuclear repulsion)
+
+Top 10 terms by magnitude:
+  -278.66398317+0.00000000j  IIIIIIIIIIIIII
+  +0.74513381+0.00000000j  ZIIIIIIIIIIIII
+  +0.74513381+0.00000000j  IZIIIIIIIIIIII
+  +0.69767029+0.00000000j  IIIIIIZIIIIIII
+  +0.69767029+0.00000000j  IIIIIIIZIIIIII
+  +0.67452862+0.00000000j  IIIIIIIIZIIIII
+  +0.67452862+0.00000000j  IIIIIIIIIZIIII
+  +0.67328302+0.00000000j  IIZIIIIIIIIIII
+  +0.67328302+0.00000000j  IIIZIIIIIIIIII
+  +0.66921618+0.00000000j  IIIIZIIIIIIIII
+  ... and 3372 more terms
+============================================================
+2026-03-18 20:20:28,730 - active_space_truncation.run_pipeline - INFO - 
+============================================================
+2026-03-18 20:20:28,730 - active_space_truncation.run_pipeline - INFO - PIPELINE COMPLETE
+2026-03-18 20:20:28,730 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:20:28,730 - active_space_truncation.run_pipeline - INFO - Total time:            10.4s
+2026-03-18 20:20:28,731 - active_space_truncation.run_pipeline - INFO - Molecule:              glycine (C2H5NO2)
+2026-03-18 20:20:28,731 - active_space_truncation.run_pipeline - INFO - Basis:                 cc-pvdz
+2026-03-18 20:20:28,731 - active_space_truncation.run_pipeline - INFO - HF energy:             -282.8549235825 Ha
+2026-03-18 20:20:28,731 - active_space_truncation.run_pipeline - INFO - MP2 energy:            -283.6746269334 Ha
+2026-03-18 20:20:28,731 - active_space_truncation.run_pipeline - INFO - CASCI energy:          -282.8622555689 Ha
+2026-03-18 20:20:28,731 - active_space_truncation.run_pipeline - INFO - Active space:          (10e, 7o)
+2026-03-18 20:20:28,732 - active_space_truncation.run_pipeline - INFO - Qubits:                14
+2026-03-18 20:20:28,732 - active_space_truncation.run_pipeline - INFO - Hamiltonian terms:     3382
+2026-03-18 20:20:28,732 - active_space_truncation.run_pipeline - INFO - Core energy:           -278.6639831662 Ha
+2026-03-18 20:20:28,732 - active_space_truncation.run_pipeline - INFO - CASCI below HF:        True
+2026-03-18 20:20:28,732 - active_space_truncation.run_pipeline - INFO - Correlation recovered: 0.9%
+2026-03-18 20:20:28,733 - active_space_truncation.run_pipeline - INFO - ============================================================
+2026-03-18 20:20:28,733 - __main__ - INFO - Active space Hamiltonian: 14 qubits, 3382 terms
+2026-03-18 20:20:28,733 - __main__ - INFO - Core energy (frozen core + nuclear repulsion): -278.6639831662 Ha
+2026-03-18 20:20:28,733 - __main__ - INFO - CASCI reference energy: -282.8622555689 Ha
+2026-03-18 20:20:28,733 - contextual_subspace.cs_reduction - INFO - CS reduction: searching for noncontextual sub-Hamiltonian (cutoff=60.0s, criterion=weight)...
+2026-03-18 20:21:35,650 - contextual_subspace.cs_reduction - INFO - Noncontextual sub-Hamiltonian: 132/3382 terms (293.3884/296.7586 total weight, DFS took 66.9s)
+2026-03-18 20:21:35,708 - contextual_subspace.cs_reduction - INFO - Building quasi-quantized model and solving noncontextual ground state...
+2026-03-18 20:21:43,551 - contextual_subspace.cs_reduction - INFO - Noncontextual ground state energy: -282.85492358 Ha
+2026-03-18 20:21:43,552 - contextual_subspace.cs_reduction - INFO - CS reduction: 14 -> 8 qubits (6 generators stabilized, 8 released to quantum)
+2026-03-18 20:21:43,637 - contextual_subspace.cs_reduction - INFO - Rotated HF state: 1 non-zero amplitudes in 256-dim Hilbert space
+2026-03-18 20:21:43,641 - __main__ - INFO - CS reduction: 14 -> 8 qubits (361 terms)
+2026-03-18 20:21:43,641 - core.base_vqe - INFO - Running vanilla_vqe on glycine
+2026-03-18 20:21:43,642 - core.base_vqe - INFO - Backend: statevector
+2026-03-18 20:21:43,839 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -280.00797061 Ha  (reference = -282.86225557 Ha)
+2026-03-18 20:21:43,887 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:21:43,918 - algorithms.vqe_vanilla - INFO - Built ansatz with 48 parameters, 2 layers, backend=statevector
+2026-03-18 20:21:45,468 - core.base_vqe - INFO - Completed vanilla_vqe: Energy = -281.39832786, Error = 1.46392771, Runtime = 1.58s
+2026-03-18 20:21:45,474 - __main__ - INFO - Running adapt_vqe on gly
+2026-03-18 20:21:45,474 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:21:45,474 - __main__ - INFO - Using cached Hamiltonian for gly (8 qubits, 361 terms)
+2026-03-18 20:21:45,474 - algorithms.vqe_adapt - INFO - Running adapt_vqe on glycine
+2026-03-18 20:21:45,475 - algorithms.vqe_adapt - INFO - Backend: statevector
+2026-03-18 20:21:45,627 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -280.00797061 Ha  (reference = -282.86225557 Ha)
+2026-03-18 20:21:45,628 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:21:45,629 - algorithms.vqe_adapt - INFO - Built operator pool with 56 operators
+2026-03-18 20:21:49,695 - algorithms.vqe_adapt - INFO - Converged at iteration 0 (gradient below threshold)
+2026-03-18 20:21:49,735 - algorithms.vqe_adapt - INFO - Completed adapt_vqe: Energy = -282.85492358, Error = 0.00733199, Operators = 0
+2026-03-18 20:21:49,738 - __main__ - INFO - Running qubit_adapt_vqe on gly
+2026-03-18 20:21:49,738 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:21:49,738 - __main__ - INFO - Using cached Hamiltonian for gly (8 qubits, 361 terms)
+2026-03-18 20:21:49,738 - algorithms.vqe_qubit_adapt - INFO - Running qubit_adapt_vqe on glycine
+2026-03-18 20:21:49,739 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:21:49,739 - algorithms.vqe_qubit_adapt - INFO - CS reduction active; using FULL pool (occupied/virtual split not applicable)
+2026-03-18 20:21:49,739 - algorithms.vqe_qubit_adapt - INFO - Built FULL Pauli operator pool with 616 operators
+2026-03-18 20:21:49,739 - algorithms.vqe_qubit_adapt - INFO - Gradient computation: n_qubits=8, initial_state=CS-rotated HF, pool_size=616
+2026-03-18 20:21:49,740 - algorithms.vqe_qubit_adapt - INFO - Pre-screening: 328/616 operators viable (288 skipped, 50 unique off-diagonal patterns in H)
+2026-03-18 20:22:18,347 - algorithms.vqe_qubit_adapt - INFO - Converged at iteration 0 (gradient 4.12e-07 < 0.0001)
+2026-03-18 20:22:18,389 - __main__ - INFO - Running hardware_efficient_vqe on gly
+2026-03-18 20:22:18,389 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:22:18,390 - __main__ - INFO - Using cached Hamiltonian for gly (8 qubits, 361 terms)
+2026-03-18 20:22:18,390 - core.base_vqe - INFO - Running hardware_efficient_vqe on glycine
+2026-03-18 20:22:18,390 - core.base_vqe - INFO - Backend: statevector
+2026-03-18 20:22:18,541 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -280.00797061 Ha  (reference = -282.86225557 Ha)
+2026-03-18 20:22:18,547 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:22:17,629 - algorithms.vqe_hardware_efficient - INFO - Built HW-efficient ansatz with 48 parameters, 2 layers, CNOT entangling, backend=statevector
+2026-03-18 20:22:18,900 - core.base_vqe - INFO - Completed hardware_efficient_vqe: Energy = -281.69880484, Error = 1.16345073, Runtime = 0.35s
+2026-03-18 20:22:18,903 - __main__ - INFO - Running qaoa_inspired_vqe on gly
+2026-03-18 20:22:18,904 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:22:18,904 - __main__ - INFO - Using cached Hamiltonian for gly (8 qubits, 361 terms)
+2026-03-18 20:22:18,904 - core.base_vqe - INFO - Running qaoa_inspired_vqe on glycine
+2026-03-18 20:22:18,904 - core.base_vqe - INFO - Backend: statevector
+2026-03-18 20:22:19,057 - core.base_vqe - INFO - HF energy ⟨HF|H|HF⟩ = -280.00797061 Ha  (reference = -282.86225557 Ha)
+2026-03-18 20:22:19,058 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:22:19,093 - algorithms.vqe_qaoa_inspired - INFO - Built QAOA-inspired ansatz with 12 parameters, 2 layers, backend=statevector
+2026-03-18 20:22:20,883 - core.base_vqe - INFO - Completed qaoa_inspired_vqe: Energy = -282.57675751, Error = 0.28549806, Runtime = 1.83s
+2026-03-18 20:22:20,887 - __main__ - INFO - Running iqcc_inspired_vqe on gly
+2026-03-18 20:22:20,887 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:22:20,887 - __main__ - INFO - Using cached Hamiltonian for gly (8 qubits, 361 terms)
+2026-03-18 20:22:20,888 - algorithms.vqe_iqcc_inspired - INFO - Running iqcc_inspired_vqe on glycine
+2026-03-18 20:22:21,049 - algorithms.vqe_iqcc_inspired - INFO - HF energy (truncated, n_el=4) = -280.00797061 Ha
+2026-03-18 20:22:21,049 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+Initial energy: -282.8549235824527
+HF reference: -280.00797061259516
+2026-03-18 20:22:21,111 - algorithms.vqe_iqcc_inspired - INFO - iQCC step 1/20
+Number of gradients 276
+max gradient: 4.1244975065683753e-07
+2026-03-18 20:22:27,956 - algorithms.vqe_iqcc_inspired - INFO - Selected operator with gradient 4.124e-07
+2026-03-18 20:22:27,960 - __main__ - INFO - Running iqcc_true_vqe on gly
+2026-03-18 20:22:27,961 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:22:27,961 - __main__ - INFO - Using cached Hamiltonian for gly (8 qubits, 361 terms)
+2026-03-18 20:22:27,961 - algorithms.vqe_iqcc_true - INFO - Running iqcc_vqe on glycine
+2026-03-18 20:22:28,118 - algorithms.vqe_iqcc_true - INFO - HF energy (truncated, n_el=4) = -280.00797061 Ha
+2026-03-18 20:22:28,127 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:22:28,197 - algorithms.vqe_iqcc_true - INFO - iQCC step 1/20
+2026-03-18 20:22:35,145 - algorithms.vqe_iqcc_true - INFO - Selected operator with gradient 4.124e-07
+2026-03-18 20:22:35,148 - __main__ - INFO - Running cb_vqe on gly
+2026-03-18 20:22:35,149 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:22:35,149 - __main__ - INFO - Using cached Hamiltonian for gly (8 qubits, 361 terms)
+2026-03-18 20:22:35,149 - algorithms.vqe_CB - INFO - Running cb_vqe on glycine
+2026-03-18 20:22:35,149 - algorithms.vqe_CB - INFO - Backend: statevector
+2026-03-18 20:22:35,301 - algorithms.vqe_CB - INFO - HF energy (truncated, n_el=4) = -280.00797061 Ha
+2026-03-18 20:22:35,302 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:22:35,337 - algorithms.vqe_CB - INFO - CB-VQE ansatz: 48 params, 2 layers, backend=statevector
+2026-03-18 20:22:36,615 - algorithms.vqe_CB - INFO - CB-VQE: computing classical boost ... (n_electrons=4, n_qubits=8)
+2026-03-18 20:22:36,762 - algorithms.vqe_CB - INFO -   H11 Classical Entry(HF energy)     = -280.00797061
+2026-03-18 20:22:36,763 - algorithms.vqe_CB - INFO -   H22 Quantum Entry (VQE energy)    = -281.54887132
+2026-03-18 20:22:36,763 - algorithms.vqe_CB - INFO -   Relevant basis states: 53
+2026-03-18 20:22:37,992 - algorithms.vqe_CB - WARNING - Classical boost failed (ControlledQubitUnitary.__init__() missing 1 required positional argument: 'control_wires'); using VQE energy.
+2026-03-18 20:22:37,992 - algorithms.vqe_CB - INFO - Completed cb_vqe: VQE=-281.54887132, CB=-281.54887132, Best=-281.54887132, Error=1.31338425, Runtime=2.69s
+2026-03-18 20:22:37,998 - __main__ - INFO - Running hva_vqe on gly
+2026-03-18 20:22:37,998 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:22:37,998 - __main__ - INFO - Using cached Hamiltonian for gly (8 qubits, 361 terms)
+2026-03-18 20:22:37,999 - algorithms.vqe_hva - INFO - Running hva_vqe on glycine
+2026-03-18 20:22:37,999 - algorithms.vqe_hva - INFO - Backend: statevector
+2026-03-18 20:22:38,177 - algorithms.vqe_hva - INFO - HF energy (truncated, n_el=4) = -280.00797061 Ha
+2026-03-18 20:22:38,187 - algorithms.vqe_hva - INFO - HVA: 361 terms -> 24 commuting groups
+2026-03-18 20:22:38,225 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:22:38,257 - algorithms.vqe_hva - INFO - HVA ansatz built: 48 params (24 groups x 2 layers), backend=statevector
+2026-03-18 20:22:49,866 - algorithms.vqe_hva - INFO - Completed hva_vqe: Energy=-282.85492358, HF ref=-282.86225557, Error=0.00733199, Runtime=11.68s
+2026-03-18 20:22:49,869 - __main__ - INFO - Running ucc_vqe on gly
+2026-03-18 20:22:49,869 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:22:49,870 - __main__ - INFO - Using cached Hamiltonian for gly (8 qubits, 361 terms)
+2026-03-18 20:22:49,870 - algorithms.vqe_ucc - INFO - Running ucc_vqe on glycine
+2026-03-18 20:22:49,870 - algorithms.vqe_ucc - INFO - Backend: statevector
+2026-03-18 20:22:50,065 - algorithms.vqe_ucc - INFO - HF energy (n_el=4) = -280.00797061 Ha
+2026-03-18 20:22:50,072 - algorithms.vqe_ucc - INFO - UCCSD: n_electrons=4, n_qubits=8, singles=4, doubles=4, beta_singles=4, use_spin_symmetry=True
+2026-03-18 20:22:50,086 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:22:50,139 - algorithms.vqe_ucc - INFO - UCCSD ansatz built: 8 params, backend=statevector
+2026-03-18 20:22:51,507 - algorithms.vqe_ucc - INFO - Completed ucc_vqe: Energy=-282.85492358, HF ref=-282.86225557, Error=0.00733199, Runtime=1.44s
+2026-03-18 20:22:51,510 - __main__ - INFO - Running nn_ae_vqe on gly
+2026-03-18 20:22:51,510 - __main__ - INFO - Truncation mode: active_space
+2026-03-18 20:22:51,511 - __main__ - INFO - Using cached Hamiltonian for gly (8 qubits, 361 terms)
+2026-03-18 20:22:51,511 - algorithms.vqe_nn_ae - INFO - Running nn_ae_vqe on glycine
+2026-03-18 20:22:51,511 - algorithms.vqe_nn_ae - INFO - Config: enc=ry_brick, lat=ry_cz, dec=mirror, init=zeros
+2026-03-18 20:22:51,511 - algorithms.vqe_nn_ae - INFO - Backend: statevector
+2026-03-18 20:22:51,663 - algorithms.vqe_nn_ae - INFO - HF energy (n_el=4) = -280.00797061 Ha
+2026-03-18 20:22:51,664 - core.backend_manager - INFO - Created device: lightning.qubit | n_qubits=8 | shots=None | type=statevector
+2026-03-18 20:22:51,799 - algorithms.vqe_nn_ae - INFO - NN-AE-VQE ansatz built: n_qubits=8, n_latent=4, enc_layers=1, lat_layers=2, enc=ry_brick, lat=ry_cz, dec=mirror, n_params=24, backend=statevector
+2026-03-18 20:22:53,088 - algorithms.vqe_nn_ae - INFO - Completed nn_ae_vqe: Energy=-282.85492358, HF ref=-282.86225557, Error=0.00733199, Runtime=1.42s
+2026-03-18 20:22:53,098 - core.results_manager - INFO - Saved 55 results to /mnt/c/qmprot_2026/qmprot_gse/framework/results/json/all_results_20260318_202253.json
+2026-03-18 20:22:53,115 - core.results_manager - INFO - Saved CSV summary to /mnt/c/qmprot_2026/qmprot_gse/framework/results/csv/results_summary_20260318_202253.csv
+Results exported to /mnt/c/qmprot_2026/qmprot_gse/framework/results/results/csv/molecule_plots_summary.csv
+2026-03-18 20:22:53,126 - plotting.visualizer - WARNING - Could not copy vqe_energies_summary.csv: No module named 'plotting.copy_summary'
+2026-03-18 20:22:53,126 - plotting.visualizer - INFO - Generating all plots...
+2026-03-18 20:22:53,267 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/molecule_ala_comparison.png
+2026-03-18 20:22:53,374 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/molecule_arg_comparison.png
+2026-03-18 20:22:53,483 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/molecule_asp_comparison.png
+2026-03-18 20:22:53,609 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/molecule_cys_comparison.png
+2026-03-18 20:22:53,723 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/molecule_gly_comparison.png
+2026-03-18 20:22:53,855 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/algorithm_vanilla_vqe_comparison.png
+2026-03-18 20:22:53,994 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/algorithm_adapt_vqe_comparison.png
+2026-03-18 20:22:54,138 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/algorithm_qubit_adapt_vqe_comparison.png
+2026-03-18 20:22:54,280 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/algorithm_hardware_efficient_vqe_comparison.png
+2026-03-18 20:22:54,408 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/algorithm_qaoa_inspired_vqe_comparison.png
+2026-03-18 20:22:54,544 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/algorithm_iqcc_inspired_vqe_comparison.png
+2026-03-18 20:22:54,676 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/algorithm_iqcc_vqe_comparison.png
+2026-03-18 20:22:54,805 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/algorithm_cb_vqe_comparison.png
+2026-03-18 20:22:54,939 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/algorithm_hva_vqe_comparison.png
+2026-03-18 20:22:55,192 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/algorithm_ucc_vqe_comparison.png
+2026-03-18 20:22:55,314 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/algorithm_nn_ae_vqe_comparison.png
+2026-03-18 20:22:55,419 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/convergence_ala.png
+2026-03-18 20:22:55,515 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/convergence_arg.png
+2026-03-18 20:22:55,616 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/convergence_asp.png
+2026-03-18 20:22:55,708 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/convergence_cys.png
+2026-03-18 20:22:55,803 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/convergence_gly.png
+2026-03-18 20:22:55,973 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/heatmap_error.png
+2026-03-18 20:22:56,133 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/heatmap_relative_error.png
+2026-03-18 20:22:56,302 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/heatmap_runtime_seconds.png
+2026-03-18 20:22:56,599 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/heatmap_molecular_complexity.png
+2026-03-18 20:22:57,093 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/comprehensive_comparison.png
+2026-03-18 20:22:57,247 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/selected_molecules_ala_arg_asp_cys_gly.png
+2026-03-18 20:22:57,965 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/computation_vs_error.png
+2026-03-18 20:22:57,966 - plotting.visualizer - INFO - Only one backend type found – skipping backend comparison plot
+2026-03-18 20:22:58,116 - plotting.visualizer - INFO - Saved plot to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/hf_verification.png
+2026-03-18 20:22:58,118 - plotting.visualizer - INFO - All plots saved to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609
+2026-03-18 20:22:58,119 - __main__ - INFO - Generating specialized molecule plots with HF reference...
+Plot saved to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/selected_molecules_withHFref.png
+Results exported to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/vqe_energies_summary.csv
+2026-03-18 20:22:58,688 - __main__ - INFO - Saved results JSON to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/all_results.json
+Results exported to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/all_results.csv
+2026-03-18 20:22:58,693 - __main__ - INFO - Saved results CSV to /mnt/c/qmprot_2026/qmprot_gse/framework/plots/20260318_200609/all_results.csv
+
+==================================================
+SUMMARY
+==================================================
+  n_molecules: 5
+  n_algorithms: 11
+  n_total_runs: 55
+  mean_error: 0.37301291076667087
+  std_error: 0.5912632580432617
+  mean_runtime: 6.508521587198431
+  convergence_rate: 0.8363636363636363
+  best_algorithm_by_error: ucc_vqe
+  best_algorithm_by_runtime: ucc_vqe

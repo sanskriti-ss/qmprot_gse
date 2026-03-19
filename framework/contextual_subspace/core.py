@@ -311,9 +311,15 @@ def find_gs_noncon(
     model: Optional[Tuple] = None,
     fn_form: Optional[List] = None,
     energy: Optional[callable] = None,
-    timer: bool = False
+    timer: bool = False,
+    return_all: bool = False,
 ) -> Any:
-    """Find noncontextual ground state via numerical minimization."""
+    """Find noncontextual ground state via numerical minimization.
+
+    If ``return_all=True``, also return all candidate ep_states sorted by
+    energy as a second return value.  Callers can iterate through these to
+    find an alternative sector compatible with the HF initial state.
+    """
     if model is None:
         model = quasi_model(ham_noncon)
 
@@ -352,6 +358,13 @@ def find_gs_noncon(
             best_guesses.append([sol['fun'], [list(q), list(angular(sol['x']))]])
 
     best = min(best_guesses, key=lambda x: x[0])
+
+    all_sorted = sorted(best_guesses, key=lambda x: x[0])
+
+    if return_all:
+        if timer:
+            return best + [model, fn_form], all_sorted, datetime.now() - start_time
+        return best + [model, fn_form], all_sorted
 
     if timer:
         return best + [model, fn_form], datetime.now() - start_time

@@ -232,7 +232,9 @@ def apply_contextual_subspace_reduction(
     logger.info("Building quasi-quantized model and solving noncontextual ground state...")
     model = quasi_model(ham_noncon)
     fn_form = energy_function_form(ham_noncon, model)
-    gs_noncon = find_gs_noncon(ham_noncon, method="differential_evolution")
+    gs_noncon, all_ep_candidates = find_gs_noncon(
+        ham_noncon, method="differential_evolution", return_all=True
+    )
     ep_state = gs_noncon[1]
     noncon_energy = gs_noncon[0]
     logger.info(f"Noncontextual ground state energy: {noncon_energy:.8f} Ha")
@@ -269,6 +271,42 @@ def apply_contextual_subspace_reduction(
         model, fn_form, ep_state,
         n_generators_to_drop,
     )
+
+    # If the minimum-energy noncontextual sector doesn't contain the HF state
+    # (zero norm after projection), search other sectors ordered by energy until
+    # we find one that is HF-compatible.  This ensures VQE starts in the correct
+    # physical sector rather than a spuriously low-energy wrong sector.
+    if np.linalg.norm(cs_initial_state) < 1e-10 and len(all_ep_candidates) > 1:
+        logger.info(
+            "Default noncontextual sector has zero HF overlap; "
+            f"searching for HF-compatible sector among {len(all_ep_candidates)} candidates..."
+        )
+        for alt_candidate in all_ep_candidates[1:]:
+            alt_ep = alt_candidate[1]
+            alt_state = _compute_cs_initial_state(
+                n_qubits,
+                hamiltonian.molecule.n_electrons,
+                model, fn_form, alt_ep,
+                n_generators_to_drop,
+            )
+            if np.linalg.norm(alt_state) > 1e-10:
+                logger.info(
+                    f"Found HF-compatible noncontextual sector "
+                    f"(energy {alt_candidate[0]:.6f} Ha vs min {noncon_energy:.6f} Ha); "
+                    f"rebuilding reduced Hamiltonian..."
+                )
+                ep_state = alt_ep
+                cs_initial_state = alt_state
+                ham_red = _build_reduced_hamiltonian(
+                    ham_dict, model, fn_form, ep_state, n_generators_to_drop
+                )
+                break
+        else:
+            logger.warning(
+                "No noncontextual sector contains the HF state; "
+                "using default sector (VQE initial state will be naive HF fallback)."
+            )
+
     logger.info(
         f"Rotated HF state: {np.sum(np.abs(cs_initial_state) > 1e-8)} non-zero amplitudes "
         f"in {len(cs_initial_state)}-dim Hilbert space"

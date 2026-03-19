@@ -194,11 +194,7 @@ class iQCC_inspired_VQE(BaseVQE):
         runtime = time.time() - start_time
 
         # Final bookkeeping
-        ref_energy = (
-            self.hf_energy
-            if self.hf_energy is not None
-            else self.hamiltonian.molecule.reference_energy
-        )
+        ref_energy = self.hamiltonian.molecule.reference_energy
         error = energy - ref_energy
 
         return VQEResult(

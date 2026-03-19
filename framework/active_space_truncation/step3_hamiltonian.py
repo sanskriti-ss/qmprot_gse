@@ -49,13 +49,15 @@ def build_qubit_hamiltonian(
     active_space: ActiveSpaceResult,
     diagnostics: OrbitalDiagnostics,
 ) -> PipelineHamiltonian:
-    """Build qubit Hamiltonian via OpenFermion + PySCF.
+    """Build qubit Hamiltonian via PySCF active-space integrals + OpenFermion.
 
-    Follows the same pattern as generate_gln_hamiltonian_active_space.py.
-    Output is compatible with the existing framework's QubitHamiltonian.
+    Uses PySCF's CASCI ao2mo.full() to compute only (ncas)^4 ERIs, avoiding
+    the (n_basis)^4 allocation that OOMs for large molecules like ARG (238^4 = 23.9 GiB).
+    Spin-orbital expansion follows OpenFermion's spinorb_from_spatial() exactly.
     """
-    from openfermion import MolecularData, jordan_wigner
-    from openfermionpyscf import run_pyscf
+    from pyscf import mcscf
+    from pyscf import ao2mo as pyscf_ao2mo
+    from openfermion import InteractionOperator, jordan_wigner
     import numpy as np
     import sys, os
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -63,25 +65,53 @@ def build_qubit_hamiltonian(
 
     result = PipelineHamiltonian()
 
-    mol_data = MolecularData(
-        geometry=geometry.to_openfermion_geometry(),
-        basis=diagnostics.mol.basis if diagnostics.mol else "cc-pvdz",
-        multiplicity=geometry.multiplicity,
-        charge=geometry.charge,
-        description=f"{geometry.name}_active_space",
-    )
+    mf = diagnostics.mf
+    ncas = active_space.n_active_orbitals
+    nelecas = active_space.n_active_electrons
 
-    mol_data = run_pyscf(mol_data, run_scf=True, run_mp2=True, run_fci=False)
+    # Set up CASCI with the same active space as step 2.
+    mc = mcscf.CASCI(mf, ncas, nelecas)
+    # PySCF sort_mo expects 1-based orbital indices.
+    cas_list = [i + 1 for i in diagnostics.proposed_active_indices]
+    mo = mcscf.sort_mo(mc, mf.mo_coeff, cas_list)
 
-    n_occ = geometry.n_electrons // 2
-    active_indices = list(diagnostics.proposed_active_indices)
-    occupied_indices = [i for i in range(n_occ) if i not in active_indices]
+    # 1-electron integrals for active space.
+    # h1eff includes the frozen-core Fock contribution;
+    # e_core = nuclear repulsion + frozen-core electron energy.
+    h1eff, e_core = mc.h1e_for_cas(mo)        # shape (ncas, ncas)
 
-    molecular_hamiltonian = mol_data.get_molecular_hamiltonian(
-        occupied_indices=occupied_indices,
-        active_indices=active_indices,
-    )
+    # 2-electron integrals for active space only: (ncas^4) NOT (n_basis^4).
+    # ao2mo.full returns chemist notation: (ij|kl)
+    mo_cas = mo[:, mc.ncore:mc.ncore + ncas]  # (n_ao, ncas)
+    h2e_chem = pyscf_ao2mo.full(
+        mf.mol, mo_cas, compact=False
+    ).reshape(ncas, ncas, ncas, ncas)
 
+    # FINALLY FIX: The energies were wrong because we were feeding (pr|qs)_chem where (ps|qr)_chem was expected: a consistent index swap that shifts all 2-body matrix elements by ~20 Ha.
+    h2e_phys = h2e_chem.transpose(0, 2, 3, 1) # shape (ncas, ncas, ncas, ncas)
+
+    # Expand to spin-orbital basis using the EXACT convention of
+    # OpenFermion's spinorb_from_spatial() (openfermion/chem/molecular_data.py).
+    n_so = 2 * ncas
+    h1_so = np.zeros((n_so, n_so))
+    h2_so = np.zeros((n_so, n_so, n_so, n_so))
+
+    for p in range(ncas):
+        for q in range(ncas):
+            h1_so[2 * p,     2 * q    ] = h1eff[p, q]   # alpha -> alpha
+            h1_so[2 * p + 1, 2 * q + 1] = h1eff[p, q]  # beta  -> beta
+            for r in range(ncas):
+                for s in range(ncas):
+                    val = h2e_phys[p, q, r, s]
+                    # Mixed spin 
+                    h2_so[2*p,   2*q+1, 2*r+1, 2*s  ] = val
+                    h2_so[2*p+1, 2*q,   2*r,   2*s+1] = val
+                    # Same spin 
+                    h2_so[2*p,   2*q,   2*r,   2*s  ] = val
+                    h2_so[2*p+1, 2*q+1, 2*r+1, 2*s+1] = val
+
+    # Factor 1/2 on two-body matches get_molecular_hamiltonian() convention.
+    molecular_hamiltonian = InteractionOperator(float(e_core), h1_so, 0.5 * h2_so)
     qubit_op = jordan_wigner(molecular_hamiltonian)
 
     # Extract terms

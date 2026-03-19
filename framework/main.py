@@ -98,6 +98,7 @@ class VQEFramework:
         self.results_manager = ResultsManager(self.results_dir)
         self.visualizer = None  # Lazy initialization
         self._run_csv_path = None  # Incremental CSV in timestamped run folder
+        self._hamiltonian_cache = {}  # Cache prepared (truncated + CS-reduced) Hamiltonians per molecule
 
         logger.info(f"VQE Framework initialized")
         logger.info(f"Hamiltonians directory: {self.hamiltonians_dir}")
@@ -123,51 +124,76 @@ class VQEFramework:
         truncation_mode = kwargs.pop("truncation_mode", TRUNCATION_MODE)
         logger.info(f"Truncation mode: {truncation_mode}")
 
-        if truncation_mode == "active_space":
-            # Active space truncation: PySCF HF -> MP2 -> CASCI -> OpenFermion
-            from active_space_truncation.run_pipeline import run_pipeline as run_active_space_pipeline
-            basis = kwargs.pop("active_space_basis", ACTIVE_SPACE_BASIS)
-            pipeline_result = run_active_space_pipeline(molecule=molecule, basis=basis, quiet=True)
-            hamiltonian = pipeline_result["hamiltonian"].qubit_hamiltonian
-            core_energy = pipeline_result["hamiltonian"].core_energy
-            casci_energy = pipeline_result["active_space"].casci_energy
-            logger.info(f"Active space Hamiltonian: {hamiltonian.n_qubits} qubits, {hamiltonian.n_terms} terms")
-            logger.info(f"Core energy (frozen core + nuclear repulsion): {core_energy:.10f} Ha")
-            logger.info(f"CASCI reference energy: {casci_energy:.10f} Ha")
-        else:
-            # Coefficient-based truncation (legacy): load H5 and keep largest |coeff| terms
-            if Path(molecule).exists():
-                hamiltonian = self.loader.load_hamiltonian(hamiltonian_file=molecule)
-            else:
-                hamiltonian = self.loader.load_hamiltonian(molecule_abbrev=molecule)
-
-            max_terms = kwargs.get("max_hamiltonian_terms", HAMILTONIAN_MAX_TERMS)
-            target_qubits = kwargs.get("target_qubits", HAMILTONIAN_TARGET_QUBITS)
-            if hamiltonian.n_terms > max_terms:
-                hamiltonian = hamiltonian.truncate(max_terms=max_terms, target_qubits=target_qubits)
-
-        # Optional contextual subspace reduction (after active space / coefficient truncation)
+        # Extract CS params early so they don't bleed into the algorithm's kwargs
         cs_enabled = kwargs.pop("contextual_subspace", False)
-        cs_target_qubits = kwargs.pop("cs_target_qubits", None)
-        if cs_enabled:
-            from contextual_subspace.cs_reduction import apply_contextual_subspace_reduction
-            if cs_target_qubits is None:
-                cs_target_qubits = max(1, hamiltonian.n_qubits // 2)
-                logger.info(f"--cs-target-qubits not set; defaulting to n_qubits // 2 = {cs_target_qubits}")
-            cs_dfs_cutoff = kwargs.pop("cs_dfs_cutoff", 60.0)
-            hamiltonian, cs_metadata = apply_contextual_subspace_reduction(
-                hamiltonian,
-                target_qubits=cs_target_qubits,
-                dfs_cutoff_seconds=cs_dfs_cutoff,
+        cs_target_qubits_arg = kwargs.pop("cs_target_qubits", None)
+        cs_dfs_cutoff = kwargs.pop("cs_dfs_cutoff", 60.0)
+        active_space_basis = kwargs.pop("active_space_basis", ACTIVE_SPACE_BASIS)
+
+        max_terms = kwargs.get("max_hamiltonian_terms", HAMILTONIAN_MAX_TERMS)
+        target_qubits = kwargs.get("target_qubits", HAMILTONIAN_TARGET_QUBITS)
+
+        # Cache key: all parameters that determine the prepared Hamiltonian
+        _cache_key = (
+            str(molecule),
+            truncation_mode,
+            active_space_basis if truncation_mode == "active_space" else None,
+            max_terms if truncation_mode != "active_space" else None,
+            target_qubits if truncation_mode != "active_space" else None,
+            cs_enabled,
+            cs_target_qubits_arg,
+            cs_dfs_cutoff if cs_enabled else None,
+        )
+
+        if _cache_key in self._hamiltonian_cache:
+            hamiltonian = self._hamiltonian_cache[_cache_key]
+            logger.info(
+                f"Using cached Hamiltonian for {molecule} "
+                f"({hamiltonian.n_qubits} qubits, {hamiltonian.n_terms} terms)"
             )
-            if cs_metadata.get("reduced"):
-                logger.info(
-                    f"CS reduction: {cs_metadata['original_qubits']} -> "
-                    f"{cs_metadata['reduced_qubits']} qubits "
-                    f"({cs_metadata['reduced_terms']} terms)"
-                )
+        else:
+            if truncation_mode == "active_space":
+                # Active space truncation: PySCF HF -> MP2 -> CASCI -> OpenFermion
+                from active_space_truncation.run_pipeline import run_pipeline as run_active_space_pipeline
+                pipeline_result = run_active_space_pipeline(molecule=molecule, basis=active_space_basis, quiet=True)
+                hamiltonian = pipeline_result["hamiltonian"].qubit_hamiltonian
+                core_energy = pipeline_result["hamiltonian"].core_energy
+                casci_energy = pipeline_result["active_space"].casci_energy
+                logger.info(f"Active space Hamiltonian: {hamiltonian.n_qubits} qubits, {hamiltonian.n_terms} terms")
+                logger.info(f"Core energy (frozen core + nuclear repulsion): {core_energy:.10f} Ha")
+                logger.info(f"CASCI reference energy: {casci_energy:.10f} Ha")
             else:
-                logger.info("CS reduction: no reduction applied")
+                # Coefficient-based truncation (legacy): load H5 and keep largest |coeff| terms
+                if Path(molecule).exists():
+                    hamiltonian = self.loader.load_hamiltonian(hamiltonian_file=molecule)
+                else:
+                    hamiltonian = self.loader.load_hamiltonian(molecule_abbrev=molecule)
+
+                if hamiltonian.n_terms > max_terms:
+                    hamiltonian = hamiltonian.truncate(max_terms=max_terms, target_qubits=target_qubits)
+
+            # Optional contextual subspace reduction (after active space / coefficient truncation)
+            if cs_enabled:
+                from contextual_subspace.cs_reduction import apply_contextual_subspace_reduction
+                cs_target_qubits = cs_target_qubits_arg
+                if cs_target_qubits is None:
+                    cs_target_qubits = max(1, hamiltonian.n_qubits // 2)
+                    logger.info(f"--cs-target-qubits not set; defaulting to n_qubits // 2 = {cs_target_qubits}")
+                hamiltonian, cs_metadata = apply_contextual_subspace_reduction(
+                    hamiltonian,
+                    target_qubits=cs_target_qubits,
+                    dfs_cutoff_seconds=cs_dfs_cutoff,
+                )
+                if cs_metadata.get("reduced"):
+                    logger.info(
+                        f"CS reduction: {cs_metadata['original_qubits']} -> "
+                        f"{cs_metadata['reduced_qubits']} qubits "
+                        f"({cs_metadata['reduced_terms']} terms)"
+                    )
+                else:
+                    logger.info("CS reduction: no reduction applied")
+
+            self._hamiltonian_cache[_cache_key] = hamiltonian
 
         # Get algorithm class
         AlgorithmClass = get_algorithm(algorithm)

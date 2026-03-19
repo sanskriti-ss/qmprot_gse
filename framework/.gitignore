@@ -73,7 +73,7 @@ results/
 !results/.gitkeep
 
 # Plots (can be regenerated)
-plots/
+
 !plots/.gitkeep
 
 # Logs

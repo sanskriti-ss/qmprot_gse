@@ -366,7 +366,6 @@ class NeuralNetworkAutoEncoderVQE(BaseVQE):
         encoder_style   = self.encoder_style
         latent_style    = self.latent_style
         decoder_style   = self.decoder_style
-        n_el            = self._eff_n_electrons
 
         enc_block = self._enc_block_size
         lat_block = self._lat_block_size
@@ -390,9 +389,8 @@ class NeuralNetworkAutoEncoderVQE(BaseVQE):
             p_lat = params[enc_size : enc_size + lat_size]
             p_dec = params[enc_size + lat_size:] if decoder_style != "adjoint" else None
 
-            # ── 1. Hartree-Fock reference state ───────────────────────
-            for i in range(n_el):
-                qml.PauliX(wires=i)
+            # ── 1. Initial state (HF or CS-rotated HF if CS reduction applied) ──
+            self._prepare_initial_state()
 
             # ── 2. Encoder ────────────────────────────────────────────
             for layer in range(n_enc_layers):
@@ -514,11 +512,7 @@ class NeuralNetworkAutoEncoderVQE(BaseVQE):
         optimal_params, optimal_energy = self.optimize()
         runtime = time.time() - start_time
 
-        ref_energy = (
-            self.hf_energy
-            if self.hf_energy is not None
-            else self.hamiltonian.molecule.reference_energy
-        )
+        ref_energy = self.hamiltonian.molecule.reference_energy
         error          = optimal_energy - ref_energy
         relative_error = abs(error / ref_energy) if ref_energy != 0 else 0.0
 
