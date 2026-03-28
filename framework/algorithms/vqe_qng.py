@@ -3,6 +3,7 @@ QNG VQE Implementation
 VQE with Quantum Natural Gradient optimization using PennyLane.
 """
 import numpy as np
+from pennylane import numpy as pnp  # Add this line
 from typing import Optional, Any
 import logging
 import sys
@@ -125,62 +126,50 @@ class QNGVQE(BaseVQE):
         return float(self.cost_fn(parameters))
     
     def get_initial_parameters(self) -> np.ndarray:
-        """Get initial parameters - small random values"""
-        return np.random.uniform(-0.1, 0.1, self.n_parameters)
+        return pnp.array(np.random.uniform(-0.1, 0.1, self.n_parameters), requires_grad=True)
     
     def optimize(self, 
                  initial_params: Optional[np.ndarray] = None,
-                 max_iterations: Optional[int] = None) -> VQEResult:
+                 max_iterations: Optional[int] = None):
         """
         Run QNG optimization.
         
         This overrides the base class optimize method to use QNG's step_and_cost.
         """
         if self.cost_fn is None:
-            self.build_ansatz()
-        
+                self.build_ansatz()
+            
         if initial_params is None:
             params = self.get_initial_parameters()
         else:
-            params = initial_params.copy()
+            params = pnp.array(initial_params, requires_grad=True)
         
         max_iter = max_iterations or self.max_iterations
         
-        energy_history = []
-        param_history = []
+        self.convergence_history = []      # ← Changed to self.
+        self.param_history = []       # ← Changed to self.
         
         logger.info(f"Starting QNG optimization (max_iterations={max_iter})")
         
         for iteration in range(max_iter):
-            # QNG step - this computes metric tensor internally!
             params, energy = self.optimizer.step_and_cost(self.cost_fn, params)
             
-            energy_history.append(float(energy))
-            param_history.append(params.copy())
+            self.convergence_history.append(float(energy))    # ← Changed to self.
+            self.param_history.append(params.copy())     # ← Changed to self.
             
             if iteration % 10 == 0:
                 logger.info(f"Iteration {iteration}: Energy = {energy:.8f}")
             
             # Check convergence
             if iteration > 0:
-                energy_change = abs(energy_history[-1] - energy_history[-2])
+                energy_change = abs(self.convergence_history[-1] - self.convergence_history[-2])  # ← Changed to self.
                 if energy_change < self.convergence_threshold:
                     logger.info(f"Converged at iteration {iteration} "
-                              f"(ΔE = {energy_change:.2e})")
+                            f"(ΔE = {energy_change:.2e})")
                     break
         
-        final_energy = energy_history[-1]
-        
-        # Create result object
-        result = VQEResult(
-            energy=final_energy,
-            parameters=params,
-            n_iterations=len(energy_history),
-            converged=(len(energy_history) < max_iter),
-            energy_history=energy_history,
-            algorithm=self.name
-        )
+        final_energy = self.convergence_history[-1] # ← Changed to self.
         
         logger.info(f"Optimization complete: Final energy = {final_energy:.8f}")
         
-        return result
+        return params, final_energy
