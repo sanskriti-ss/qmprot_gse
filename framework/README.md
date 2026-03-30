@@ -69,7 +69,7 @@ framework/
 │   ├── vqe_qubit_adapt.py         # Qubit-ADAPT-VQE
 │   ├── vqe_hardware_efficient.py  # Hardware-efficient layered ansatz
 │   ├── vqe_qaoa_inspired.py       # QAOA-inspired VQE
-│   ├── vqe_iqcc.py                # iQCC (iterative qubit coupled clustering)
+│   ├── vqe_iqcc.py                # iQCC (iterative qubit coupled clustering) with truncated approximation of canonical transform
 │   ├── vqe_iqcc_inspired.py       # iQCC-inspired ADAPT variant
 │   ├── vqe_CB.py                  # Classically boosted VQE
 │   ├── vqe_hva.py                 # Hamiltonian variational ansatz
