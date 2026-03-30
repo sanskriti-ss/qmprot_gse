@@ -30,6 +30,7 @@ class iQCC_true_VQE(BaseVQE):
                  hamiltonian: QubitHamiltonian, 
                  max_operators: int=20, 
                  gradient_threshold: float= 1e-4,
+                 bound: float=0.005,
                  **kwargs):
         super().__init__(hamiltonian, kwargs)
         self.name = 'iqcc_vqe'
@@ -37,6 +38,7 @@ class iQCC_true_VQE(BaseVQE):
         self.max_operators = max_operators
         self.gradient_threshold = gradient_threshold
         self.max_terms = 10000
+        self.bound = bound
 
         n_el_raw = self.hamiltonian.molecule.n_electrons or self.n_qubits // 2
         if n_el_raw >= self.n_qubits:
@@ -151,7 +153,7 @@ class iQCC_true_VQE(BaseVQE):
                 H_trial_pl = of_to_pennylane(H_trial)
                 return self.compute_hf_energy(H_trial_pl)
 
-            res = minimize_scalar(energy_tau, bounds=(-0.005,0.005), method='bounded')
+            res = minimize_scalar(energy_tau, bounds=(-1 * self.bound,self.bound), method='bounded')
             tau_opt = res.x
 
             comm1 = of_commutator(H_current, best_op_of)
