@@ -113,48 +113,76 @@ class ResultsManager:
             filename = f"results_summary_{timestamp}.csv"
         
         filepath = self.csv_dir / filename
-        
-        # Extract summary data
+
+        columns = [
+            "molecule_abbrev",
+            "molecule_name",
+            "algorithm",
+            "calculated_energy",
+            "reference_energy",
+            "error",
+            "relative_error",
+            "n_iterations",
+            "n_qubits",
+            "n_parameters",
+            "runtime_seconds",
+            "converged",
+            "backend_type",
+            "noise_model",
+            "noise_strength",
+            "hf_energy",
+        ]
+
         rows = []
         for r in self.results:
-            rows.append({
-                "molecule_abbrev": r.molecule_abbrev,
-                "molecule_name": r.molecule_name,
-                "algorithm": r.algorithm_name,
-                "calculated_energy": r.calculated_energy,
-                "reference_energy": r.reference_energy,
-                "error": r.error,
-                "relative_error": r.relative_error,
-                "n_iterations": r.n_iterations,
-                "n_qubits": r.n_qubits,
-                "n_parameters": r.n_parameters,
-                "runtime_seconds": r.runtime_seconds,
-                "converged": r.converged,
-                "backend_type": r.backend_type,
-                "noise_model": r.noise_model,
-                "noise_strength": r.noise_strength,
-                "hf_energy": r.hf_energy,
-            })
-        
-        df = pd.DataFrame(rows)
+            rows.append(
+                {
+                    "molecule_abbrev": r.molecule_abbrev,
+                    "molecule_name": r.molecule_name,
+                    "algorithm": r.algorithm_name,
+                    "calculated_energy": r.calculated_energy,
+                    "reference_energy": r.reference_energy,
+                    "error": r.error,
+                    "relative_error": r.relative_error,
+                    "n_iterations": r.n_iterations,
+                    "n_qubits": r.n_qubits,
+                    "n_parameters": r.n_parameters,
+                    "runtime_seconds": r.runtime_seconds,
+                    "converged": r.converged,
+                    "backend_type": r.backend_type,
+                    "noise_model": r.noise_model,
+                    "noise_strength": r.noise_strength,
+                    "hf_energy": r.hf_energy,
+                }
+            )
+
+        if not rows:
+            df = pd.DataFrame(columns=columns)
+            logger.warning(
+                "Saved CSV with headers only (0 results). "
+                "No run reached add_result — check logs for errors in run_single / pipeline / VQE."
+            )
+        else:
+            df = pd.DataFrame(rows)
+
         df.to_csv(filepath, index=False)
-        
-        logger.info(f"Saved CSV summary to {filepath}")
+
+        logger.info(f"Saved CSV summary to {filepath} ({len(self.results)} row(s))")
         return filepath
     
     def load_results(self, filepath: Union[str, Path]) -> List[VQEResult]:
         """
-        Load results from a JSON file.
-        
-        Args:
-            filepath: Path to JSON file
-            
-        Returns:
-            List of VQEResult objects
+        Load results from JSON (full ``VQEResult`` dump) or a summary CSV.
+
+        CSV must match ``save_to_csv`` columns; ``algorithm`` is mapped to
+        ``algorithm_name``. Rows have empty ``convergence_history`` (plots that
+        need histories work best from ``all_results_*.json``).
         """
         filepath = Path(filepath)
-        
-        with open(filepath, 'r') as f:
+        if filepath.suffix.lower() == ".csv":
+            return self._load_results_csv(filepath)
+
+        with open(filepath, "r") as f:
             data = json.load(f)
         
         # Handle single result or multiple results
@@ -188,9 +216,94 @@ class ResultsManager:
                 hf_energy=rd.get("hf_energy"),
             )
             results.append(result)
-        
+
         return results
-    
+
+    def _load_results_csv(self, filepath: Path) -> List[VQEResult]:
+        df = pd.read_csv(filepath)
+        if "algorithm_name" not in df.columns and "algorithm" in df.columns:
+            df = df.rename(columns={"algorithm": "algorithm_name"})
+        required = {
+            "molecule_abbrev",
+            "molecule_name",
+            "algorithm_name",
+            "calculated_energy",
+            "reference_energy",
+            "error",
+            "relative_error",
+            "n_iterations",
+            "n_qubits",
+            "n_parameters",
+            "runtime_seconds",
+        }
+        missing = required - set(df.columns)
+        if missing:
+            raise ValueError(
+                f"CSV {filepath} missing columns {sorted(missing)}. "
+                "Use a results_summary_*.csv from this framework or full JSON."
+            )
+
+        results: List[VQEResult] = []
+        for _, row in df.iterrows():
+            rd = row.where(pd.notna(row), None).to_dict()
+
+            def _f(key: str, default: Optional[float] = None) -> Optional[float]:
+                v = rd.get(key, default)
+                if v is None or (isinstance(v, float) and np.isnan(v)):
+                    return default
+                return float(v)
+
+            def _i(key: str) -> int:
+                v = rd[key]
+                return int(v) if v is not None and not (isinstance(v, float) and np.isnan(v)) else 0
+
+            def _b(key: str) -> bool:
+                v = rd.get(key)
+                if v is None or (isinstance(v, float) and np.isnan(v)):
+                    return False
+                if isinstance(v, bool):
+                    return v
+                return str(v).strip().lower() in ("1", "true", "yes")
+
+            noise_model = rd.get("noise_model")
+            if noise_model is not None and isinstance(noise_model, float) and np.isnan(noise_model):
+                noise_model = None
+            if isinstance(noise_model, str) and not noise_model.strip():
+                noise_model = None
+
+            hf = _f("hf_energy", None)
+            n_strength = _f("noise_strength", 0.0)
+            if n_strength is None:
+                n_strength = 0.0
+
+            results.append(
+                VQEResult(
+                    molecule_abbrev=str(rd["molecule_abbrev"]),
+                    molecule_name=str(rd["molecule_name"]),
+                    algorithm_name=str(rd["algorithm_name"]),
+                    calculated_energy=float(rd["calculated_energy"]),
+                    reference_energy=float(rd["reference_energy"]),
+                    error=float(rd["error"]),
+                    relative_error=float(rd["relative_error"]),
+                    n_iterations=_i("n_iterations"),
+                    n_qubits=_i("n_qubits"),
+                    n_parameters=_i("n_parameters"),
+                    runtime_seconds=float(rd["runtime_seconds"] or 0.0),
+                    convergence_history=[],
+                    optimal_parameters=None,
+                    final_gradient_norm=None,
+                    converged=_b("converged"),
+                    metadata={},
+                    backend_type=str(rd.get("backend_type") or "statevector"),
+                    noise_model=noise_model,
+                    noise_strength=float(n_strength),
+                    hf_energy=hf,
+                )
+            )
+
+        logger.info("Loaded %s rows from CSV %s", len(results), filepath)
+        return results
+
     def get_results_by_molecule(self, molecule_abbrev: str) -> List[VQEResult]:
         """Get all results for a specific molecule"""
         return [r for r in self.results if r.molecule_abbrev == molecule_abbrev]
