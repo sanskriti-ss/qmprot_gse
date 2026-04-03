@@ -5,9 +5,17 @@ and hardcoded fallbacks for testing.
 """
 
 from dataclasses import dataclass
-from typing import List, Tuple
+import sys
 from pathlib import Path
+from typing import List, Tuple
+
 import numpy as np
+
+# Align with framework config (DATASETS_DIR env / default) for molecule discovery
+_FW = Path(__file__).resolve().parent.parent
+if str(_FW) not in sys.path:
+    sys.path.insert(0, str(_FW))
+from config import DATASETS_DIR  # noqa: E402
 
 
 @dataclass
@@ -83,8 +91,6 @@ def load_geometry_from_h5(path: str) -> MoleculeGeometry:
 
 
 # --- Built-in molecule registry (loads from H5 when available) ---
-
-DATASETS_DIR = Path(__file__).parent.parent / "datasets"
 
 # Core electrons per atom (for freeze-core)
 CORE_ELECTRONS = {
