@@ -136,6 +136,7 @@ class VQEFramework:
         # Cache key: all parameters that determine the prepared Hamiltonian
         _cache_key = (
             str(molecule),
+            str(self.hamiltonians_dir.resolve()),
             truncation_mode,
             active_space_basis if truncation_mode == "active_space" else None,
             max_terms if truncation_mode != "active_space" else None,
@@ -155,7 +156,16 @@ class VQEFramework:
             if truncation_mode == "active_space":
                 # Active space truncation: PySCF HF -> MP2 -> CASCI -> OpenFermion
                 from active_space_truncation.run_pipeline import run_pipeline as run_active_space_pipeline
-                pipeline_result = run_active_space_pipeline(molecule=molecule, basis=active_space_basis, quiet=True)
+                pipeline_kw = {
+                    "molecule": molecule,
+                    "basis": active_space_basis,
+                    "quiet": True,
+                }
+                # Use geometry from the same hamiltonians_dir as H5 mode (e.g. datasets2)
+                h5_geom = self.hamiltonians_dir / molecule / f"{molecule}.h5"
+                if h5_geom.is_file():
+                    pipeline_kw["h5_path"] = str(h5_geom.resolve())
+                pipeline_result = run_active_space_pipeline(**pipeline_kw)
                 hamiltonian = pipeline_result["hamiltonian"].qubit_hamiltonian
                 core_energy = pipeline_result["hamiltonian"].core_energy
                 casci_energy = pipeline_result["active_space"].casci_energy
@@ -440,8 +450,9 @@ Examples:
   # Run one algorithm on all molecules
   python main.py --algorithm adapt_vqe --all-molecules
 
-  # Generate plots only (from existing results)
-  python main.py --plot-only --results-file results.json
+  # Generate plots only (from existing results — JSON preferred for convergence plots)
+  python main.py --plot-only --results-file results/json/all_results_YYYYMMDD_HHMMSS.json
+  python main.py --plot-only --results-file results/csv/results_summary_YYYYMMDD_HHMMSS.csv
 
   # List available options
   python main.py --list-algorithms
@@ -489,7 +500,7 @@ Examples:
     parser.add_argument('--plots-dir', type=str,
                        help='Directory for plots')
     parser.add_argument('--results-file', type=str,
-                       help='Load results from file')
+                       help='Load results from JSON (all_results_*.json) or summary CSV (results_summary_*.csv)')
     
     # VQE parameters
     parser.add_argument('--optimizer', type=str, default=DEFAULT_OPTIMIZER,
