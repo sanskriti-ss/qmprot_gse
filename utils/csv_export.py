@@ -45,13 +45,16 @@ def export_results_to_csv(
         writer.writeheader()
 
         for r in results:
-            exact = getattr(r, "exact_energy", None)
+            exact = getattr(r, "exact_energy", getattr(r, "reference_energy", None))
             hf = getattr(r, "hf_energy", None)
-            energy = getattr(r, "energy", None)
+            energy = getattr(r, "energy", getattr(r, "calculated_energy", None))
+
+            method = getattr(r, "method", getattr(r, "algorithm_name", "unknown"))
+            iterations = getattr(r, "iterations", getattr(r, "n_iterations", ""))
 
             row = {
-                "molecule": getattr(r, "molecule_name", "unknown"),
-                "method": getattr(r, "method", "unknown"),
+                "molecule": getattr(r, "molecule_name", getattr(r, "molecule_abbrev", "unknown")),
+                "method": method,
                 "vqe_energy": f"{energy:.10f}" if energy is not None else "",
                 "hf_energy": f"{hf:.10f}" if hf is not None else "",
                 "exact_energy": f"{exact:.10f}" if exact is not None else "",
@@ -65,7 +68,7 @@ def export_results_to_csv(
                     if energy is not None and hf is not None
                     else ""
                 ),
-                "iterations": getattr(r, "iterations", ""),
+                "iterations": iterations,
             }
             if additional_fields:
                 row.update(additional_fields)

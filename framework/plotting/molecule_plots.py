@@ -30,15 +30,15 @@ def plot_selected_molecules_with_hf_ref(
                 "methods": [],
                 "energies": [],
                 "hf_energy": getattr(r, "hf_energy", None),
-                "exact_energy": getattr(r, "exact_energy", None),
+                "exact_energy": getattr(r, "exact_energy", getattr(r, "reference_energy", None)),
             }
-        molecules[mol]["methods"].append(getattr(r, "method", "?"))
-        molecules[mol]["energies"].append(getattr(r, "energy", 0.0))
+        molecules[mol]["methods"].append(getattr(r, "method", getattr(r, "algorithm_name", "?")))
+        molecules[mol]["energies"].append(getattr(r, "energy", getattr(r, "calculated_energy", 0.0)))
         # Update hf/exact if not yet set
         if molecules[mol]["hf_energy"] is None:
             molecules[mol]["hf_energy"] = getattr(r, "hf_energy", None)
         if molecules[mol]["exact_energy"] is None:
-            molecules[mol]["exact_energy"] = getattr(r, "exact_energy", None)
+            molecules[mol]["exact_energy"] = getattr(r, "exact_energy", getattr(r, "reference_energy", None))
 
     n_molecules = len(molecules)
     if n_molecules == 0:

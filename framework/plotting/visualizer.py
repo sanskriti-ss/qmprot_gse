@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import shutil
 from pathlib import Path
 from typing import List, Dict, Optional, Union
 import logging
@@ -61,10 +62,11 @@ class VQEVisualizer:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.output_dir = base_output_dir / timestamp
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        # Copy vqe_energies_summary.csv to this output_dir
+        # Copy vqe_energies_summary.csv to this output_dir when available.
         try:
-            from .copy_summary import copy_vqe_energies_summary_to_output
-            copy_vqe_energies_summary_to_output(self.output_dir)
+            summary_src = base_output_dir / "vqe_energies_summary.csv"
+            if summary_src.exists():
+                shutil.copy2(summary_src, self.output_dir / summary_src.name)
         except Exception as e:
             logger.warning(f"Could not copy vqe_energies_summary.csv: {e}")
         
@@ -270,7 +272,7 @@ class VQEVisualizer:
         Plot heatmap of algorithm performance across molecules.
         
         Args:
-            metric: Metric to display (error, relative_error, runtime_seconds)
+            metric: Metric to display (error, relative_error, n_iterations)
             save: Whether to save plot
             figsize: Figure size
             
@@ -301,7 +303,8 @@ class VQEVisualizer:
             cmap = 'viridis'
             center = None
         
-        sns.heatmap(pivot_df, annot=True, fmt='.4f', cmap=cmap,
+        value_fmt = '.0f' if metric in ['n_iterations', 'iterations'] else '.4f'
+        sns.heatmap(pivot_df, annot=True, fmt=value_fmt, cmap=cmap,
                    center=center, ax=ax, cbar_kws={'label': metric})
         
         ax.set_xlabel('Algorithm', fontsize=12)
@@ -409,24 +412,24 @@ class VQEVisualizer:
         ax2.tick_params(axis='x', rotation=45)
         ax2.legend(fontsize=8)
         
-        # Plot 3: Runtime comparison
+        # Plot 3: Iteration comparison
         ax3 = axes[1, 0]
         for alg in algorithms:
             alg_data = df[df['algorithm_name'] == alg]
-            ax3.bar(alg_data['molecule_abbrev'], alg_data['runtime_seconds'],
+            ax3.bar(alg_data['molecule_abbrev'], alg_data['n_iterations'],
                    label=alg, color=self._get_color(alg), alpha=0.7)
         
         ax3.set_xlabel('Molecule')
-        ax3.set_ylabel('Runtime (seconds)')
-        ax3.set_title('Computation Time')
+        ax3.set_ylabel('Iterations')
+        ax3.set_title('Convergence Iterations')
         ax3.tick_params(axis='x', rotation=45)
         ax3.legend(fontsize=8)
         
-        # Plot 4: Algorithm summary (mean error and runtime)
+        # Plot 4: Algorithm summary (mean error and iterations)
         ax4 = axes[1, 1]
         alg_summary = df.groupby('algorithm_name').agg({
             'error': lambda x: np.abs(x).mean(),
-            'runtime_seconds': 'mean'
+            'n_iterations': 'mean'
         }).reset_index()
         
         x = np.arange(len(alg_summary))
@@ -435,12 +438,12 @@ class VQEVisualizer:
         
         bars1 = ax4.bar(x - 0.2, alg_summary['error'], 0.4,
                        label='Mean |Error|', color='coral', alpha=0.8)
-        bars2 = ax4_twin.bar(x + 0.2, alg_summary['runtime_seconds'], 0.4,
-                            label='Mean Runtime', color='steelblue', alpha=0.8)
+        bars2 = ax4_twin.bar(x + 0.2, alg_summary['n_iterations'], 0.4,
+                    label='Mean Iterations', color='steelblue', alpha=0.8)
         
         ax4.set_xlabel('Algorithm')
         ax4.set_ylabel('Mean |Error| (Hartree)', color='coral')
-        ax4_twin.set_ylabel('Mean Runtime (s)', color='steelblue')
+        ax4_twin.set_ylabel('Mean Iterations', color='steelblue')
         ax4.set_title('Algorithm Performance Summary')
         ax4.set_xticks(x)
         ax4.set_xticklabels(alg_summary['algorithm_name'], rotation=15, ha='right')
@@ -594,7 +597,7 @@ class VQEVisualizer:
                                   save: bool = True,
                                   figsize: tuple = (10, 6)) -> plt.Figure:
         """
-        Plot computational time vs error for all molecule/algorithm combinations.
+        Plot iteration count vs error for all molecule/algorithm combinations.
         
         Args:
             molecules: List of molecules to include (all if None)
@@ -648,7 +651,7 @@ class VQEVisualizer:
         for _, row in unique_results.iterrows():
             alg = row['algorithm_name']
             mol = row['molecule_abbrev']
-            runtime = row['runtime_seconds']
+            iterations = row['n_iterations']
             error = abs(row['error'])  # Use absolute error
             
             color = algorithm_colors[alg]
@@ -657,12 +660,12 @@ class VQEVisualizer:
             # Create label for legend
             label = f"{alg} ({mol})"
             
-            ax.scatter(runtime, error, color=color, marker=marker, s=80, alpha=0.8,
+            ax.scatter(iterations, error, color=color, marker=marker, s=80, alpha=0.8,
                       edgecolors='black', linewidth=0.5, label=label)
         
-        ax.set_xlabel('Runtime (seconds)', fontsize=12)
+        ax.set_xlabel('Iterations', fontsize=12)
         ax.set_ylabel('Absolute Error (Hartree)', fontsize=12)
-        ax.set_title('VQE Performance: Computational Time vs Error', fontsize=14, fontweight='bold')
+        ax.set_title('VQE Performance: Iterations vs Error', fontsize=14, fontweight='bold')
         ax.set_yscale('log')  # Log scale for better visualization of errors
         ax.grid(True, alpha=0.3)
         ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=9)
@@ -705,7 +708,7 @@ class VQEVisualizer:
         # Heatmaps
         self.plot_heatmap(metric='error', save=True)
         self.plot_heatmap(metric='relative_error', save=True)
-        self.plot_heatmap(metric='runtime_seconds', save=True)
+        self.plot_heatmap(metric='n_iterations', save=True)
         self.plot_molecular_complexity_heatmap(save=True)
         
         # Comprehensive plot

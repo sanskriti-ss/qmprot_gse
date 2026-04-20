@@ -122,6 +122,7 @@ class ResultsManager:
             "reference_energy",
             "error",
             "relative_error",
+            "iterations",
             "n_iterations",
             "n_qubits",
             "n_parameters",
@@ -144,6 +145,7 @@ class ResultsManager:
                     "reference_energy": r.reference_energy,
                     "error": r.error,
                     "relative_error": r.relative_error,
+                    "iterations": r.n_iterations,
                     "n_iterations": r.n_iterations,
                     "n_qubits": r.n_qubits,
                     "n_parameters": r.n_parameters,
@@ -223,6 +225,9 @@ class ResultsManager:
         df = pd.read_csv(filepath)
         if "algorithm_name" not in df.columns and "algorithm" in df.columns:
             df = df.rename(columns={"algorithm": "algorithm_name"})
+        # Backward/forward compatibility: allow either naming.
+        if "n_iterations" not in df.columns and "iterations" in df.columns:
+            df = df.rename(columns={"iterations": "n_iterations"})
         required = {
             "molecule_abbrev",
             "molecule_name",
@@ -322,7 +327,10 @@ class ResultsManager:
     def to_dataframe(self) -> pd.DataFrame:
         """Convert all results to a pandas DataFrame"""
         rows = [r.to_dict() for r in self.results]
-        return pd.DataFrame(rows)
+        df = pd.DataFrame(rows)
+        if not df.empty and "iterations" not in df.columns and "n_iterations" in df.columns:
+            df["iterations"] = df["n_iterations"]
+        return df
     
     def get_summary_stats(self) -> Dict:
         """Get summary statistics of all results"""
@@ -338,9 +346,11 @@ class ResultsManager:
             "mean_error": df["error"].mean(),
             "std_error": df["error"].std(),
             "mean_runtime": df["runtime_seconds"].mean(),
+            "mean_iterations": df["n_iterations"].mean(),
             "convergence_rate": df["converged"].mean(),
             "best_algorithm_by_error": df.groupby("algorithm_name")["error"].mean().abs().idxmin(),
             "best_algorithm_by_runtime": df.groupby("algorithm_name")["runtime_seconds"].mean().idxmin(),
+            "best_algorithm_by_iterations": df.groupby("algorithm_name")["n_iterations"].mean().idxmin(),
         }
     
     def clear(self):
