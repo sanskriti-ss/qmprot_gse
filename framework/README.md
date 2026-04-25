@@ -226,7 +226,7 @@ Results are saved in `results/` as JSON:
 ```json
 {
   "molecule": "trp",
-  "algorithm": "vanilla_vqe",
+  "algorithm": "pennylane_vqe",
   "calculated_energy": -672.12340,
   "reference_energy": -672.12345,
   "error": 0.00005,
