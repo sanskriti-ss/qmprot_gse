@@ -3,7 +3,7 @@ VQE Algorithms Module
 
 Contains all VQE algorithm implementations.
 """
-from .vqe_vanilla import VanillaVQE
+from .vqe_pennylane import PennylaneVQE
 from .vqe_adapt import AdaptVQE
 from .vqe_qubit_adapt import QubitAdaptVQE
 from .vqe_hardware_efficient import HardwareEfficientVQE
@@ -19,7 +19,7 @@ from .vqe_nn_ae import NeuralNetworkAutoEncoderVQE
 
 # Registry of all available algorithms
 ALGORITHMS = {
-    "vanilla_vqe": VanillaVQE,
+    "pennylane_vqe": PennylaneVQE,
     "adapt_vqe": AdaptVQE,
     "qubit_adapt_vqe": QubitAdaptVQE,
     "hardware_efficient_vqe": HardwareEfficientVQE,
@@ -44,7 +44,7 @@ def list_algorithms():
     return list(ALGORITHMS.keys())
 
 __all__ = [
-    "VanillaVQE",
+    "PennylaneVQE",
     "AdaptVQE",
     "QubitAdaptVQE",
     "HardwareEfficientVQE",
