@@ -337,6 +337,13 @@ def run_trainability(
     )
     logger.info("Output dir: %s", out_dir)
 
+    # Pre-compute HE depth for each target so we can detect duplicates
+    # (e.g. with RY rotations on 12 qubits, targets of 5 and 10 both
+    # round up to n_layers=1 / 24 parameters).  We cache HE rows by
+    # actual_n_params so duplicate targets re-use the same run instead
+    # of recomputing.
+    he_cache: Dict[int, TrainabilityRow] = {}
+
     rows: List[TrainabilityRow] = []
     for target in param_targets:
         for algo in algorithms:
@@ -356,15 +363,46 @@ def run_trainability(
                         random_seed=random_seed,
                     )
                 elif algo == "hardware_efficient_vqe":
-                    row = _run_he_at_target(
-                        loaded,
-                        target_n_params=target,
-                        optimizer=optimizer,
-                        max_iterations=max_iterations,
-                        convergence_threshold=convergence_threshold,
-                        random_seed=random_seed,
-                        rotation_gates=he_rotation_gates,
+                    n_layers, actual = he_layers_for_target_params(
+                        loaded.hamiltonian.n_qubits, target,
+                        rotation_gates=he_rotation_gates, minimum_layers=1,
                     )
+                    if actual in he_cache:
+                        prior = he_cache[actual]
+                        logger.info(
+                            "HE at target=%d would round to actual=%d, "
+                            "matching a previous target=%d run -- reusing "
+                            "those numbers and noting the duplicate.",
+                            target, actual, prior.target_n_params,
+                        )
+                        row = TrainabilityRow(
+                            algorithm=prior.algorithm,
+                            target_n_params=target,
+                            actual_n_params=prior.actual_n_params,
+                            n_outer_iters=prior.n_outer_iters,
+                            n_cost_evals=prior.n_cost_evals,
+                            runtime_seconds=prior.runtime_seconds,
+                            final_energy=prior.final_energy,
+                            error_vs_casci=prior.error_vs_casci,
+                            converged_below_threshold=prior.converged_below_threshold,
+                            convergence_history=list(prior.convergence_history),
+                            notes=(
+                                f"REUSED: HE n_layers={n_layers} gives "
+                                f"actual={actual} which matches target="
+                                f"{prior.target_n_params}.  No new run."
+                            ),
+                        )
+                    else:
+                        row = _run_he_at_target(
+                            loaded,
+                            target_n_params=target,
+                            optimizer=optimizer,
+                            max_iterations=max_iterations,
+                            convergence_threshold=convergence_threshold,
+                            random_seed=random_seed,
+                            rotation_gates=he_rotation_gates,
+                        )
+                        he_cache[row.actual_n_params] = row
                 else:
                     raise ValueError(
                         f"Algorithm {algo!r} not supported by trainability "
