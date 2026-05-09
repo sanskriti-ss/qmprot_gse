@@ -81,13 +81,13 @@ Pre-built `.h5` Hamiltonians for all 5 amino acids are in `framework/datasets/`.
 
 | Algorithm | Description |
 |-----------|-------------|
-| Vanilla VQE | Hardware-efficient layered ansatz |
+| Pennylane VQE | Hardware-efficient layered ansatz |
 | ADAPT-VQE | Adaptive operator pool, grows ansatz by gradient |
 | Qubit-ADAPT-VQE | ADAPT with Pauli-string pool |
 | Hardware-Efficient VQE | Parameterized Ry + CNOT layers |
 | QAOA-Inspired VQE | QAOA-style cost/mixer alternation |
 | iQCC VQE | Iterative qubit coupled clustering |
-| iQCC-Inspired VQE | ADAPT variant with iQCC operator pool |
+| iQCC-Inspired VQE | ADAPT architecture with iQCC operator pool |
 | CB VQE | Classically boosted VQE |
 | HVA VQE | Hamiltonian variational ansatz |
 | UCC VQE | Unitary coupled-cluster singles & doubles |

@@ -1,5 +1,5 @@
 """
-Vanilla VQE Implementation
+Pennylane VQE Implementation
 
 Standard VQE with UCCSD-like ansatz using PennyLane.
 """
@@ -15,7 +15,7 @@ from core.hamiltonian_loader import QubitHamiltonian
 logger = logging.getLogger(__name__)
 
 
-class VanillaVQE(BaseVQE):
+class PennylaneVQE(BaseVQE):
     """
     Standard VQE implementation with UCCSD-inspired ansatz.
     
@@ -27,7 +27,7 @@ class VanillaVQE(BaseVQE):
                  n_layers: int = 2,
                  **kwargs):
         """
-        Initialize Vanilla VQE.
+        Initialize Pennylane VQE.
         
         Args:
             hamiltonian: QubitHamiltonian object
@@ -36,7 +36,7 @@ class VanillaVQE(BaseVQE):
         """
         super().__init__(hamiltonian, **kwargs)
         
-        self.name = "vanilla_vqe"
+        self.name = "pennylane_vqe"
         self.description = "Standard VQE with UCCSD-inspired ansatz"
         self.n_layers = n_layers
         

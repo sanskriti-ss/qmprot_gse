@@ -11,7 +11,7 @@ import numpy as np
 from .geometry import MoleculeGeometry, CORE_ELECTRONS
 
 # Active space config
-MAX_ACTIVE_ORBITALS = 7
+MAX_ACTIVE_ORBITALS = 6
 OCCUPATION_LOWER = 0.02
 OCCUPATION_UPPER = 1.98
 HARTREE_TO_EV = 27.211386245988
@@ -142,21 +142,21 @@ def run_orbital_analysis(
     diag.core_orbital_indices = list(range(n_core))
 
     # Active space: rank by correlation importance, cap at MAX_ACTIVE_ORBITALS
-    candidates = [i for i in range(n_core, len(nat_occ))
-                  if OCCUPATION_LOWER < nat_occ[i] < OCCUPATION_UPPER]
+    candidates = list(range(n_core, len(nat_occ)))
+    #candidates = [i for i in range(n_core, len(nat_occ))
+    #              if OCCUPATION_LOWER < nat_occ[i] < OCCUPATION_UPPER]
 
-    if not candidates:
-        start = max(n_core, n_occ - 3)
-        end = min(len(nat_occ), n_occ + 3)
-        candidates = list(range(start, end))
+    #if not candidates:
+    #    start = max(n_core, n_occ - 3)
+    #    end = min(len(nat_occ), n_occ + 3)
+    #    candidates = list(range(start, end))
 
-    if len(candidates) > MAX_ACTIVE_ORBITALS:
-        # Score: distance from nearest integer occupation (2.0 or 0.0)
-        def _score(idx):
-            return min(abs(nat_occ[idx] - 2.0), abs(nat_occ[idx] - 0.0))
-        candidates.sort(key=_score, reverse=True)
-        candidates = sorted(candidates[:MAX_ACTIVE_ORBITALS])
-
+     # Score: distance from nearest integer occupation (2.0 or 0.0)
+    def _score(idx):
+        return min(abs(nat_occ[idx] - 2.0), abs(nat_occ[idx] - 0.0))
+    candidates.sort(key=_score, reverse=True)
+    candidates = sorted(candidates[:MAX_ACTIVE_ORBITALS])
+    
     diag.proposed_active_indices = candidates
     diag.proposed_n_active_orbitals = len(candidates)
     n_active_occupied = len([i for i in candidates if i < n_occ])

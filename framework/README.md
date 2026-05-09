@@ -64,13 +64,13 @@ framework/
 │   ├── hf_verification.py         # ⟨HF|H|HF⟩ verification before VQE
 │   └── results_manager.py         # Save/load results
 ├── algorithms/
-│   ├── vqe_vanilla.py             # Standard VQE (hardware-efficient ansatz)
+│   ├── vqe_pennylane.py           # Standard VQE (hardware-efficient ansatz)
 │   ├── vqe_adapt.py               # ADAPT-VQE
 │   ├── vqe_qubit_adapt.py         # Qubit-ADAPT-VQE
 │   ├── vqe_hardware_efficient.py  # Hardware-efficient layered ansatz
 │   ├── vqe_qaoa_inspired.py       # QAOA-inspired VQE
 │   ├── vqe_iqcc.py                # iQCC (iterative qubit coupled clustering) with truncated approximation of canonical transform
-│   ├── vqe_iqcc_inspired.py       # iQCC-inspired ADAPT variant
+│   ├── vqe_iqcc_inspired.py       # ADAPT-VQE architecture with iQCC selection process
 │   ├── vqe_CB.py                  # Classically boosted VQE
 │   ├── vqe_hva.py                 # Hamiltonian variational ansatz
 │   ├── vqe_ucc.py                 # UCC singles & doubles
@@ -140,13 +140,13 @@ ham = build_qubit_hamiltonian(geom, active, diag)
 
 | # | Name | Key feature |
 |---|------|-------------|
-| 1 | **Vanilla VQE** | Hardware-efficient layered ansatz |
+| 1 | **Pennylane VQE** | Hardware-efficient layered ansatz |
 | 2 | **ADAPT-VQE** | Adaptive operator pool, grows ansatz by gradient |
 | 3 | **Qubit-ADAPT-VQE** | ADAPT with Pauli-string pool |
 | 4 | **Hardware-Efficient VQE** | Parameterized layers of Ry + CNOT |
 | 5 | **QAOA-Inspired VQE** | QAOA-style cost/mixer alternation |
 | 6 | **iQCC VQE** | Iterative qubit coupled clustering |
-| 7 | **iQCC-Inspired VQE** | ADAPT variant using iQCC operator pool |
+| 7 | **iQCC-Inspired VQE** | ADAPT-VQE architecture using iQCC operator pool |
 | 8 | **CB VQE** | Classically boosted VQE |
 | 9 | **HVA VQE** | Hamiltonian variational ansatz |
 | 10 | **UCC VQE** | Unitary coupled-cluster singles & doubles |
@@ -226,7 +226,7 @@ Results are saved in `results/` as JSON:
 ```json
 {
   "molecule": "trp",
-  "algorithm": "vanilla_vqe",
+  "algorithm": "pennylane_vqe",
   "calculated_energy": -672.12340,
   "reference_energy": -672.12345,
   "error": 0.00005,
