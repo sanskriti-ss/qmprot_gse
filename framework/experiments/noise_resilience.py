@@ -60,7 +60,7 @@ import logging
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -89,6 +89,12 @@ DEFAULT_NOISE_MODELS: Tuple[str, ...] = (
     "amplitude_damping",
 )
 DEFAULT_NOISE_STRENGTHS: Tuple[float, ...] = (0.0, 0.001, 0.005, 0.01, 0.02, 0.05)
+
+# Standard 20 amino acids present under ``framework/datasets2/`` (folder names).
+DATASETS2_AMINO_ACIDS: Tuple[str, ...] = (
+    "ala", "arg", "asn", "asp", "cys", "gln", "glu", "gly", "his",
+    "ile", "leu", "lys", "met", "phe", "pro", "ser", "thr", "trp", "tyr", "val",
+)
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -497,7 +503,408 @@ def _save_outputs(
     fig.savefig(out_dir / "convergence.png", dpi=150)
     plt.close(fig)
 
-    logger.info("Wrote %d files to %s", 6, out_dir)
+    logger.info("Wrote outputs to %s", out_dir)
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Multi-molecule aggregation plots + batch runner
+# ──────────────────────────────────────────────────────────────────────────
+
+def plot_noise_resilience_multi_molecule(
+    combined_csv: Path,
+    out_dir: Path,
+    *,
+    reference_p: float = 0.02,
+    dpi: int = 150,
+) -> None:
+    """Visualise noise sweep results for many molecules in one folder.
+
+    Reads a long-format CSV (see :func:`run_noise_resilience_batch`) with at
+    least columns ``molecule``, ``noise_model``, ``noise_strength``,
+    ``param_drift_l2``, ``param_drift_cosine``.
+
+    Produces:
+
+    * ``heatmap_param_drift_l2.png`` -- one heatmap row per noise channel;
+      colour shows :math:`||\\Delta\\theta||_2` (molecules on the *y* axis,
+      noise strength *p* on the *x* axis).
+    * ``heatmap_param_drift_cosine.png`` -- same layout for cosine
+      similarity (clipped to [-1, 1] for the colour scale).
+    * ``heatmap_energy_gap_clean_noisy.png`` -- per-channel heatmap of
+      ``energy_clean_at_noisy_params - energy_clean_baseline`` (Ha); shows
+      how far the *noiseless* evaluation of the noisy optimum sits above the
+      noiseless optimum.
+    * ``bars_reference_strength.png`` -- for ``p = reference_p`` (default
+      0.02), horizontal bars of L2 drift sorted within each noise channel,
+      so outliers are easy to spot.
+
+    This layout keeps ~20 curves readable: heatmaps give the global picture,
+    bars highlight ranking at one physically meaningful noise strength.
+    """
+    try:
+        import pandas as pd
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError(
+            "plot_noise_resilience_multi_molecule requires pandas; "
+            "install with `pip install pandas`."
+        ) from exc
+
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+    except Exception as exc:  # pragma: no cover
+        logger.warning("matplotlib/seaborn unavailable: %s", exc)
+        return
+
+    if not combined_csv.is_file():
+        logger.warning("Combined CSV not found: %s", combined_csv)
+        return
+
+    df = pd.read_csv(combined_csv)
+    required = {
+        "molecule", "noise_model", "noise_strength",
+        "param_drift_l2", "param_drift_cosine",
+    }
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"combined CSV missing columns {sorted(missing)}")
+
+    # Drop the synthetic noiseless baseline row when present.
+    df = df[df["noise_model"].astype(str).str.lower() != "none"].copy()
+    df["noise_strength"] = pd.to_numeric(df["noise_strength"], errors="coerce")
+
+    if "energy_clean_at_noisy_params" in df.columns and "energy_clean_baseline" in df.columns:
+        ec = pd.to_numeric(df["energy_clean_at_noisy_params"], errors="coerce")
+        eb = pd.to_numeric(df["energy_clean_baseline"], errors="coerce")
+        df["delta_e_clean_eval"] = ec - eb
+    else:
+        df["delta_e_clean_eval"] = float("nan")
+
+    mol_order = sorted(df["molecule"].unique())
+    p_order = sorted(df["noise_strength"].dropna().unique())
+    models = sorted(df["noise_model"].unique())
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    def _one_heatmap_panel(
+        value_col: str,
+        title: str,
+        cbar_label: str,
+        cmap: str,
+        filename: str,
+        vmin=None,
+        vmax=None,
+        center=None,
+    ) -> None:
+        nmodels = max(1, len(models))
+        # Enough vertical space per molecule row so y-labels do not overlap.
+        row_h = max(0.38, min(0.55, 14.0 / max(len(mol_order), 1)))
+        fig_h = 2.35 * nmodels + row_h * len(mol_order)
+        # Extra horizontal space for full molecule names on the left; slightly
+        # narrower colour bar (`shrink`) buys a bit more room for the grid.
+        fig_w = 11.5 + 0.06 * max((len(str(m)) for m in mol_order), default=3)
+        fig, axes = plt.subplots(
+            nmodels, 1, figsize=(min(fig_w, 14.0), fig_h), squeeze=False,
+            sharex=True,
+        )
+        # ``axes`` has shape (nmodels, 1).  ``axes[0]`` is only the *first row*
+        # (one Axes), so ``zip(axes[0], models)`` plotted a single panel — the
+        # rest stayed blank.  Iterate down the column explicitly.
+        ax_col = np.atleast_1d(axes[:, 0]).ravel()
+        for ax, model in zip(ax_col, models):
+            sub = df[df["noise_model"] == model]
+            if sub.empty:
+                ax.set_visible(False)
+                continue
+            pivot = (
+                sub.pivot_table(
+                    index="molecule",
+                    columns="noise_strength",
+                    values=value_col,
+                    aggfunc="first",
+                )
+                .reindex(index=mol_order, columns=p_order)
+            )
+            sns.heatmap(
+                pivot,
+                ax=ax,
+                cmap=cmap,
+                vmin=vmin,
+                vmax=vmax,
+                center=center,
+                linewidths=0.5,
+                linecolor="white",
+                yticklabels=mol_order,
+                cbar_kws={
+                    "label": cbar_label,
+                    "shrink": 0.68,
+                    "aspect": 22,
+                },
+            )
+            ax.set_title(f"{title} — {model}")
+            ax.set_xlabel("Noise strength p")
+            ax.set_ylabel("Molecule")
+            ax.tick_params(axis="y", which="major", labelsize=7.5, length=0)
+            # Right-align so names sit flush to the grid (readable at ~20 rows).
+            plt.setp(
+                ax.get_yticklabels(),
+                rotation=0,
+                ha="right",
+                va="center",
+            )
+        fig.suptitle(
+            f"{title} (all molecules)",
+            fontsize=12, y=1.01,
+        )
+        fig.tight_layout()
+        # Reserve left margin for long abbreviations (trp, phe, ...).
+        fig.subplots_adjust(left=0.20)
+        fig.savefig(out_dir / filename, dpi=dpi, bbox_inches="tight")
+        plt.close(fig)
+
+    _one_heatmap_panel(
+        "param_drift_l2",
+        r"$||\theta_{\mathrm{noisy}}^* - \theta_{\mathrm{clean}}^*||_2$",
+        r"$||\Delta\theta||_2$",
+        "rocket",
+        "heatmap_param_drift_l2.png",
+    )
+    _one_heatmap_panel(
+        "param_drift_cosine",
+        r"$\cos(\theta_{\mathrm{noisy}}^*, \theta_{\mathrm{clean}}^*)$",
+        "cosine similarity",
+        "vlag",
+        "heatmap_param_drift_cosine.png",
+        vmin=-1.0,
+        vmax=1.0,
+        center=0.0,
+    )
+    if df["delta_e_clean_eval"].notna().any():
+        _one_heatmap_panel(
+            "delta_e_clean_eval",
+            r"$E_{\mathrm{clean}}(\theta_{\mathrm{noisy}}^*) - "
+            r"E_{\mathrm{clean}}(\theta_{\mathrm{clean}}^*)$ (Ha)",
+            "ΔE (Ha)",
+            "mako",
+            "heatmap_energy_gap_clean_noisy.png",
+        )
+
+    # Reference-strength horizontal bars (closest tabulated p to reference_p).
+    avail_p = sorted(df["noise_strength"].dropna().unique())
+    if avail_p:
+        closest_p = min(avail_p, key=lambda x: abs(float(x) - reference_p))
+    else:
+        closest_p = reference_p
+    ns_arr = df["noise_strength"].to_numpy(dtype=float, copy=False)
+    mask = np.isclose(ns_arr, float(closest_p), rtol=0.0, atol=1e-12)
+    sub_ref = df.loc[mask]
+    if sub_ref.empty:
+        sub_ref = df[df["noise_strength"] == closest_p]
+
+    if not sub_ref.empty:
+        fig, axes = plt.subplots(1, len(models), figsize=(5.2 * len(models), 8),
+                                 squeeze=False)
+        # Same pitfall as heatmaps: use ravel so every panel is addressed.
+        for ax, model in zip(np.ravel(axes), models):
+            chunk = sub_ref[sub_ref["noise_model"] == model].copy()
+            if chunk.empty:
+                ax.set_visible(False)
+                continue
+            chunk = chunk.sort_values("param_drift_l2", ascending=True)
+            y_pos = np.arange(len(chunk))
+            ax.barh(y_pos, chunk["param_drift_l2"].values, color="steelblue", alpha=0.85)
+            ax.set_yticks(y_pos)
+            ax.set_yticklabels(chunk["molecule"].values, fontsize=8)
+            ax.set_xlabel(r"$||\Delta\theta||_2$")
+            ax.set_title(f"{model}\np ≈ {closest_p:g}")
+            ax.grid(True, axis="x", alpha=0.3)
+        fig.suptitle(
+            f"Parameter L2 drift at reference noise (target p={reference_p:g}, "
+            f"using tabulated p={closest_p:g})",
+            fontsize=11,
+        )
+        fig.tight_layout()
+        fig.savefig(out_dir / "bars_reference_strength.png", dpi=dpi, bbox_inches="tight")
+        plt.close(fig)
+
+    # Compact manifest for quick grep.
+    manifest = out_dir / "multi_plot_manifest.txt"
+    with open(manifest, "w") as f:
+        f.write(
+            "Generated multi-molecule noise-resilience figures.\n"
+            f"source_csv: {combined_csv.resolve()}\n"
+            f"molecules: {len(mol_order)}\n"
+            f"noise_models: {models}\n"
+            f"p values: {p_order}\n"
+        )
+    logger.info("Wrote multi-molecule plots to %s", out_dir)
+
+
+def _rows_for_batch_csv(
+    molecule: str,
+    cfg: NoiseResilienceConfig,
+    baseline: NoiseRunResult,
+    results: List[NoiseRunResult],
+) -> List[Dict[str, object]]:
+    rows: List[Dict[str, object]] = []
+    for r in [baseline] + results:
+        rows.append({
+            "molecule": molecule,
+            "noise_model": r.noise_model,
+            "noise_strength": r.noise_strength,
+            "n_iterations": r.n_iterations,
+            "energy_noisy": r.energy_noisy,
+            "energy_clean_at_noisy_params": r.energy_clean_at_noisy_params,
+            "energy_clean_baseline": r.energy_clean_baseline,
+            "param_drift_l2": r.param_drift_l2,
+            "param_drift_cosine": r.param_drift_cosine,
+            "n_qubits_final": cfg.n_qubits_final,
+            "n_parameters": cfg.n_parameters,
+        })
+    return rows
+
+
+def run_noise_resilience_batch(
+    molecules: Sequence[str],
+    *,
+    algorithm: str = "hardware_efficient_vqe",
+    basis: str = "sto-3g",
+    cs_target_qubits: Optional[int] = 6,
+    n_layers: int = 2,
+    max_iterations: int = 150,
+    convergence_threshold: float = 1e-10,
+    optimizer: str = "COBYLA",
+    init_strategy: str = "small_random",
+    random_seed: int = 42,
+    noise_models: Tuple[str, ...] = DEFAULT_NOISE_MODELS,
+    noise_strengths: Tuple[float, ...] = DEFAULT_NOISE_STRENGTHS,
+    output_dir: Optional[Path] = None,
+    save_per_molecule_plots: bool = True,
+    save_aggregate_plots: bool = True,
+    reference_p_for_bars: float = 0.02,
+) -> Dict[str, object]:
+    """Run :func:`run_noise_resilience` for each molecule and aggregate CSV + plots.
+
+    Writes ``batch_all_results.csv`` (long format, every molecule) under
+    ``output_dir``, ``batch_run_config.json``, ``batch_failures.json`` on
+    errors, and calls :func:`plot_noise_resilience_multi_molecule` when
+    ``save_aggregate_plots`` is True.
+
+    Returns keys ``output_dir``, ``batch_csv``, ``n_ok``, ``n_fail``,
+    ``failures``, ``per_molecule_dirs``.
+    """
+    from datetime import datetime
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    if output_dir is None:
+        tag = f"nq{cs_target_qubits}_{algorithm}_batch"
+        output_dir = (
+            _FW_DIR / "experiments" / "results" / "noise_resilience_batch"
+            / f"{ts}_{tag}"
+        )
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    batch_csv = output_dir / "batch_all_results.csv"
+    failures: List[Dict[str, str]] = []
+    per_molecule_dirs: Dict[str, str] = {}
+
+    import csv
+
+    header = [
+        "molecule", "noise_model", "noise_strength", "n_iterations",
+        "energy_noisy", "energy_clean_at_noisy_params", "energy_clean_baseline",
+        "param_drift_l2", "param_drift_cosine",
+        "n_qubits_final", "n_parameters",
+    ]
+    first = True
+
+    try:
+        from tqdm import tqdm as _tqdm
+    except ImportError:
+        _tqdm = None  # type: ignore[misc,assignment]
+
+    mol_iter = molecules
+    if _tqdm is not None:
+        mol_iter = _tqdm(list(molecules), desc="noise_resilience batch")
+
+    for mol in mol_iter:
+        mol = mol.strip().lower()
+        try:
+            sub_out = output_dir / "per_molecule" / mol
+            sub_out.mkdir(parents=True, exist_ok=True)
+            out = run_noise_resilience(
+                molecule=mol,
+                algorithm=algorithm,
+                basis=basis,
+                cs_target_qubits=cs_target_qubits,
+                n_layers=n_layers,
+                max_iterations=max_iterations,
+                convergence_threshold=convergence_threshold,
+                optimizer=optimizer,
+                init_strategy=init_strategy,
+                random_seed=random_seed,
+                noise_models=noise_models,
+                noise_strengths=noise_strengths,
+                output_dir=sub_out,
+                save_plots=save_per_molecule_plots,
+            )
+            cfg: NoiseResilienceConfig = out["config"]
+            baseline: NoiseRunResult = out["baseline"]
+            results: List[NoiseRunResult] = out["results"]
+            rows = _rows_for_batch_csv(mol, cfg, baseline, results)
+            per_molecule_dirs[mol] = str(sub_out)
+
+            with open(batch_csv, "a", newline="") as f:
+                w = csv.DictWriter(f, fieldnames=header)
+                if first:
+                    w.writeheader()
+                    first = False
+                for row in rows:
+                    w.writerow({
+                        k: row[k] if k in row else ""
+                        for k in header
+                    })
+        except Exception as exc:
+            logger.exception("Batch: molecule %s failed: %s", mol, exc)
+            failures.append({"molecule": mol, "error": str(exc)})
+
+    meta = {
+        "timestamp": ts,
+        "molecules_requested": list(molecules),
+        "algorithm": algorithm,
+        "basis": basis,
+        "cs_target_qubits": cs_target_qubits,
+        "n_layers": n_layers,
+        "max_iterations": max_iterations,
+        "noise_models": list(noise_models),
+        "noise_strengths": list(noise_strengths),
+        "n_ok": len(per_molecule_dirs),
+        "n_fail": len(failures),
+    }
+    with open(output_dir / "batch_run_config.json", "w") as f:
+        json.dump(meta, f, indent=2)
+    if failures:
+        with open(output_dir / "batch_failures.json", "w") as f:
+            json.dump(failures, f, indent=2)
+
+    if save_aggregate_plots and batch_csv.is_file() and not first:
+        try:
+            plot_noise_resilience_multi_molecule(
+                batch_csv, output_dir, reference_p=reference_p_for_bars,
+            )
+        except Exception as exc:
+            logger.warning("Aggregate plotting failed: %s", exc)
+
+    return {
+        "output_dir": output_dir,
+        "batch_csv": batch_csv,
+        "n_ok": len(per_molecule_dirs),
+        "n_fail": len(failures),
+        "failures": failures,
+        "per_molecule_dirs": per_molecule_dirs,
+    }
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -532,6 +939,34 @@ def _build_argparser() -> argparse.ArgumentParser:
                    default=list(DEFAULT_NOISE_STRENGTHS))
     p.add_argument("--no-plots", action="store_true")
     p.add_argument("-v", "--verbose", action="store_true")
+    # Multi-molecule batch (datasets2 amino acids or explicit list)
+    p.add_argument(
+        "--batch-amino-acids", action="store_true",
+        help="Run all 20 standard amino acids from datasets2/ "
+             "(implies aggregated heatmaps + batch CSV).",
+    )
+    p.add_argument(
+        "--batch-molecules", nargs="+", default=None,
+        help="Run several molecules in one batch (folder names under datasets2/).",
+    )
+    p.add_argument(
+        "--batch-output-dir", type=Path, default=None,
+        help="Optional parent folder for batch outputs.",
+    )
+    p.add_argument(
+        "--no-per-molecule-plots", action="store_true",
+        help="In batch mode, skip per-molecule PNGs (faster, smaller disk).",
+    )
+    p.add_argument(
+        "--regenerate-multi-plots-from", type=Path, default=None,
+        help="Only rebuild multi-molecule figures from an existing "
+             "batch_all_results.csv path.",
+    )
+    p.add_argument(
+        "--reference-p-bars", type=float, default=0.02,
+        help="Target noise strength for ranked bar summary "
+             "(closest tabulated p is used).",
+    )
     return p
 
 
@@ -546,7 +981,58 @@ def main() -> None:
     for noisy_logger in ("pyscf", "pennylane", "matplotlib"):
         logging.getLogger(noisy_logger).setLevel(logging.WARNING)
 
+    if args.regenerate_multi_plots_from is not None:
+        csv_path = args.regenerate_multi_plots_from.expanduser().resolve()
+        out_d = csv_path.parent
+        plot_noise_resilience_multi_molecule(
+            csv_path, out_d, reference_p=args.reference_p_bars,
+        )
+        print(f"Multi-molecule figures written next to {csv_path}")
+        return
+
     cs_target = args.cs_target_qubits if args.cs_target_qubits > 0 else None
+
+    batch_mols: Optional[List[str]] = None
+    if args.batch_amino_acids:
+        batch_mols = list(DATASETS2_AMINO_ACIDS)
+    elif args.batch_molecules:
+        batch_mols = [m.strip().lower() for m in args.batch_molecules]
+
+    if batch_mols:
+        if args.batch_amino_acids and args.batch_molecules:
+            logger.warning("Both --batch-amino-acids and --batch-molecules set; "
+                           "using amino-acid list.")
+            batch_mols = list(DATASETS2_AMINO_ACIDS)
+
+        summary = run_noise_resilience_batch(
+            batch_mols,
+            algorithm=args.algorithm,
+            basis=args.basis,
+            cs_target_qubits=cs_target,
+            n_layers=args.n_layers,
+            max_iterations=args.max_iter,
+            convergence_threshold=args.convergence_threshold,
+            optimizer=args.optimizer,
+            init_strategy=args.init_strategy,
+            random_seed=args.seed,
+            noise_models=tuple(args.noise_models),
+            noise_strengths=tuple(args.noise_strengths),
+            output_dir=args.batch_output_dir,
+            save_per_molecule_plots=not args.no_per_molecule_plots,
+            save_aggregate_plots=True,
+            reference_p_for_bars=args.reference_p_bars,
+        )
+        print("\n" + "=" * 60)
+        print("BATCH NOISE RESILIENCE COMPLETE")
+        print("=" * 60)
+        print(f"OK: {summary['n_ok']}  failed: {summary['n_fail']}")
+        print(f"Combined CSV: {summary['batch_csv']}")
+        print(f"Output folder: {summary['output_dir']}")
+        if summary["failures"]:
+            print("Failures:")
+            for f in summary["failures"]:
+                print(f"  {f['molecule']}: {f['error']}")
+        return
 
     out = run_noise_resilience(
         molecule=args.molecule,
