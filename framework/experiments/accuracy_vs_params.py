@@ -65,12 +65,25 @@ Outputs
 * ``energy_vs_n_params.png``         -- log-y absolute |error vs CASCI|.
 * ``energy_vs_n_params_linear.png``  -- linear energy axis with HF/CASCI lines.
 
+Batch Outputs
+-------------
+``framework/experiments/results/accuracy_vs_params_batch/<timestamp>_batch/``
+
+* ``run_config.json``
+* ``batch_all_results.csv``
+* ``summary_by_k.csv``
+* ``mean_abs_error_vs_k.png``
+* ``mean_cost_evals_vs_k.png``
+
 Run as a script
 ---------------
 ::
 
     python -m experiments.accuracy_vs_params \\
         --molecule water --k-list 1 2 3 5 10
+
+    python -m experiments.accuracy_vs_params \\
+        --batch-amino-acids --k-list 1 2 3
 """
 
 from __future__ import annotations
@@ -82,7 +95,7 @@ import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -99,13 +112,29 @@ from experiments._common import (  # noqa: E402
     make_backend_config,
     make_run_dir,
 )
+from experiments.noise_resilience import DATASETS2_AMINO_ACIDS  # noqa: E402
 
 logger = logging.getLogger(__name__)
+
+
+def _display_lower_band(mean: np.ndarray, std: np.ndarray, min_fraction: float = 0.55) -> np.ndarray:
+    """Return a positive lower envelope suitable for log-scale plotting.
+
+    The batch plots are meant to show uncertainty visually, not collapse
+    to a near-zero band when mean - std becomes very small. This keeps
+    the band anchored to a reasonable fraction of the mean while still
+    reflecting the variability in the data.
+    """
+    mean = np.asarray(mean, dtype=float)
+    std = np.asarray(std, dtype=float)
+    raw_lower = mean - std
+    return np.maximum(raw_lower, mean * float(min_fraction))
 
 
 DEFAULT_K_LIST: Tuple[int, ...] = (1, 2, 3, 5, 10)
 DEFAULT_ALGORITHM: str = "qubit_adapt_vqe"
 DEFAULT_GRADIENT_THRESHOLD: float = 1e-8
+DEFAULT_MOLECULES: Tuple[str, ...] = DATASETS2_AMINO_ACIDS
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -140,6 +169,36 @@ class AccuracyConfig:
     hf_energy: Optional[float]
     n_pool_operators: int          # populated after the ADAPT run
     actual_max_k: int              # ADAPT may exit early if pool exhausted
+
+
+@dataclass
+class AccuracyBatchRow:
+    molecule: str
+    k: int
+    energy: float
+    error_vs_casci: float
+    error_vs_hf: float
+    cumulative_cost_evals: int
+    cumulative_runtime_s: float
+    n_qubits_final: int
+    n_pool_operators: int
+    actual_max_k: int
+    status: str = "ok"
+    notes: str = ""
+
+
+@dataclass
+class AccuracyBatchConfig:
+    molecules: Tuple[str, ...]
+    basis: str
+    cs_target_qubits: Optional[int]
+    algorithm: str
+    gradient_threshold: float
+    k_list: Tuple[int, ...]
+    optimizer: str
+    inner_max_iter: int
+    convergence_threshold: float
+    random_seed: int
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -329,6 +388,184 @@ def run_accuracy_vs_params(
     }
 
 
+def run_accuracy_vs_params_batch(
+    molecules: Sequence[str] = DEFAULT_MOLECULES,
+    basis: str = "sto-3g",
+    cs_target_qubits: Optional[int] = None,
+    algorithm: str = DEFAULT_ALGORITHM,
+    k_list: Tuple[int, ...] = DEFAULT_K_LIST,
+    gradient_threshold: float = DEFAULT_GRADIENT_THRESHOLD,
+    optimizer: str = "COBYLA",
+    inner_max_iter: int = 200,
+    convergence_threshold: float = 1e-10,
+    random_seed: int = 42,
+    output_dir: Optional[Path] = None,
+    save_plots: bool = True,
+) -> Dict[str, object]:
+    """Run accuracy-vs-params across multiple molecules and aggregate outputs."""
+    if not k_list:
+        raise ValueError("k_list must be non-empty")
+    k_sorted = tuple(sorted(set(int(k) for k in k_list if k >= 1)))
+    if not k_sorted:
+        raise ValueError("k_list must contain at least one k >= 1")
+
+    molecule_list = tuple(m.strip().lower() for m in molecules)
+
+    ts = time.strftime("%Y%m%d_%H%M%S")
+    if output_dir is None:
+        output_dir = (
+            _FW_DIR / "experiments" / "results" / "accuracy_vs_params_batch"
+            / f"{ts}_batch"
+        )
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    batch_csv = output_dir / "batch_all_results.csv"
+    summary_csv = output_dir / "summary_by_k.csv"
+    config_json = output_dir / "run_config.json"
+    failures_json = output_dir / "batch_failures.json"
+
+    cfg = AccuracyBatchConfig(
+        molecules=tuple(molecule_list),
+        basis=basis,
+        cs_target_qubits=cs_target_qubits,
+        algorithm=algorithm,
+        gradient_threshold=gradient_threshold,
+        k_list=k_sorted,
+        optimizer=optimizer,
+        inner_max_iter=inner_max_iter,
+        convergence_threshold=convergence_threshold,
+        random_seed=random_seed,
+    )
+
+    rows: List[AccuracyBatchRow] = []
+    failures: List[Dict[str, str]] = []
+
+    with open(config_json, "w") as f:
+        json.dump(asdict(cfg), f, indent=2)
+
+    import csv
+
+    with open(batch_csv, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow([
+            "molecule",
+            "k",
+            "energy",
+            "error_vs_casci",
+            "error_vs_hf",
+            "cumulative_cost_evals",
+            "cumulative_runtime_s",
+            "n_qubits_final",
+            "n_pool_operators",
+            "actual_max_k",
+            "status",
+            "notes",
+        ])
+
+        for mol_index, mol in enumerate(molecule_list):
+            subdir = output_dir / f"{mol}_{algorithm}"
+            try:
+                out = run_accuracy_vs_params(
+                    molecule=mol,
+                    basis=basis,
+                    cs_target_qubits=cs_target_qubits,
+                    algorithm=algorithm,
+                    k_list=k_sorted,
+                    gradient_threshold=gradient_threshold,
+                    optimizer=optimizer,
+                    inner_max_iter=inner_max_iter,
+                    convergence_threshold=convergence_threshold,
+                    random_seed=random_seed + 31 * mol_index,
+                    output_dir=subdir,
+                    save_plots=save_plots,
+                )
+                mol_cfg: AccuracyConfig = out["config"]
+                mol_rows: List[AccuracyRow] = out["rows"]
+                for r in mol_rows:
+                    row = AccuracyBatchRow(
+                        molecule=mol,
+                        k=int(r.k),
+                        energy=float(r.energy),
+                        error_vs_casci=float(r.error_vs_casci),
+                        error_vs_hf=float(r.error_vs_hf),
+                        cumulative_cost_evals=int(r.cumulative_cost_evals),
+                        cumulative_runtime_s=float(r.cumulative_runtime_s),
+                        n_qubits_final=int(mol_cfg.n_qubits_final),
+                        n_pool_operators=int(mol_cfg.n_pool_operators),
+                        actual_max_k=int(mol_cfg.actual_max_k),
+                        status="ok",
+                        notes="",
+                    )
+                    rows.append(row)
+                    w.writerow([
+                        row.molecule,
+                        row.k,
+                        f"{row.energy:.10f}",
+                        f"{row.error_vs_casci:.10f}",
+                        f"{row.error_vs_hf:.10f}",
+                        row.cumulative_cost_evals,
+                        f"{row.cumulative_runtime_s:.4f}",
+                        row.n_qubits_final,
+                        row.n_pool_operators,
+                        row.actual_max_k,
+                        row.status,
+                        row.notes,
+                    ])
+            except Exception as exc:
+                logger.exception("Batch accuracy_vs_params failed for %s", mol)
+                failures.append({"molecule": mol, "error": str(exc)})
+                for k in k_sorted:
+                    row = AccuracyBatchRow(
+                        molecule=mol,
+                        k=int(k),
+                        energy=float("nan"),
+                        error_vs_casci=float("nan"),
+                        error_vs_hf=float("nan"),
+                        cumulative_cost_evals=0,
+                        cumulative_runtime_s=0.0,
+                        n_qubits_final=0,
+                        n_pool_operators=0,
+                        actual_max_k=0,
+                        status="failed",
+                        notes=str(exc),
+                    )
+                    rows.append(row)
+                    w.writerow([
+                        row.molecule,
+                        row.k,
+                        "",
+                        "",
+                        "",
+                        row.cumulative_cost_evals,
+                        f"{row.cumulative_runtime_s:.4f}",
+                        row.n_qubits_final,
+                        row.n_pool_operators,
+                        row.actual_max_k,
+                        row.status,
+                        row.notes,
+                    ])
+
+    if failures:
+        with open(failures_json, "w") as f:
+            json.dump(failures, f, indent=2)
+
+    _write_accuracy_batch_summary(summary_csv, rows)
+    if save_plots:
+        _plot_accuracy_batch_summary(summary_csv, output_dir)
+        _plot_accuracy_batch_overview(batch_csv, summary_csv, output_dir)
+
+    logger.info("Wrote batch outputs to %s", output_dir)
+    return {
+        "config": cfg,
+        "rows": rows,
+        "output_dir": output_dir,
+        "batch_csv": batch_csv,
+        "summary_csv": summary_csv,
+        "failures": failures,
+    }
+
+
 # ──────────────────────────────────────────────────────────────────────────
 # Output: CSV / JSON / plots
 # ──────────────────────────────────────────────────────────────────────────
@@ -466,6 +703,189 @@ def _save_outputs(
     logger.info("Wrote outputs to %s", out_dir)
 
 
+def _write_accuracy_batch_summary(path: Path, rows: Sequence[AccuracyBatchRow]) -> None:
+    import csv
+
+    grouped: Dict[int, List[AccuracyBatchRow]] = {}
+    for row in rows:
+        if row.status != "ok" or not np.isfinite(row.error_vs_casci):
+            continue
+        grouped.setdefault(row.k, []).append(row)
+
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow([
+            "k",
+            "n_molecules",
+            "mean_abs_error_vs_casci",
+            "std_abs_error_vs_casci",
+            "mean_cost_evals",
+            "std_cost_evals",
+        ])
+        for k in sorted(grouped.keys()):
+            group = grouped[k]
+            abs_err = np.array([abs(r.error_vs_casci) for r in group], dtype=float)
+            cost_evals = np.array([r.cumulative_cost_evals for r in group], dtype=float)
+            w.writerow([
+                k,
+                len(group),
+                f"{float(np.mean(abs_err)):.10f}",
+                f"{float(np.std(abs_err)):.10f}",
+                f"{float(np.mean(cost_evals)):.4f}",
+                f"{float(np.std(cost_evals)):.4f}",
+            ])
+
+
+def _plot_accuracy_batch_summary(summary_csv: Path, output_dir: Path) -> None:
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except Exception as exc:  # pragma: no cover
+        logger.warning("matplotlib unavailable: %s", exc)
+        return
+
+    data = np.genfromtxt(summary_csv, delimiter=",", names=True, dtype=None, encoding=None)
+    if data.size == 0:
+        return
+
+    if data.ndim == 0:
+        data = np.array([data])
+
+    ks = np.array(data["k"], dtype=int)
+    mean_err = np.array(data["mean_abs_error_vs_casci"], dtype=float)
+    std_err = np.array(data["std_abs_error_vs_casci"], dtype=float)
+    mean_cost = np.array(data["mean_cost_evals"], dtype=float)
+    std_cost = np.array(data["std_cost_evals"], dtype=float)
+
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    ax.plot(ks, mean_err, marker="o", linewidth=2.0, color="tab:red")
+    lower_err = _display_lower_band(mean_err, std_err)
+    upper_err = mean_err + std_err
+    ax.fill_between(ks, lower_err, upper_err,
+                    color="tab:red", alpha=0.15)
+    ax.set_yscale("log")
+    y_low = max(float(np.min(lower_err)) * 0.85, 1e-12)
+    y_high = float(np.max(upper_err)) * 1.30
+    ax.set_ylim(y_low, y_high)
+    ax.set_xlabel("k = # ADAPT-selected operators")
+    ax.set_ylabel("mean |error vs CASCI| (Ha)")
+    ax.set_title("Accuracy vs parameters (batch mean)")
+    ax.grid(True, which="both", alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(output_dir / "mean_abs_error_vs_k.png", dpi=150)
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    ax.plot(ks, mean_cost, marker="o", linewidth=2.0, color="tab:blue")
+    lower_cost = _display_lower_band(mean_cost, std_cost)
+    upper_cost = mean_cost + std_cost
+    ax.fill_between(ks, lower_cost, upper_cost,
+                    color="tab:blue", alpha=0.15)
+    ax.set_yscale("log")
+    ax.set_xlabel("k = # ADAPT-selected operators")
+    ax.set_ylabel("mean cumulative cost evals")
+    ax.set_title("ADAPT cost evaluations vs k (batch mean)")
+    ax.grid(True, which="both", alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(output_dir / "mean_cost_evals_vs_k.png", dpi=150)
+    plt.close(fig)
+
+
+def _plot_accuracy_batch_overview(
+    batch_csv: Path,
+    summary_csv: Path,
+    output_dir: Path,
+) -> None:
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except Exception as exc:  # pragma: no cover
+        logger.warning("matplotlib unavailable: %s", exc)
+        return
+
+    batch = np.genfromtxt(batch_csv, delimiter=",", names=True, dtype=None, encoding=None)
+    summary = np.genfromtxt(summary_csv, delimiter=",", names=True, dtype=None, encoding=None)
+    if batch.size == 0 or summary.size == 0:
+        return
+
+    if batch.ndim == 0:
+        batch = np.array([batch])
+    if summary.ndim == 0:
+        summary = np.array([summary])
+
+    # Explicitly filter out failed runs so no numeric points from failed
+    # rows are plotted. Some CSVs contain empty fields for failures which
+    # can produce NaNs; build a mask that requires finite error and
+    # status == 'ok' when available.
+    ks = np.array(batch["k"], dtype=int)
+
+    # Extract error_vs_casci safely from the structured array if present,
+    # otherwise produce an empty array.
+    if "error_vs_casci" in batch.dtype.names:
+        with np.errstate(invalid="ignore"):
+            abs_err = np.abs(np.array(batch["error_vs_casci"], dtype=float))
+    else:
+        abs_err = np.array([])
+
+    status = None
+    if "status" in batch.dtype.names:
+        status = np.array(batch["status"]).astype(str)
+
+    finite_mask = np.isfinite(abs_err) if abs_err.size else np.zeros(ks.shape, dtype=bool)
+    if status is not None:
+        ok_mask = finite_mask & (status == "ok")
+    else:
+        ok_mask = finite_mask
+
+    if not np.any(ok_mask):
+        return
+
+    rng = np.random.default_rng(123)
+    jitter = rng.uniform(-0.12, 0.12, size=np.count_nonzero(ok_mask))
+    ks_ok = ks[ok_mask]
+    err_ok = abs_err[ok_mask]
+
+    ks_summary = np.array(summary["k"], dtype=int)
+    mean_err = np.array(summary["mean_abs_error_vs_casci"], dtype=float)
+    std_err = np.array(summary["std_abs_error_vs_casci"], dtype=float)
+
+    fig, ax = plt.subplots(figsize=(8.5, 5.0))
+    ax.scatter(
+        ks_ok + jitter,
+        np.where(err_ok < 1e-12, 1e-12, err_ok),
+        s=20,
+        alpha=0.55,
+        color="tab:gray",
+        edgecolors="none",
+        label="molecule runs",
+    )
+    lower_err = _display_lower_band(mean_err, std_err)
+    upper_err = mean_err + std_err
+    ax.plot(ks_summary, mean_err, color="tab:red", linewidth=2.0, label="mean")
+    ax.fill_between(
+        ks_summary,
+        lower_err,
+        upper_err,
+        color="tab:red",
+        alpha=0.2,
+        label="±1 std",
+    )
+    ax.set_yscale("log")
+    y_low = max(float(np.min(lower_err)) * 0.85, 1e-12)
+    y_high = float(np.max(upper_err)) * 1.30
+    ax.set_ylim(y_low, y_high)
+    ax.set_xlabel("k = # ADAPT-selected operators")
+    ax.set_ylabel("|error vs CASCI| (Ha)")
+    ax.set_title("Accuracy vs parameters (all molecules)")
+    ax.grid(True, which="both", alpha=0.3)
+    ax.legend(fontsize=9, loc="best")
+    fig.tight_layout()
+    fig.savefig(output_dir / "overview_all_molecules.png", dpi=200)
+    plt.close(fig)
+
+
 # ──────────────────────────────────────────────────────────────────────────
 # CLI
 # ──────────────────────────────────────────────────────────────────────────
@@ -478,6 +898,10 @@ def _build_argparser() -> argparse.ArgumentParser:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     p.add_argument("--molecule", "-m", default="water")
+    p.add_argument("--batch-amino-acids", action="store_true",
+                   help="Run all amino acids in datasets2/.")
+    p.add_argument("--molecules", nargs="+", default=None,
+                   help="Explicit molecule list from datasets2/ (overrides --batch-amino-acids).")
     p.add_argument("--basis", default="sto-3g")
     p.add_argument("--cs-target-qubits", type=int, default=0,
                    help="<=0 to skip CS reduction (recommended -- CS places "
@@ -514,40 +938,74 @@ def main() -> None:
 
     cs_target = args.cs_target_qubits if args.cs_target_qubits > 0 else None
 
-    out = run_accuracy_vs_params(
-        molecule=args.molecule,
-        basis=args.basis,
-        cs_target_qubits=cs_target,
-        algorithm=args.algorithm,
-        k_list=tuple(args.k_list),
-        gradient_threshold=args.gradient_threshold,
-        optimizer=args.optimizer,
-        inner_max_iter=args.inner_max_iter,
-        convergence_threshold=args.convergence_threshold,
-        random_seed=args.seed,
-        save_plots=not args.no_plots,
-    )
+    if args.molecules:
+        molecules = tuple(m.strip().lower() for m in args.molecules)
+        batch = True
+    elif args.batch_amino_acids:
+        molecules = DEFAULT_MOLECULES
+        batch = True
+    else:
+        molecules = (args.molecule,)
+        batch = False
 
-    cfg: AccuracyConfig = out["config"]
-    rows: List[AccuracyRow] = out["rows"]
+    if batch:
+        out = run_accuracy_vs_params_batch(
+            molecules=molecules,
+            basis=args.basis,
+            cs_target_qubits=cs_target,
+            algorithm=args.algorithm,
+            k_list=tuple(args.k_list),
+            gradient_threshold=args.gradient_threshold,
+            optimizer=args.optimizer,
+            inner_max_iter=args.inner_max_iter,
+            convergence_threshold=args.convergence_threshold,
+            random_seed=args.seed,
+            save_plots=not args.no_plots,
+        )
+        cfg: AccuracyBatchConfig = out["config"]
+        print("\n" + "=" * 60)
+        print("ACCURACY vs N_PARAMETERS -- BATCH")
+        print("=" * 60)
+        print(f"Molecules: {len(cfg.molecules)}")
+        print(f"k_list: {list(cfg.k_list)}")
+        print(f"Batch CSV: {out['batch_csv']}")
+        print(f"Summary CSV: {out['summary_csv']}")
+        print(f"Output folder: {out['output_dir']}")
+    else:
+        out = run_accuracy_vs_params(
+            molecule=args.molecule,
+            basis=args.basis,
+            cs_target_qubits=cs_target,
+            algorithm=args.algorithm,
+            k_list=tuple(args.k_list),
+            gradient_threshold=args.gradient_threshold,
+            optimizer=args.optimizer,
+            inner_max_iter=args.inner_max_iter,
+            convergence_threshold=args.convergence_threshold,
+            random_seed=args.seed,
+            save_plots=not args.no_plots,
+        )
 
-    print("\n" + "=" * 60)
-    print(f"ACCURACY vs N_PARAMETERS -- {cfg.molecule} ({cfg.n_qubits_final} qubits)")
-    print("=" * 60)
-    print(f"HF energy:     {cfg.hf_energy}")
-    print(f"CASCI energy:  {cfg.casci_energy}")
-    print(f"Pool size:     {cfg.n_pool_operators} operators")
-    print(f"Reached k:     {cfg.actual_max_k} operators")
-    print()
-    print(f"{'k':>4} {'energy':>14} {'err_vs_CASCI':>14} {'err_vs_HF':>14} "
-          f"{'cum_cost_evals':>15} {'cum_runtime_s':>14}")
-    print("-" * 80)
-    for r in rows:
-        print(f"{r.k:>4d} {r.energy:>14.6f} {r.error_vs_casci:>14.6f} "
-              f"{r.error_vs_hf:>14.6f} {r.cumulative_cost_evals:>15d} "
-              f"{r.cumulative_runtime_s:>14.2f}")
+        cfg: AccuracyConfig = out["config"]
+        rows: List[AccuracyRow] = out["rows"]
 
-    print(f"\nResults saved to: {out['output_dir']}")
+        print("\n" + "=" * 60)
+        print(f"ACCURACY vs N_PARAMETERS -- {cfg.molecule} ({cfg.n_qubits_final} qubits)")
+        print("=" * 60)
+        print(f"HF energy:     {cfg.hf_energy}")
+        print(f"CASCI energy:  {cfg.casci_energy}")
+        print(f"Pool size:     {cfg.n_pool_operators} operators")
+        print(f"Reached k:     {cfg.actual_max_k} operators")
+        print()
+        print(f"{'k':>4} {'energy':>14} {'err_vs_CASCI':>14} {'err_vs_HF':>14} "
+              f"{'cum_cost_evals':>15} {'cum_runtime_s':>14}")
+        print("-" * 80)
+        for r in rows:
+            print(f"{r.k:>4d} {r.energy:>14.6f} {r.error_vs_casci:>14.6f} "
+                  f"{r.error_vs_hf:>14.6f} {r.cumulative_cost_evals:>15d} "
+                  f"{r.cumulative_runtime_s:>14.2f}")
+
+        print(f"\nResults saved to: {out['output_dir']}")
 
 
 if __name__ == "__main__":
