@@ -185,7 +185,7 @@ def make_backend_config(
     """Build a noiseless or noisy ``BackendConfig`` for the given qubit count.
 
     A noise model of ``None`` (or ``"none"``) yields a noiseless statevector
-    config that uses ``lightning.qubit``; otherwise we fall back to the
+    config that uses ``default.qubit``; otherwise we fall back to the
     density-matrix simulator ``default.mixed`` and the framework's per-layer
     noise inserter applies the requested PennyLane channel after each layer.
     """

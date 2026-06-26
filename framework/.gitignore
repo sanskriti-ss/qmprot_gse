@@ -76,6 +76,7 @@ results/
 
 !plots/.gitkeep
 .venv-wsl
+.venv-win
 # Logs
 logs/
 .log

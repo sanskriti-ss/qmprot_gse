@@ -80,7 +80,7 @@ class BackendConfig:
     """
 
     backend_type: str = "statevector"
-    device_name: str = "lightning.qubit"
+    device_name: str = "default.qubit" # or "lightning.qubit" for statevector, "default.mixed" for noisy
     n_qubits: int = 0
     n_shots: int = 0
     noise_model: Optional[str] = None
@@ -93,7 +93,7 @@ class BackendConfig:
     def statevector(
         cls,
         n_qubits: int,
-        device_name: str = "lightning.qubit",
+        device_name: str = "default.qubit",
         n_shots: int = 0,
         **extra,
     ) -> "BackendConfig":
