@@ -54,6 +54,7 @@ What we measure (per (target_n_params, algorithm) pair)
 
 Outputs
 -------
+Single-molecule mode:
 ``framework/experiments/results/trainability/<timestamp>_<molecule>_comparison/``
 
 * ``run_config.json``
@@ -63,12 +64,24 @@ Outputs
 * ``final_energy_vs_params.png``   -- final energy reached per algorithm.
 * ``runtime_vs_params.png``        -- wall time per algorithm.
 
+All-molecules mode (``--all-molecules``):
+``framework/experiments/results/trainability/<timestamp>_all_molecules_comparison/``
+
+* one per-molecule subfolder with the same outputs as above
+* ``all_molecules_results.csv``
+* ``all_molecules_convergence_traces.csv``
+* ``all_molecules_cost_evals_vs_params.png`` -- one chart with all molecules
+* ``batch_manifest.json``
+
 Run as a script
 ---------------
 ::
 
     python -m experiments.trainability \\
         --molecule water --param-targets 10 50 100 --max-iter 500
+
+    python -m experiments.trainability \
+        --all-molecules --param-targets 10 50 100 --max-iter 500
 """
 
 from __future__ import annotations
@@ -80,7 +93,7 @@ import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -92,6 +105,7 @@ from algorithms import get_algorithm  # noqa: E402
 
 from experiments._common import (  # noqa: E402
     CostEvalCounter,
+    DATASETS2_DIR,
     LoadedHamiltonian,
     he_layers_for_target_params,
     load_small_hamiltonian,
@@ -137,6 +151,7 @@ class TrainabilityConfig:
     max_iterations: int
     convergence_threshold: float
     adapt_gradient_threshold: float
+    qubit_adapt_max_gradient_candidates: Optional[int]
     he_rotation_gates: str
     random_seed: int
     n_qubits_active: int
@@ -155,6 +170,7 @@ def _run_adapt_at_target(
     algorithm: str,
     target_n_params: int,
     gradient_threshold: float,
+    qubit_adapt_max_gradient_candidates: Optional[int],
     optimizer: str,
     max_iterations: int,
     convergence_threshold: float,
@@ -174,6 +190,10 @@ def _run_adapt_at_target(
         )
     AlgorithmCls = get_algorithm(algorithm)
     bc = make_backend_config(loaded.hamiltonian.n_qubits)
+    algo_kwargs = {}
+    if algorithm == "qubit_adapt_vqe" and qubit_adapt_max_gradient_candidates is not None:
+        algo_kwargs["max_gradient_candidates"] = qubit_adapt_max_gradient_candidates
+
     vqe = AlgorithmCls(
         loaded.hamiltonian,
         max_operators=target_n_params,
@@ -183,6 +203,7 @@ def _run_adapt_at_target(
         convergence_threshold=convergence_threshold,
         random_seed=random_seed,
         backend_config=bc,
+        **algo_kwargs,
     )
 
     counter = CostEvalCounter()
@@ -299,6 +320,7 @@ def run_trainability(
     algorithms: Tuple[str, ...] = DEFAULT_ALGORITHMS,
     param_targets: Tuple[int, ...] = DEFAULT_PARAM_TARGETS,
     adapt_gradient_threshold: float = DEFAULT_GRADIENT_THRESHOLD,
+    qubit_adapt_max_gradient_candidates: Optional[int] = None,
     optimizer: str = "COBYLA",
     max_iterations: int = 500,
     convergence_threshold: float = 1e-10,
@@ -324,6 +346,7 @@ def run_trainability(
         max_iterations=max_iterations,
         convergence_threshold=convergence_threshold,
         adapt_gradient_threshold=adapt_gradient_threshold,
+        qubit_adapt_max_gradient_candidates=qubit_adapt_max_gradient_candidates,
         he_rotation_gates=he_rotation_gates,
         random_seed=random_seed,
         n_qubits_active=loaded.n_qubits_active,
@@ -357,6 +380,7 @@ def run_trainability(
                         algorithm=algo,
                         target_n_params=target,
                         gradient_threshold=adapt_gradient_threshold,
+                        qubit_adapt_max_gradient_candidates=qubit_adapt_max_gradient_candidates,
                         optimizer=optimizer,
                         max_iterations=max_iterations,
                         convergence_threshold=convergence_threshold,
@@ -423,6 +447,223 @@ def run_trainability(
     _save_outputs(cfg, rows, out_dir, save_plots=save_plots)
 
     return {"config": cfg, "rows": rows, "output_dir": out_dir}
+
+
+def discover_trainability_molecules(
+    molecules: Optional[Sequence[str]] = None,
+) -> List[str]:
+    """Resolve molecule IDs for trainability runs.
+
+    If ``molecules`` is provided, duplicates are removed while preserving
+    order. Otherwise, all molecules with ``datasets2/<mol>/<mol>.h5`` are
+    discovered from disk.
+    """
+    import h5py
+
+    if molecules:
+        deduped: List[str] = []
+        seen = set()
+        for mol in molecules:
+            if mol not in seen:
+                deduped.append(mol)
+                seen.add(mol)
+        candidates = deduped
+    else:
+        if not DATASETS2_DIR.is_dir():
+            raise FileNotFoundError(f"Dataset directory not found: {DATASETS2_DIR}")
+
+        candidates = sorted(
+            p.name
+            for p in DATASETS2_DIR.iterdir()
+            if p.is_dir() and (p / f"{p.name}.h5").is_file()
+        )
+
+    discovered: List[str] = []
+    skipped: List[str] = []
+    for mol in candidates:
+        h5_path = DATASETS2_DIR / mol / f"{mol}.h5"
+        if not h5_path.is_file():
+            skipped.append(mol)
+            continue
+        try:
+            with h5py.File(h5_path, "r") as f:
+                if "symbols" in f and "coordinates" in f:
+                    discovered.append(mol)
+                else:
+                    skipped.append(mol)
+        except Exception:
+            skipped.append(mol)
+
+    if not discovered:
+        raise FileNotFoundError(
+            f"No trainability-ready molecules found in {DATASETS2_DIR}; "
+            "expected datasets2/<molecule>/<molecule>.h5 with 'symbols' and 'coordinates' datasets"
+        )
+    if skipped:
+        logger.warning(
+            "Skipping %d molecule(s) without trainability-ready geometry keys: %s",
+            len(skipped),
+            ", ".join(skipped),
+        )
+    return discovered
+
+
+def run_trainability_all_molecules(
+    molecules: Optional[Sequence[str]] = None,
+    basis: str = "sto-3g",
+    cs_target_qubits: Optional[int] = None,
+    algorithms: Tuple[str, ...] = DEFAULT_ALGORITHMS,
+    param_targets: Tuple[int, ...] = DEFAULT_PARAM_TARGETS,
+    adapt_gradient_threshold: float = DEFAULT_GRADIENT_THRESHOLD,
+    qubit_adapt_max_gradient_candidates: Optional[int] = None,
+    optimizer: str = "COBYLA",
+    max_iterations: int = 500,
+    convergence_threshold: float = 1e-10,
+    he_rotation_gates: str = "RY",
+    random_seed: int = 42,
+    output_root: Optional[Path] = None,
+    resume: bool = False,
+    save_plots: bool = True,
+) -> Dict[str, object]:
+    """Run trainability comparison for multiple molecules and aggregate outputs."""
+    import csv
+    from datetime import datetime
+
+    selected_molecules = discover_trainability_molecules(molecules)
+
+    if output_root is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_root = (
+            _FW_DIR / "experiments" / "results" / "trainability"
+            / f"{timestamp}_all_molecules_comparison"
+        )
+    output_root.mkdir(parents=True, exist_ok=True)
+
+    aggregated_rows: List[Tuple[str, TrainabilityRow]] = []
+    succeeded: List[str] = []
+    failed: Dict[str, str] = {}
+    resumed: List[str] = []
+    expected_rows_per_molecule = len(param_targets) * len(algorithms)
+
+    for molecule in selected_molecules:
+        molecule_out = output_root / molecule
+
+        if resume:
+            existing_rows = _load_trainability_rows(molecule_out)
+            if len(existing_rows) >= expected_rows_per_molecule:
+                logger.info(
+                    "[trainability-batch] resume skip molecule=%s (%d existing rows)",
+                    molecule,
+                    len(existing_rows),
+                )
+                aggregated_rows.extend((molecule, row) for row in existing_rows)
+                succeeded.append(molecule)
+                resumed.append(molecule)
+                continue
+
+        logger.info(
+            "[trainability-batch] molecule=%s output=%s",
+            molecule,
+            molecule_out,
+        )
+        try:
+            out = run_trainability(
+                molecule=molecule,
+                basis=basis,
+                cs_target_qubits=cs_target_qubits,
+                algorithms=algorithms,
+                param_targets=param_targets,
+                adapt_gradient_threshold=adapt_gradient_threshold,
+                qubit_adapt_max_gradient_candidates=qubit_adapt_max_gradient_candidates,
+                optimizer=optimizer,
+                max_iterations=max_iterations,
+                convergence_threshold=convergence_threshold,
+                he_rotation_gates=he_rotation_gates,
+                random_seed=random_seed,
+                output_dir=molecule_out,
+                save_plots=save_plots,
+            )
+            rows = out["rows"]
+            aggregated_rows.extend((molecule, row) for row in rows)
+            succeeded.append(molecule)
+        except Exception as exc:  # pragma: no cover
+            failed[molecule] = str(exc)
+            logger.exception(
+                "Batch trainability failed for molecule=%s: %s",
+                molecule,
+                exc,
+            )
+
+    with open(output_root / "all_molecules_results.csv", "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow([
+            "molecule", "algorithm", "target_n_params", "actual_n_params",
+            "n_outer_iters", "n_cost_evals", "runtime_seconds",
+            "final_energy", "error_vs_casci", "converged_below_threshold",
+            "notes",
+        ])
+        for molecule, row in aggregated_rows:
+            w.writerow([
+                molecule,
+                row.algorithm,
+                row.target_n_params,
+                row.actual_n_params,
+                row.n_outer_iters,
+                row.n_cost_evals,
+                f"{row.runtime_seconds:.4f}",
+                f"{row.final_energy:.10f}",
+                f"{row.error_vs_casci:.10f}",
+                int(row.converged_below_threshold),
+                row.notes,
+            ])
+
+    with open(output_root / "all_molecules_convergence_traces.csv", "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["molecule", "algorithm", "target_n_params", "iteration", "energy"])
+        for molecule, row in aggregated_rows:
+            for it, e in enumerate(row.convergence_history):
+                w.writerow([molecule, row.algorithm, row.target_n_params, it, f"{e:.10f}"])
+
+    if save_plots:
+        _save_all_molecules_cost_evals_plot(output_root, aggregated_rows)
+
+    manifest = {
+        "molecules_requested": list(molecules) if molecules else None,
+        "molecules_selected": selected_molecules,
+        "molecules_succeeded": succeeded,
+        "molecules_resumed": resumed,
+        "molecules_failed": failed,
+        "algorithms": list(algorithms),
+        "param_targets": list(param_targets),
+        "basis": basis,
+        "cs_target_qubits": cs_target_qubits,
+        "optimizer": optimizer,
+        "max_iterations": max_iterations,
+        "convergence_threshold": convergence_threshold,
+        "adapt_gradient_threshold": adapt_gradient_threshold,
+        "qubit_adapt_max_gradient_candidates": qubit_adapt_max_gradient_candidates,
+        "he_rotation_gates": he_rotation_gates,
+        "random_seed": random_seed,
+        "n_rows": len(aggregated_rows),
+    }
+    with open(output_root / "batch_manifest.json", "w") as f:
+        json.dump(manifest, f, indent=2)
+
+    logger.info(
+        "Batch outputs written to %s (succeeded=%d, failed=%d, rows=%d)",
+        output_root,
+        len(succeeded),
+        len(failed),
+        len(aggregated_rows),
+    )
+
+    return {
+        "output_dir": output_root,
+        "molecules": selected_molecules,
+        "succeeded": succeeded,
+        "failed": failed,
+        "rows": aggregated_rows,
+    }
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -561,6 +802,146 @@ def _save_outputs(
     logger.info("Wrote outputs to %s", out_dir)
 
 
+def _load_trainability_rows(molecule_out_dir: Path) -> List[TrainabilityRow]:
+    """Load previously saved rows (and traces if present) from a molecule output dir."""
+    import csv
+
+    results_csv = molecule_out_dir / "results.csv"
+    if not results_csv.is_file():
+        return []
+
+    rows_by_key: Dict[Tuple[str, int], TrainabilityRow] = {}
+    with open(results_csv, newline="") as f:
+        reader = csv.DictReader(f)
+        for rec in reader:
+            try:
+                algo = str(rec["algorithm"])
+                target = int(rec["target_n_params"])
+                key = (algo, target)
+                rows_by_key[key] = TrainabilityRow(
+                    algorithm=algo,
+                    target_n_params=target,
+                    actual_n_params=int(rec["actual_n_params"]),
+                    n_outer_iters=int(rec["n_outer_iters"]),
+                    n_cost_evals=int(rec["n_cost_evals"]),
+                    runtime_seconds=float(rec["runtime_seconds"]),
+                    final_energy=float(rec["final_energy"]),
+                    error_vs_casci=float(rec["error_vs_casci"]),
+                    converged_below_threshold=str(rec["converged_below_threshold"]).strip()
+                    in ("1", "true", "True", "yes", "YES"),
+                    convergence_history=[],
+                    notes=str(rec.get("notes", "")),
+                )
+            except Exception as exc:
+                logger.warning("Could not parse row in %s: %s", results_csv, exc)
+
+    traces_csv = molecule_out_dir / "convergence_traces.csv"
+    if traces_csv.is_file() and rows_by_key:
+        trace_map: Dict[Tuple[str, int], List[Tuple[int, float]]] = {
+            k: [] for k in rows_by_key.keys()
+        }
+        with open(traces_csv, newline="") as f:
+            reader = csv.DictReader(f)
+            for rec in reader:
+                try:
+                    key = (str(rec["algorithm"]), int(rec["target_n_params"]))
+                    if key not in trace_map:
+                        continue
+                    trace_map[key].append((int(rec["iteration"]), float(rec["energy"])))
+                except Exception:
+                    continue
+
+        for key, pts in trace_map.items():
+            pts.sort(key=lambda x: x[0])
+            rows_by_key[key].convergence_history = [e for _, e in pts]
+
+    return sorted(
+        rows_by_key.values(),
+        key=lambda r: (r.target_n_params, r.algorithm),
+    )
+
+
+def _save_all_molecules_cost_evals_plot(
+    output_root: Path,
+    aggregated_rows: List[Tuple[str, TrainabilityRow]],
+) -> None:
+    """Plot one aggregate cost-evals chart with all molecules and both algorithms."""
+    if not aggregated_rows:
+        return
+
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except Exception as exc:  # pragma: no cover
+        logger.warning("matplotlib unavailable for aggregate plot: %s", exc)
+        return
+
+    targets = sorted({r.target_n_params for _, r in aggregated_rows})
+    algorithms = [
+        algo for algo in DEFAULT_ALGORITHMS
+        if any(r.algorithm == algo for _, r in aggregated_rows)
+    ]
+    if not algorithms:
+        algorithms = sorted({r.algorithm for _, r in aggregated_rows})
+
+    n_molecules = len({m for m, _ in aggregated_rows})
+    x = np.arange(len(targets), dtype=float)
+    offsets = np.linspace(-0.18, 0.18, num=max(len(algorithms), 1))
+    colors = plt.get_cmap("tab10")
+    rng = np.random.default_rng(42)
+
+    fig, ax = plt.subplots(figsize=(11, 6))
+
+    for i, algo in enumerate(algorithms):
+        medians: List[float] = []
+        for j, target in enumerate(targets):
+            ys = [
+                row.n_cost_evals
+                for _, row in aggregated_rows
+                if row.algorithm == algo and row.target_n_params == target
+            ]
+            if ys:
+                xj = np.full(len(ys), x[j] + offsets[i]) + rng.uniform(-0.05, 0.05, size=len(ys))
+                ax.scatter(
+                    xj,
+                    ys,
+                    s=22,
+                    alpha=0.45,
+                    color=colors(i),
+                    edgecolors="none",
+                )
+                medians.append(float(np.median(ys)))
+            else:
+                medians.append(float("nan"))
+
+        ax.plot(
+            x + offsets[i],
+            medians,
+            marker="o",
+            linewidth=2,
+            color=colors(i),
+            label=f"{algo} median",
+        )
+
+    ax.set_xticks(x)
+    ax.set_xticklabels([str(t) for t in targets])
+    ax.set_xlabel("target n_parameters")
+    ax.set_ylabel("# cost-function evaluations")
+    ax.set_yscale("log")
+    ax.set_title(
+        f"Trainability across all molecules ({n_molecules} molecules)\n"
+        "points = molecule runs, lines = algorithm median"
+    )
+    ax.grid(True, axis="y", which="both", alpha=0.3)
+    ax.legend(fontsize=9)
+    fig.tight_layout()
+    out = output_root / "all_molecules_cost_evals_vs_params.png"
+    fig.savefig(out, dpi=180)
+    plt.close(fig)
+    logger.info("Wrote aggregate cost-evals plot to %s", out)
+
+
 # ──────────────────────────────────────────────────────────────────────────
 # CLI
 # ──────────────────────────────────────────────────────────────────────────
@@ -570,7 +951,23 @@ def _build_argparser() -> argparse.ArgumentParser:
         description="Trainability comparison at matched parameter counts.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    p.add_argument("--molecule", "-m", default="water")
+    p.add_argument("--molecule", "-m", default="water",
+                   help="Single molecule id for one run.")
+    p.add_argument("--all-molecules", action="store_true",
+                   help="Run all molecules discovered in datasets2/<mol>/<mol>.h5.")
+    p.add_argument("--molecules", nargs="+", default=None,
+                   help="Optional molecule subset for batch mode (also enables batch mode).")
+    p.add_argument(
+        "--output-root",
+        type=Path,
+        default=None,
+        help="Batch output directory. If omitted, a timestamped folder is created.",
+    )
+    p.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume batch mode by skipping molecules that already have complete results.csv rows.",
+    )
     p.add_argument("--basis", default="sto-3g")
     p.add_argument("--cs-target-qubits", type=int, default=0,
                    help="<=0 to skip CS reduction (recommended -- CS makes "
@@ -585,6 +982,15 @@ def _build_argparser() -> argparse.ArgumentParser:
     p.add_argument("--adapt-gradient-threshold", type=float,
                    default=DEFAULT_GRADIENT_THRESHOLD,
                    help="ADAPT exits early if max pool gradient < this value.")
+    p.add_argument(
+        "--qubit-adapt-max-gradient-candidates",
+        type=int,
+        default=0,
+        help=(
+            "Cap gradient screening to N viable operators per ADAPT iteration "
+            "(<=0 disables cap)."
+        ),
+    )
     p.add_argument("--optimizer", default="COBYLA")
     p.add_argument("--max-iter", type=int, default=500)
     p.add_argument("--convergence-threshold", type=float, default=1e-10)
@@ -607,6 +1013,45 @@ def main() -> None:
         logging.getLogger(noisy_logger).setLevel(logging.WARNING)
 
     cs_target = args.cs_target_qubits if args.cs_target_qubits > 0 else None
+    qubit_adapt_cap = (
+        args.qubit_adapt_max_gradient_candidates
+        if args.qubit_adapt_max_gradient_candidates > 0
+        else None
+    )
+
+    batch_mode = args.all_molecules or bool(args.molecules)
+    if batch_mode:
+        out = run_trainability_all_molecules(
+            molecules=tuple(args.molecules) if args.molecules else None,
+            basis=args.basis,
+            cs_target_qubits=cs_target,
+            algorithms=tuple(args.algorithms),
+            param_targets=tuple(args.param_targets),
+            adapt_gradient_threshold=args.adapt_gradient_threshold,
+            qubit_adapt_max_gradient_candidates=qubit_adapt_cap,
+            optimizer=args.optimizer,
+            max_iterations=args.max_iter,
+            convergence_threshold=args.convergence_threshold,
+            he_rotation_gates=args.he_rotation_gates,
+            random_seed=args.seed,
+            output_root=args.output_root,
+            resume=args.resume,
+            save_plots=not args.no_plots,
+        )
+        failed: Dict[str, str] = out["failed"]
+        succeeded: List[str] = out["succeeded"]
+        print("\n" + "=" * 60)
+        print("TRAINABILITY -- all molecules")
+        print("=" * 60)
+        print(f"Requested molecules: {len(out['molecules'])}")
+        print(f"Succeeded: {len(succeeded)}")
+        print(f"Failed: {len(failed)}")
+        if failed:
+            print("\nFailed molecules:")
+            for mol, err in failed.items():
+                print(f"  {mol}: {err}")
+        print(f"\nBatch results saved to: {out['output_dir']}")
+        return
 
     out = run_trainability(
         molecule=args.molecule,
@@ -615,6 +1060,7 @@ def main() -> None:
         algorithms=tuple(args.algorithms),
         param_targets=tuple(args.param_targets),
         adapt_gradient_threshold=args.adapt_gradient_threshold,
+        qubit_adapt_max_gradient_candidates=qubit_adapt_cap,
         optimizer=args.optimizer,
         max_iterations=args.max_iter,
         convergence_threshold=args.convergence_threshold,

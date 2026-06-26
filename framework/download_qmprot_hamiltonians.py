@@ -96,6 +96,7 @@ DEFAULT_MOLECULES = (
 )
 
 Format = Literal["h5", "txt"]
+DEFAULT_MAX_TERMS = 100
 
 
 def _vlog(message: str, *, verbose: bool) -> None:
@@ -459,8 +460,17 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
     parser.add_argument(
         "--max-terms",
         type=int,
-        default=100,
-        help="First N Pauli lines to keep (default: 100)",
+        default=DEFAULT_MAX_TERMS,
+        help=(
+            "First N Hamiltonian terms/params to keep "
+            f"(default: {DEFAULT_MAX_TERMS})"
+        ),
+    )
+    parser.add_argument(
+        "--max-params",
+        type=int,
+        default=None,
+        help="Alias for --max-terms (useful when referring to VQE params).",
     )
     parser.add_argument(
         "--max-ham-chunks",
@@ -499,6 +509,14 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         help="Timestamped log lines for each step (download / write / skip)",
     )
     args = parser.parse_args(argv)
+
+    # --max-params is a user-facing alias for the same truncation control.
+    if args.max_params is not None:
+        default_max_terms = parser.get_default("max_terms")
+        if args.max_terms != default_max_terms and args.max_terms != args.max_params:
+            parser.error("--max-terms and --max-params disagree; set only one value.")
+        args.max_terms = args.max_params
+
     fmt: Format = args.format  # type: ignore[assignment]
     verbose = args.verbose and not args.quiet
     max_ham_chunks: Optional[int] = (

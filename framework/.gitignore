@@ -75,7 +75,7 @@ results/
 # Plots (can be regenerated)
 
 !plots/.gitkeep
-
+.venv-wsl
 # Logs
 logs/
 .log

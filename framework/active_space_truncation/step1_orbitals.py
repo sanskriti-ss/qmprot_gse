@@ -130,10 +130,22 @@ def run_orbital_analysis(
     diag.mp2_energy = float(mp2_obj.e_tot)
     diag.mp2_correlation = float(mp2_obj.e_corr)
 
-    # Natural orbital occupations
+    # Natural orbital occupations.
+    # Open-shell MP2 can return spin-resolved blocks; collapse to a spatial 1-RDM first.
     rdm1_mo = mp2_obj.make_rdm1()
-    nat_occ, _ = np.linalg.eigh(rdm1_mo)
-    nat_occ = nat_occ[::-1]  # descending
+    if isinstance(rdm1_mo, (tuple, list)) and len(rdm1_mo) == 2:
+        rdm1_spatial = np.asarray(rdm1_mo[0]) + np.asarray(rdm1_mo[1])
+    else:
+        rdm1_arr = np.asarray(rdm1_mo)
+        if rdm1_arr.ndim == 3 and rdm1_arr.shape[0] == 2:
+            rdm1_spatial = rdm1_arr[0] + rdm1_arr[1]
+        elif rdm1_arr.ndim == 2:
+            rdm1_spatial = rdm1_arr
+        else:
+            raise ValueError(f"Unexpected MP2 RDM1 shape: {rdm1_arr.shape}")
+
+    nat_occ = np.linalg.eigvalsh(rdm1_spatial)
+    nat_occ = np.asarray(nat_occ, dtype=float)[::-1]  # descending
     diag.natural_occupations = nat_occ
 
     # Freeze core
@@ -159,8 +171,18 @@ def run_orbital_analysis(
     
     diag.proposed_active_indices = candidates
     diag.proposed_n_active_orbitals = len(candidates)
-    n_active_occupied = len([i for i in candidates if i < n_occ])
-    diag.proposed_n_active_electrons = 2 * n_active_occupied
+
+    # Estimate active electrons from natural occupations, then enforce parity with
+    # the molecule electron count so CASCI can assign a valid closed-shell core.
+    est_active_electrons = int(np.rint(float(np.sum(nat_occ[candidates])))) if candidates else 0
+    est_active_electrons = int(np.clip(est_active_electrons, 0, 2 * len(candidates)))
+    target_parity = mol.nelectron % 2
+    if est_active_electrons % 2 != target_parity:
+        if est_active_electrons < 2 * len(candidates):
+            est_active_electrons += 1
+        elif est_active_electrons > 0:
+            est_active_electrons -= 1
+    diag.proposed_n_active_electrons = est_active_electrons
 
     # Optional basis comparison
     if run_basis_comparison:

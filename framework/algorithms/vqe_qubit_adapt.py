@@ -29,6 +29,7 @@ class QubitAdaptVQE(BaseVQE):
                  max_operators: int = 20,
                  gradient_threshold: float = 1e-4,
                  use_restricted_pool: bool = True,
+                 max_gradient_candidates: Optional[int] = None,
                  **kwargs):
         """
         Initialize Qubit-ADAPT-VQE.
@@ -41,6 +42,9 @@ class QubitAdaptVQE(BaseVQE):
                            over all qubit combinations. If True, restrict to
                            occupied->virtual excitations based on n_electrons
                            (smaller pool, faster gradient screening).
+            max_gradient_candidates: If set, evaluate gradients on at most this
+                           many viable pool operators per ADAPT iteration
+                           (random subset, deterministic under random_seed).
             **kwargs: Additional arguments passed to BaseVQE
         """
         super().__init__(hamiltonian, **kwargs)
@@ -50,14 +54,23 @@ class QubitAdaptVQE(BaseVQE):
         self.max_operators = max_operators
         self.gradient_threshold = gradient_threshold
         self.use_restricted_pool = use_restricted_pool
+        self.max_gradient_candidates = (
+            int(max_gradient_candidates)
+            if max_gradient_candidates is not None and int(max_gradient_candidates) > 0
+            else None
+        )
 
         # Operator pool is now a list of Pauli strings (e.g., "Y0 X1")
         self.operator_pool: List[str] = []
         self.selected_operators: List[int] = []
         self.parameters: np.ndarray = np.array([])
+        self._viable_ops_cache: Optional[List[int]] = None
+        self._rng = np.random.default_rng(kwargs.get("random_seed", None))
         
         # Will be set in build_ansatz
         self.device = None
+        self.cost_fn = None
+        self._cost_fn_signature: Optional[Tuple[int, ...]] = None
         
     def _generate_full_pool(self, n_qubits: int) -> List[str]:
         """
@@ -144,6 +157,8 @@ class QubitAdaptVQE(BaseVQE):
         
         # Create device via backend manager
         self.device = create_device(self.backend_config)
+        self.cost_fn = None
+        self._cost_fn_signature = None
         
         # Generate Pauli Pool
         # Use full pool when CS reduction is active (no meaningful occupied/virtual split)
@@ -166,10 +181,11 @@ class QubitAdaptVQE(BaseVQE):
         self.selected_operators = []
         self.parameters = np.array([])
         self.n_parameters = 0
+        self._viable_ops_cache = None
         
         return self.operator_pool
     
-    def _build_circuit(self, params: np.ndarray):
+    def _build_circuit(self):
         """Build circuit with currently selected Pauli operators"""
         import pennylane as qml
         
@@ -226,8 +242,11 @@ class QubitAdaptVQE(BaseVQE):
     
     def cost_function(self, parameters: np.ndarray) -> float:
         """Evaluate the cost function"""
-        circuit = self._build_circuit(parameters)
-        return float(circuit(parameters))
+        signature = tuple(self.selected_operators)
+        if self.cost_fn is None or self._cost_fn_signature != signature:
+            self.cost_fn = self._build_circuit()
+            self._cost_fn_signature = signature
+        return float(self.cost_fn(parameters))
     
     def _prescreen_pool(self) -> List[int]:
         """
@@ -273,12 +292,31 @@ class QubitAdaptVQE(BaseVQE):
                         f"HF state={'|' + '1'*n_elec + '0'*(n_qubits-n_elec) + '>'}, "
                         f"pool_size={len(self.operator_pool)}")
         
-        viable_ops = self._prescreen_pool()
+        if self._viable_ops_cache is None:
+            self._viable_ops_cache = self._prescreen_pool()
+
+        viable_ops = [
+            op_idx for op_idx in self._viable_ops_cache
+            if op_idx not in self.selected_operators
+        ]
+
+        if (
+            self.max_gradient_candidates is not None
+            and len(viable_ops) > self.max_gradient_candidates
+        ):
+            n_total = len(viable_ops)
+            viable_ops = self._rng.choice(
+                viable_ops,
+                size=self.max_gradient_candidates,
+                replace=False,
+            ).tolist()
+            logger.info(
+                "Gradient screening cap active: evaluating %d/%d viable operators",
+                len(viable_ops),
+                n_total,
+            )
         
         for op_idx in viable_ops:
-            if op_idx in self.selected_operators:
-                continue
-            
             # Temporarily add operator at the END of the ansatz
             self.selected_operators.append(op_idx)
             test_params = np.append(self.parameters, delta)
@@ -336,7 +374,8 @@ class QubitAdaptVQE(BaseVQE):
                     self.cost_function,
                     self.parameters,
                     method=self.optimizer_name,
-                    options={"maxiter": 100}
+                    options={"maxiter": self.max_iterations},
+                    tol=self.convergence_threshold,
                 )
                 self.parameters = result.x
                 current_energy = result.fun
@@ -371,7 +410,8 @@ class QubitAdaptVQE(BaseVQE):
             metadata={
                 "optimizer": self.optimizer_name,
                 "n_operators_selected": len(self.selected_operators),
-                "selected_operators_str": [self.operator_pool[i] for i in self.selected_operators]
+                "selected_operators_str": [self.operator_pool[i] for i in self.selected_operators],
+                "max_gradient_candidates": self.max_gradient_candidates,
             },
             backend_type=self.backend_config.backend_type,
             noise_model=self.backend_config.noise_model,
