@@ -114,7 +114,7 @@ class BaseVQE(ABC):
             n_shots: Number of measurement shots (0 for exact simulation)
             random_seed: Random seed for reproducibility
             backend_config: BackendConfig for device creation. If None,
-                            defaults to statevector (lightning.qubit).
+                            defaults to statevector (default.qubit).
             **kwargs: Additional algorithm-specific parameters
         """
         self.hamiltonian = hamiltonian
@@ -270,6 +270,17 @@ class BaseVQE(ABC):
         self.convergence_history = []
         self.iteration_count = 0
 
+        optimizer_key = str(self.optimizer_name).strip().upper()
+        if optimizer_key in {
+            "BAYES",
+            "BAYESIAN",
+            "BAYESIAN_OPT",
+            "BAYESIAN_OPTIMIZATION",
+            "GP",
+            "GP_MINIMIZE",
+        }:
+            return self._optimize_bayesian(initial_parameters)
+
         # Map optimizer names
         scipy_optimizers = {
             "COBYLA": "COBYLA",
@@ -306,6 +317,175 @@ class BaseVQE(ABC):
         self.optimal_energy = result.fun
 
         return result.x, result.fun
+
+    def _optimize_bayesian(self, initial_parameters: np.ndarray) -> Tuple[np.ndarray, float]:
+        """Run Bayesian optimization using a Gaussian-process surrogate.
+
+        This path requires ``scikit-optimize``. The search space defaults to
+        ``[-pi, pi]`` for each parameter and can be overridden by passing
+        ``bayes_bounds=(lower, upper)`` via algorithm kwargs.
+
+        For high-dimensional ansatze, a Gaussian-process surrogate can become
+        prohibitively expensive as observations accumulate. We therefore support
+        ``bayes_backend`` with options ``gp``, ``forest``, ``gbrt``, and
+        ``auto`` (default). ``auto`` picks a scalable surrogate based on
+        dimensionality.
+        """
+        from tqdm import tqdm
+        import warnings
+
+        try:
+            from skopt import gp_minimize, forest_minimize, gbrt_minimize
+            from skopt.space import Real
+        except ImportError as exc:
+            raise ImportError(
+                "Bayesian optimization requires scikit-optimize. "
+                "Install it with: pip install scikit-optimize"
+            ) from exc
+
+        if self.n_parameters <= 0:
+            raise ValueError("Cannot run Bayesian optimization with n_parameters <= 0")
+
+        bounds = self.kwargs.get("bayes_bounds", (-np.pi, np.pi))
+        if not isinstance(bounds, (tuple, list)) or len(bounds) != 2:
+            raise ValueError(
+                "bayes_bounds must be a 2-tuple/list like (lower, upper)"
+            )
+        low, high = float(bounds[0]), float(bounds[1])
+        if low >= high:
+            raise ValueError("bayes_bounds must satisfy lower < upper")
+
+        theta0 = np.asarray(initial_parameters, dtype=float).reshape(-1)
+        if theta0.size != self.n_parameters:
+            raise ValueError(
+                "Initial parameter size does not match n_parameters: "
+                f"{theta0.size} != {self.n_parameters}"
+            )
+
+        # If the selected init strategy provides parameters outside the default
+        # Bayesian bounds (e.g. random_uniform on [0, 2*pi]), expand bounds so
+        # gp_minimize can legally evaluate x0.
+        tmin = float(np.min(theta0))
+        tmax = float(np.max(theta0))
+        if tmin < low or tmax > high:
+            new_low = min(low, tmin)
+            new_high = max(high, tmax)
+            logger.info(
+                "Expanding bayes_bounds from [%.4f, %.4f] to [%.4f, %.4f] "
+                "to include initial parameters.",
+                low,
+                high,
+                new_low,
+                new_high,
+            )
+            low, high = new_low, new_high
+
+        n_calls = max(5, int(self.max_iterations))
+        n_initial_points = min(
+            max(10, int(np.sqrt(max(self.n_parameters, 1)) * 4)),
+            max(1, n_calls - 1),
+        )
+        dimensions = [Real(low, high, name=f"theta_{i}") for i in range(self.n_parameters)]
+
+        backend_raw = str(self.kwargs.get("bayes_backend", "auto")).strip().lower()
+        if backend_raw in ("auto", ""):
+            backend = "forest" if self.n_parameters >= 24 else "gp"
+        elif backend_raw in {"gp", "forest", "gbrt"}:
+            backend = backend_raw
+        else:
+            raise ValueError(
+                f"Unknown bayes_backend={backend_raw!r}. "
+                "Supported: auto, gp, forest, gbrt"
+            )
+
+        minimize_fn = {
+            "gp": gp_minimize,
+            "forest": forest_minimize,
+            "gbrt": gbrt_minimize,
+        }[backend]
+
+        logger.info(
+            "Bayesian optimizer backend=%s, n_params=%d, n_calls=%d, n_initial_points=%d",
+            backend,
+            self.n_parameters,
+            n_calls,
+            n_initial_points,
+        )
+
+        pbar = tqdm(total=n_calls, desc="VQE Bayesian Optimization", unit="eval")
+
+        def objective(x: List[float]) -> float:
+            theta = np.asarray(x, dtype=float)
+            energy = float(self.cost_function(theta))
+            self.convergence_history.append(energy)
+            self.iteration_count += 1
+
+            if self.progress_bar:
+                self.progress_bar.set_postfix({'Energy': f'{energy:.6f}'})
+                self.progress_bar.update(1)
+
+            pbar.update(1)
+            if self.iteration_count % 10 == 0:
+                logger.debug(
+                    "Bayes eval %d: Energy = %.8f",
+                    self.iteration_count,
+                    energy,
+                )
+            return energy
+
+        minimize_kwargs = {
+            "dimensions": dimensions,
+            "n_calls": n_calls,
+            "n_initial_points": n_initial_points,
+            "random_state": self.random_seed,
+            "x0": theta0.tolist(),
+        }
+        if backend == "gp":
+            minimize_kwargs.update(
+                {
+                    "acq_func": str(self.kwargs.get("bayes_acq_func", "EI")),
+                    "acq_optimizer": str(
+                        self.kwargs.get(
+                            "bayes_acq_optimizer",
+                            "sampling" if self.n_parameters >= 24 else "lbfgs",
+                        )
+                    ),
+                    "n_restarts_optimizer": int(
+                        self.kwargs.get("bayes_n_restarts_optimizer", 0)
+                    ),
+                }
+            )
+
+        def _run_minimize(fn):
+            # PennyLane 0.38 on Python 3.13 emits this warning once per circuit
+            # call; suppress it here to avoid log flooding during optimization.
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    category=FutureWarning,
+                    message=r"functools\.partial will be a method descriptor in future Python versions.*",
+                )
+                return fn(objective, **minimize_kwargs)
+
+        try:
+            try:
+                result = _run_minimize(minimize_fn)
+            except Exception as exc:
+                if backend == "gbrt":
+                    logger.warning(
+                        "Bayesian backend=gbrt failed (%s); falling back to forest backend.",
+                        exc,
+                    )
+                    backend = "forest"
+                    result = _run_minimize(forest_minimize)
+                else:
+                    raise
+        finally:
+            pbar.close()
+
+        self.optimal_parameters = np.asarray(result.x, dtype=float)
+        self.optimal_energy = float(result.fun)
+        return self.optimal_parameters, self.optimal_energy
     
     def run(self) -> VQEResult:
         """

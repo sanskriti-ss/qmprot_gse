@@ -27,6 +27,7 @@ wheels/
 # ============================================
 .env
 .venv
+.venv-lightning/
 env/
 venv/
 ENV/

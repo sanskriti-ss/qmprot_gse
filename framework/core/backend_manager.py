@@ -24,6 +24,34 @@ from typing import Any, Dict, Optional
 logger = logging.getLogger(__name__)
 
 
+_LIGHTNING_AVAILABLE: Optional[bool] = None
+
+
+def _detect_lightning_qubit() -> bool:
+    """Detect whether ``lightning.qubit`` can be instantiated.
+
+    Cached after first check to avoid repeated plugin probing.
+    """
+    global _LIGHTNING_AVAILABLE
+    if _LIGHTNING_AVAILABLE is not None:
+        return _LIGHTNING_AVAILABLE
+
+    try:
+        import pennylane as qml
+
+        qml.device("lightning.qubit", wires=1)
+        _LIGHTNING_AVAILABLE = True
+    except Exception as exc:
+        _LIGHTNING_AVAILABLE = False
+        logger.info("lightning.qubit unavailable, using default.qubit (%s)", exc)
+
+    return _LIGHTNING_AVAILABLE
+
+
+def _preferred_statevector_device() -> str:
+    return "lightning.qubit" if _detect_lightning_qubit() else "default.qubit"
+
+
 # ── Noise helpers ─────────────────────────────────────────────────────────
 
 def _add_noise_to_circuit(noise_model: str, noise_strength: float, n_qubits: int):
@@ -93,14 +121,15 @@ class BackendConfig:
     def statevector(
         cls,
         n_qubits: int,
-        device_name: str = "default.qubit",
+        device_name: Optional[str] = None,
         n_shots: int = 0,
         **extra,
     ) -> "BackendConfig":
         """Create a noiseless statevector configuration."""
+        chosen_device = device_name or _preferred_statevector_device()
         return cls(
             backend_type="statevector",
-            device_name=device_name,
+            device_name=chosen_device,
             n_qubits=n_qubits,
             n_shots=n_shots,
             extra=extra,
@@ -167,15 +196,32 @@ def create_device(config: BackendConfig):
 
     shots = config.n_shots if config.n_shots > 0 else None
 
-    dev = qml.device(
-        config.device_name,
-        wires=config.n_qubits,
-        shots=shots,
-        **config.extra,
-    )
+    device_name = config.device_name
+    try:
+        dev = qml.device(
+            device_name,
+            wires=config.n_qubits,
+            shots=shots,
+            **config.extra,
+        )
+    except Exception as exc:
+        if device_name == "lightning.qubit":
+            logger.warning(
+                "Failed to create lightning.qubit device (%s). Falling back to default.qubit.",
+                exc,
+            )
+            device_name = "default.qubit"
+            dev = qml.device(
+                device_name,
+                wires=config.n_qubits,
+                shots=shots,
+                **config.extra,
+            )
+        else:
+            raise
 
     logger.info(
-        f"Created device: {config.device_name} | "
+        f"Created device: {device_name} | "
         f"n_qubits={config.n_qubits} | shots={shots} | "
         f"type={config.backend_type}"
         + (f" | noise={config.noise_model}(p={config.noise_strength})"

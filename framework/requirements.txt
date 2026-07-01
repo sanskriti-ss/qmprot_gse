@@ -18,6 +18,7 @@ seaborn>=0.12.0
 # Utilities
 python-dotenv>=1.0.0
 tqdm>=4.65.0
+scikit-optimize>=0.10.2
 
 # Optional: Qiskit (comment if needed)
 qiskit>=1.0.0

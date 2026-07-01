@@ -146,6 +146,8 @@ class BarrenPlateauConfig:
     max_iterations: int
     convergence_threshold: float
     optimizer: str
+    noise_model: Optional[str]
+    noise_strength: float
     random_seed: int
     n_qubits_active: int
     n_qubits_final: int
@@ -232,6 +234,8 @@ def run_optimization_comparison(
     optimizer: str,
     max_iterations: int,
     convergence_threshold: float,
+    noise_model: Optional[str],
+    noise_strength: float,
     random_seed: int,
 ) -> List[OptTrialRow]:
     """For each strategy, run ``n_trials`` independent optimisations and
@@ -241,6 +245,8 @@ def run_optimization_comparison(
     the same trial index is comparable across strategies (modulo the
     different sampling distribution).
     """
+    import warnings
+
     rows: List[OptTrialRow] = []
 
     for strategy in strategies:
@@ -248,7 +254,11 @@ def run_optimization_comparison(
             seed = random_seed + 1009 * trial  # decorrelate trials
             rng = np.random.default_rng(seed)
 
-            bc = make_backend_config(loaded.hamiltonian.n_qubits)
+            bc = make_backend_config(
+                loaded.hamiltonian.n_qubits,
+                noise_model=noise_model,
+                noise_strength=noise_strength,
+            )
             vqe = build_vqe(
                 loaded.hamiltonian,
                 algorithm=algorithm,
@@ -261,7 +271,13 @@ def run_optimization_comparison(
             )
             n_params = int(vqe.n_parameters)
             theta_init = sample_initial_parameters(n_params, strategy, rng=rng)
-            initial_energy = float(vqe.cost_fn(theta_init))
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    category=FutureWarning,
+                    message=r"functools\.partial will be a method descriptor in future Python versions.*",
+                )
+                initial_energy = float(vqe.cost_fn(theta_init))
             theta_star, e_star = vqe.optimize(initial_parameters=theta_init.copy())
             row = OptTrialRow(
                 strategy=strategy,
@@ -300,6 +316,8 @@ def run_barren_plateau(
     max_iterations: int = 200,
     convergence_threshold: float = 1e-10,
     optimizer: str = "COBYLA",
+    noise_model: Optional[str] = None,
+    noise_strength: float = 0.0,
     random_seed: int = 42,
     output_dir: Optional[Path] = None,
     save_plots: bool = True,
@@ -324,7 +342,10 @@ def run_barren_plateau(
         opt_layers=opt_layers, opt_strategies=tuple(opt_strategies),
         n_trials=n_trials, max_iterations=max_iterations,
         convergence_threshold=convergence_threshold,
-        optimizer=optimizer, random_seed=random_seed,
+        optimizer=optimizer,
+        noise_model=noise_model,
+        noise_strength=noise_strength,
+        random_seed=random_seed,
         n_qubits_active=loaded.n_qubits_active,
         n_qubits_final=loaded.n_qubits_final,
         casci_energy=loaded.casci_energy,
@@ -357,6 +378,8 @@ def run_barren_plateau(
             optimizer=optimizer,
             max_iterations=max_iterations,
             convergence_threshold=convergence_threshold,
+            noise_model=noise_model,
+            noise_strength=noise_strength,
             random_seed=random_seed,
         )
 
@@ -467,9 +490,8 @@ def _save_outputs(
         ax_mag.legend(fontsize=9)
 
         fig.suptitle(
-            f"Barren-plateau diagnostic: {cfg.molecule}, {cfg.algorithm}, "
-            f"{cfg.n_qubits_final} qubits "
-            f"(n_samples={cfg.n_samples}, k={cfg.gradient_index})"
+            f"{cfg.molecule} | {cfg.algorithm} | {cfg.n_qubits_final}q "
+            f"(n={cfg.n_samples}, k={cfg.gradient_index})"
         )
         fig.tight_layout()
         fig.savefig(out_dir / "gradient_variance_vs_layers.png", dpi=150)
@@ -501,12 +523,11 @@ def _save_outputs(
             line, = ax.plot(xs, mean, label=strategy, linewidth=2)
             ax.fill_between(xs, mean - std, mean + std,
                             alpha=0.15, color=line.get_color())
-        ax.set_xlabel("COBYLA iteration")
+        ax.set_xlabel("Optimizer iteration")
         ax.set_ylabel("Energy (Ha)")
         ax.set_title(
-            f"Convergence by initialisation: {cfg.molecule}, {cfg.algorithm}, "
-            f"{cfg.n_qubits_final} qubits, n_layers={cfg.opt_layers} "
-            f"(n_trials={cfg.n_trials}, mean ± std)"
+            f"Convergence | {cfg.molecule} | {cfg.algorithm} | "
+            f"L={cfg.opt_layers}, n={cfg.n_trials}"
         )
         ax.grid(True, alpha=0.3)
         ax.legend(fontsize=9)
@@ -532,8 +553,7 @@ def _save_outputs(
                        label=f"HF = {cfg.hf_energy:.5f}")
         ax.set_ylabel("Final energy (Ha)")
         ax.set_title(
-            f"Final VQE energy by init strategy ({cfg.n_trials} trials, "
-            f"n_layers={cfg.opt_layers})"
+            f"Final energy by init | L={cfg.opt_layers}, n={cfg.n_trials}"
         )
         ax.grid(True, axis="y", alpha=0.3)
         ax.legend(fontsize=8, loc="best")
@@ -578,8 +598,12 @@ def _build_argparser() -> argparse.ArgumentParser:
     p.add_argument("--n-trials", type=int, default=5)
     p.add_argument("--max-iter", type=int, default=200)
     p.add_argument("--convergence-threshold", type=float, default=1e-10,
-                   help="Optimiser tolerance (COBYLA's rhoend); tight by default")
+                   help="Optimiser tolerance parameter (where applicable)")
     p.add_argument("--optimizer", default="COBYLA")
+    p.add_argument("--noise-model", default=None,
+                   help="Optional noise model for Part B (e.g. depolarizing, bitflip, phaseflip).")
+    p.add_argument("--noise-strength", type=float, default=0.0,
+                   help="Noise strength/probability for Part B; 0 keeps the run noiseless.")
     # Global
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--no-plots", action="store_true")
@@ -616,6 +640,8 @@ def main() -> None:
         max_iterations=args.max_iter,
         convergence_threshold=args.convergence_threshold,
         optimizer=args.optimizer,
+        noise_model=args.noise_model,
+        noise_strength=args.noise_strength,
         random_seed=args.seed,
         save_plots=not args.no_plots,
         skip_part_a=args.skip_part_a,
