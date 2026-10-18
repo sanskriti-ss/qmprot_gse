@@ -42,7 +42,7 @@ All errors are **positive** (variational principle holds). Chemical accuracy thr
 
 ![Cost vs error](plots/20260318_200609/computation_vs_error.png)
 
-## Experiment tooling (run from `framework/`, WSL)
+## Experiment tooling (run from `framework/`, WSL) [LATEST: 10/17/2026]
 
 ```bash
 source framework.venv/bin/activate
@@ -61,7 +61,7 @@ python -m experiments.trainability --all-molecules --param-targets 10 50 100 --h
 python -m experiments.trainability --analyze-existing experiments/results/trainability/<run>   # old data
 ```
 
-Key conventions
+## Key conventions: [LATEST: 10/17/2026]
 * `target_n_params` is what was requested; `actual_n_params` + `param_match`
   (`exact` | `rounded_up` | `stopped_early`) are in every CSV row and plot label.
   Hardware-efficient VQE now matches the target exactly by default (`--he-param-match exact`).
