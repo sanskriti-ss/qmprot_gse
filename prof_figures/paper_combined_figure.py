@@ -196,7 +196,7 @@ def plot_noise_heatmaps(axes):
             ax.set_xlabel("Noise strength  $p$")
 
     cbar = plt.colorbar(im, ax=axes, shrink=0.82, pad=0.02,
-                        label=r"$\|\Delta\theta\|_2$")
+                        label=r"$\|\theta^*_{\mathrm{noisy}}-\theta^*_{\mathrm{clean}}\|_2$")
     cbar.ax.tick_params(labelsize=7)
 
     _panel_label(axes[0], "b")

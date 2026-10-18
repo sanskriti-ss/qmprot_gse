@@ -98,9 +98,22 @@ def make_plot(output_root: Path, title: str) -> Path:
     summary_path = output_root / "hf_verification_all_molecules.csv"
     with open(summary_path, "w", newline="") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["molecule", "reference_exact", "hf_expectation", "best_vqe"])
-        for row in rows:
-            writer.writerow(row)
+        writer.writerow([
+            "molecule", "reference_exact", "hf_expectation", "best_vqe",
+            "casci_minus_hf_mha", "hf_within_chem_acc", "best_vqe_minus_hf_mha",
+        ])
+        for mol, ref, hf, best in rows:
+            gap_mha = (ref - hf) * 1e3
+            writer.writerow([
+                mol, ref, hf, best,
+                f"{gap_mha:.4f}", abs(gap_mha) < 1.6, f"{(best - hf) * 1e3:.4f}",
+            ])
+        n_flat = sum(1 for _, ref, hf, _ in rows if abs(ref - hf) * 1e3 < 1.6)
+        print(
+            f"E_CASCI - E_HF headroom: {n_flat}/{len(rows)} molecules have HF within "
+            "chemical accuracy (1.6 mHa) of CASCI -> they cannot rank ansaetze. "
+            f"Columns added to {summary_path.name}."
+        )
 
     return png_path
 
