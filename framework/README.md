@@ -53,7 +53,8 @@ python -m experiments.active_space_report            # -> results/active_space_r
 # 2. Noise -> parameter drift.  Drift = ||theta_noisy* - theta_clean*||_2 (distance
 #    between the two optima, same theta_init); RMS/wrapped/displacement columns added
 python -m experiments.noise_resilience --molecule hydrogen --cs-target-qubits 0 \
-    --rotation-gates RY --noise-models depolarizing --noise-strengths 0 0.01 0.05
+    --rotation-gates RY --prepare-hf \
+    --noise-models depolarizing --noise-strengths 0 0.01 0.05
 
 # 3+4. Matched parameter counts and COST TO REACH A FIXED ACCURACY
 python -m experiments.trainability --molecule hydrogen --param-targets 10 50 100 --he-eval-budget 1500

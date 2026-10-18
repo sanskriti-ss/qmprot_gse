@@ -22,24 +22,31 @@ For every (noise_model, noise_strength) pair we record:
 
 * ``E_noisy`` -- the energy COBYLA converged to on the noisy backend
   (i.e. the value the noisy optimiser thinks it found).
+  
 * ``E_clean_at_noisy_params`` -- the energy of the noisy-optimum parameter
   vector evaluated on the noiseless statevector simulator.  This is the
   *true* (information-theoretic) performance of the noisy run.
+  
 * ``param_drift_l2`` -- ``||theta_noisy* - theta_clean*||_2``: the Euclidean
   distance between the two *optimised* parameter vectors (noisy optimum vs
   noiseless optimum, both started from the SAME ``theta_init``).  It is NOT
   a distance from the initial point.  This is the quantity plotted in every
   drift figure.
+  
 * ``param_drift_rms`` -- ``param_drift_l2 / sqrt(n_params)``: RMS shift per
   parameter (radians); comparable across ansatz sizes.  An L2 of ~6 on 36
   parameters is an RMS of ~1 rad.
+  
 * ``param_drift_l2_wrapped`` -- same distance after wrapping each coordinate
   difference to (-pi, pi] (angles that differ by 2*pi are the same gate).
+  
 * ``clean_displacement_l2`` / ``noisy_displacement_l2`` --
   ``||theta* - theta_init||_2`` for each run, i.e. the "initial -> final"
   distances (how far each optimiser travelled).
+  
 * ``param_drift_cosine`` -- cosine similarity between the noisy and
   noiseless optimum parameter vectors.
+  
 * The full convergence trace.
 
 Outputs
@@ -167,6 +174,7 @@ class NoiseResilienceConfig:
     convergence_threshold: float
     optimizer: str
     init_strategy: str
+    prepare_hf: bool
     random_seed: int
     noise_models: Tuple[str, ...]
     noise_strengths: Tuple[float, ...]
@@ -182,10 +190,19 @@ class NoiseResilienceConfig:
 # Core single-run helper
 # ──────────────────────────────────────────────────────────────────────────
 
-def _algo_kwargs(algorithm: str, rotation_gates: Optional[str]) -> Dict[str, object]:
-    """Extra constructor kwargs; ``rotation_gates`` only applies to HE-VQE."""
-    if algorithm == "hardware_efficient_vqe" and rotation_gates:
-        return {"rotation_gates": rotation_gates}
+def _algo_kwargs(
+    algorithm: str,
+    rotation_gates: Optional[str],
+    prepare_hf: bool,
+) -> Dict[str, object]:
+    """Return supported constructor kwargs for this experiment."""
+    if algorithm == "hardware_efficient_vqe":
+        kwargs: Dict[str, object] = {"prepare_hf": prepare_hf}
+        if rotation_gates:
+            kwargs["rotation_gates"] = rotation_gates
+        return kwargs
+    if prepare_hf:
+        raise ValueError("--prepare-hf is only supported by hardware_efficient_vqe")
     return {}
 
 
@@ -201,6 +218,7 @@ def _optimize_one(
     noise_model: Optional[str],
     noise_strength: float,
     initial_parameters: np.ndarray,
+    prepare_hf: bool = False,
     rotation_gates: Optional[str] = None,
 ) -> Tuple[np.ndarray, List[float], int]:
     """Run one optimisation under a chosen noise channel.
@@ -221,7 +239,7 @@ def _optimize_one(
         max_iterations=max_iterations,
         convergence_threshold=convergence_threshold,
         random_seed=random_seed,
-        **_algo_kwargs(algorithm, rotation_gates),
+        **_algo_kwargs(algorithm, rotation_gates, prepare_hf),
     )
     theta_star, _ = vqe.optimize(initial_parameters=initial_parameters.copy())
     return np.asarray(theta_star), list(vqe.convergence_history), vqe.iteration_count
@@ -242,6 +260,7 @@ def run_noise_resilience(
     optimizer: str = "COBYLA",
     init_strategy: str = "small_random",
     random_seed: int = 42,
+    prepare_hf: bool = False,
     noise_models: Tuple[str, ...] = DEFAULT_NOISE_MODELS,
     noise_strengths: Tuple[float, ...] = DEFAULT_NOISE_STRENGTHS,
     output_dir: Optional[Path] = None,
@@ -288,7 +307,7 @@ def run_noise_resilience(
         max_iterations=max_iterations,
         convergence_threshold=convergence_threshold,
         random_seed=random_seed,
-        **_algo_kwargs(algorithm, rotation_gates),
+        **_algo_kwargs(algorithm, rotation_gates, prepare_hf),
     )
     n_parameters = int(probe.n_parameters)
     clean_cost_fn = probe.cost_fn  # keep this around to evaluate noisy thetas
@@ -310,6 +329,7 @@ def run_noise_resilience(
         convergence_threshold=convergence_threshold,
         optimizer=optimizer,
         init_strategy=init_strategy,
+        prepare_hf=prepare_hf,
         random_seed=random_seed,
         noise_models=tuple(noise_models),
         noise_strengths=tuple(noise_strengths),
@@ -342,6 +362,7 @@ def run_noise_resilience(
         noise_model=None,
         noise_strength=0.0,
         initial_parameters=theta_init,
+        prepare_hf=prepare_hf,
         rotation_gates=rotation_gates,
     )
     e_clean = float(clean_cost_fn(theta_clean))
@@ -403,6 +424,7 @@ def run_noise_resilience(
                 noise_model=noise_model,
                 noise_strength=p,
                 initial_parameters=theta_init,
+                prepare_hf=prepare_hf,
                 rotation_gates=rotation_gates,
             )
             e_noisy = float(conv_noisy[-1]) if conv_noisy else float("nan")
@@ -877,6 +899,7 @@ def _rows_for_batch_csv(
             "n_qubits_final": cfg.n_qubits_final,
             "n_parameters": cfg.n_parameters,
             "rotation_gates": cfg.rotation_gates,
+            "prepare_hf": cfg.prepare_hf,
         })
     return rows
 
@@ -893,6 +916,7 @@ def run_noise_resilience_batch(
     optimizer: str = "COBYLA",
     init_strategy: str = "small_random",
     random_seed: int = 42,
+    prepare_hf: bool = False,
     noise_models: Tuple[str, ...] = DEFAULT_NOISE_MODELS,
     noise_strengths: Tuple[float, ...] = DEFAULT_NOISE_STRENGTHS,
     output_dir: Optional[Path] = None,
@@ -935,7 +959,7 @@ def run_noise_resilience_batch(
         "param_drift_l2", "param_drift_cosine",
         "param_drift_rms", "param_drift_l2_wrapped",
         "clean_displacement_l2", "noisy_displacement_l2",
-        "n_qubits_final", "n_parameters", "rotation_gates",
+        "n_qubits_final", "n_parameters", "rotation_gates", "prepare_hf",
     ]
     first = True
 
@@ -964,6 +988,7 @@ def run_noise_resilience_batch(
                 optimizer=optimizer,
                 init_strategy=init_strategy,
                 random_seed=random_seed,
+                prepare_hf=prepare_hf,
                 noise_models=noise_models,
                 noise_strengths=noise_strengths,
                 output_dir=sub_out,
@@ -998,6 +1023,7 @@ def run_noise_resilience_batch(
         "cs_target_qubits": cs_target_qubits,
         "n_layers": n_layers,
         "max_iterations": max_iterations,
+        "prepare_hf": prepare_hf,
         "noise_models": list(noise_models),
         "noise_strengths": list(noise_strengths),
         "n_ok": len(per_molecule_dirs),
@@ -1055,6 +1081,11 @@ def _build_argparser() -> argparse.ArgumentParser:
     p.add_argument("--optimizer", default="COBYLA")
     p.add_argument("--init-strategy", default="small_random",
                    choices=list(INIT_STRATEGIES))
+    p.add_argument(
+        "--prepare-hf", action="store_true",
+        help="Prepare the Hartree-Fock reference state before HE-VQE rotations "
+             "(hardware_efficient_vqe only).",
+    )
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--noise-models", nargs="+",
                    default=list(DEFAULT_NOISE_MODELS))
@@ -1138,6 +1169,7 @@ def main() -> None:
             optimizer=args.optimizer,
             init_strategy=args.init_strategy,
             random_seed=args.seed,
+            prepare_hf=args.prepare_hf,
             noise_models=tuple(args.noise_models),
             noise_strengths=tuple(args.noise_strengths),
             output_dir=args.batch_output_dir,
@@ -1168,6 +1200,7 @@ def main() -> None:
         optimizer=args.optimizer,
         init_strategy=args.init_strategy,
         random_seed=args.seed,
+        prepare_hf=args.prepare_hf,
         noise_models=tuple(args.noise_models),
         noise_strengths=tuple(args.noise_strengths),
         save_plots=not args.no_plots,
@@ -1184,7 +1217,8 @@ def main() -> None:
     print(f"Active-space qubits: {cfg.n_qubits_active} -> final {cfg.n_qubits_final} "
           f"(CS={cfg.cs_target_qubits})")
     print(f"Ansatz: {cfg.algorithm}, n_layers={cfg.n_layers}, "
-          f"n_parameters={cfg.n_parameters}, init={cfg.init_strategy}")
+          f"n_parameters={cfg.n_parameters}, init={cfg.init_strategy}, "
+          f"prepare_hf={cfg.prepare_hf}")
     print(f"HF energy:    {cfg.hf_energy}")
     print(f"CASCI energy: {cfg.casci_energy}")
     print(f"Noiseless VQE baseline: {baseline.energy_clean_baseline:.6f} Ha")
