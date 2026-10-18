@@ -25,7 +25,19 @@ For every (noise_model, noise_strength) pair we record:
 * ``E_clean_at_noisy_params`` -- the energy of the noisy-optimum parameter
   vector evaluated on the noiseless statevector simulator.  This is the
   *true* (information-theoretic) performance of the noisy run.
-* ``param_drift_l2`` -- ``||theta_noisy* - theta_clean*||_2``.
+* ``param_drift_l2`` -- ``||theta_noisy* - theta_clean*||_2``: the Euclidean
+  distance between the two *optimised* parameter vectors (noisy optimum vs
+  noiseless optimum, both started from the SAME ``theta_init``).  It is NOT
+  a distance from the initial point.  This is the quantity plotted in every
+  drift figure.
+* ``param_drift_rms`` -- ``param_drift_l2 / sqrt(n_params)``: RMS shift per
+  parameter (radians); comparable across ansatz sizes.  An L2 of ~6 on 36
+  parameters is an RMS of ~1 rad.
+* ``param_drift_l2_wrapped`` -- same distance after wrapping each coordinate
+  difference to (-pi, pi] (angles that differ by 2*pi are the same gate).
+* ``clean_displacement_l2`` / ``noisy_displacement_l2`` --
+  ``||theta* - theta_init||_2`` for each run, i.e. the "initial -> final"
+  distances (how far each optimiser travelled).
 * ``param_drift_cosine`` -- cosine similarity between the noisy and
   noiseless optimum parameter vectors.
 * The full convergence trace.
@@ -34,11 +46,14 @@ Outputs
 -------
 ``framework/experiments/results/noise_resilience/<timestamp>_<mol>_<algo>/``
 
-* ``run_config.json``        -- everything needed to reproduce.
+* ``run_config.json``        -- everything needed to reproduce, including
+  ``metric_definitions`` (what each CSV column means).
 * ``results.csv``            -- one row per (noise_model, noise_strength).
+* ``optimum_parameters.json`` -- theta_init, theta_clean*, theta_noisy* per
+  run so every drift number can be recomputed by hand.
 * ``convergence_traces.csv`` -- long-format convergence data.
 * ``energy_vs_noise.png``    -- E_noisy and E_clean_at_noisy vs strength.
-* ``param_drift_vs_noise.png`` -- L2 drift and cosine similarity.
+* ``param_drift_vs_noise.png`` -- L2 drift, RMS drift and cosine similarity.
 * ``convergence.png``        -- convergence trajectories overlay.
 
 Run as a script
@@ -76,10 +91,33 @@ from experiments._common import (  # noqa: E402
     load_small_hamiltonian,
     make_backend_config,
     make_run_dir,
+    parameter_drift_metrics,
     sample_initial_parameters,
 )
 
 logger = logging.getLogger(__name__)
+
+# Single source of truth for what the drift columns mean; written to
+# run_config.json and printed by the CLI so figures/captions can quote it.
+METRIC_DEFINITIONS: Dict[str, str] = {
+    "param_drift_l2": "||theta_noisy* - theta_clean*||_2  (distance between the two "
+                      "optimised parameter vectors; NOT distance from theta_init)",
+    "param_drift_rms": "param_drift_l2 / sqrt(n_parameters)  (RMS radians per parameter)",
+    "param_drift_l2_wrapped": "param_drift_l2 with each coordinate difference wrapped to (-pi, pi]",
+    "clean_displacement_l2": "||theta_clean* - theta_init||_2",
+    "noisy_displacement_l2": "||theta_noisy* - theta_init||_2",
+    "param_drift_cosine": "cos(theta_noisy*, theta_clean*)",
+    "energy_clean_at_noisy_params": "noiseless E(theta_noisy*)",
+    "energy_noisy": "last energy seen by the noisy optimiser",
+}
+
+RESULT_COLUMNS: Tuple[str, ...] = (
+    "noise_model", "noise_strength", "n_iterations",
+    "energy_noisy", "energy_clean_at_noisy_params", "energy_clean_baseline",
+    "param_drift_l2", "param_drift_cosine",
+    "param_drift_rms", "param_drift_l2_wrapped",
+    "clean_displacement_l2", "noisy_displacement_l2",
+)
 
 
 # Default sweep covers two qualitatively different gate-error channels.
@@ -112,6 +150,10 @@ class NoiseRunResult:
     param_drift_l2: float
     param_drift_cosine: float
     convergence_history: List[float] = field(default_factory=list)
+    param_drift_rms: float = 0.0
+    param_drift_l2_wrapped: float = 0.0
+    clean_displacement_l2: float = float("nan")
+    noisy_displacement_l2: float = float("nan")
 
 
 @dataclass
@@ -133,11 +175,19 @@ class NoiseResilienceConfig:
     n_parameters: int
     casci_energy: Optional[float]
     hf_energy: Optional[float]
+    rotation_gates: Optional[str] = None
 
 
 # ──────────────────────────────────────────────────────────────────────────
 # Core single-run helper
 # ──────────────────────────────────────────────────────────────────────────
+
+def _algo_kwargs(algorithm: str, rotation_gates: Optional[str]) -> Dict[str, object]:
+    """Extra constructor kwargs; ``rotation_gates`` only applies to HE-VQE."""
+    if algorithm == "hardware_efficient_vqe" and rotation_gates:
+        return {"rotation_gates": rotation_gates}
+    return {}
+
 
 def _optimize_one(
     loaded: LoadedHamiltonian,
@@ -151,6 +201,7 @@ def _optimize_one(
     noise_model: Optional[str],
     noise_strength: float,
     initial_parameters: np.ndarray,
+    rotation_gates: Optional[str] = None,
 ) -> Tuple[np.ndarray, List[float], int]:
     """Run one optimisation under a chosen noise channel.
 
@@ -170,6 +221,7 @@ def _optimize_one(
         max_iterations=max_iterations,
         convergence_threshold=convergence_threshold,
         random_seed=random_seed,
+        **_algo_kwargs(algorithm, rotation_gates),
     )
     theta_star, _ = vqe.optimize(initial_parameters=initial_parameters.copy())
     return np.asarray(theta_star), list(vqe.convergence_history), vqe.iteration_count
@@ -194,8 +246,14 @@ def run_noise_resilience(
     noise_strengths: Tuple[float, ...] = DEFAULT_NOISE_STRENGTHS,
     output_dir: Optional[Path] = None,
     save_plots: bool = True,
+    rotation_gates: Optional[str] = None,
 ) -> Dict[str, object]:
     """Run the full noise-resilience sweep.
+
+    ``rotation_gates`` (HE-VQE only; ``None`` = the ansatz default
+    ``RY_RZ``) selects the rotation set and therefore the parameter count:
+    ``n_qubits * rotations_per_qubit * (n_layers + 1)``.  The realised
+    count and gate set are recorded in ``run_config.json``.
 
     The sweep iterates ``noise_models x noise_strengths`` plus an explicit
     ``noise_strength == 0`` baseline run on the statevector simulator.  All
@@ -230,9 +288,11 @@ def run_noise_resilience(
         max_iterations=max_iterations,
         convergence_threshold=convergence_threshold,
         random_seed=random_seed,
+        **_algo_kwargs(algorithm, rotation_gates),
     )
     n_parameters = int(probe.n_parameters)
     clean_cost_fn = probe.cost_fn  # keep this around to evaluate noisy thetas
+    effective_rotation_gates = getattr(probe, "rotation_gates", None)
 
     # ── 3. Sample one shared initial parameter vector ───────────────────
     rng = np.random.default_rng(random_seed)
@@ -258,6 +318,7 @@ def run_noise_resilience(
         n_parameters=n_parameters,
         casci_energy=loaded.casci_energy,
         hf_energy=loaded.hf_energy,
+        rotation_gates=effective_rotation_gates,
     )
 
     out_dir = output_dir or make_run_dir(
@@ -281,8 +342,10 @@ def run_noise_resilience(
         noise_model=None,
         noise_strength=0.0,
         initial_parameters=theta_init,
+        rotation_gates=rotation_gates,
     )
     e_clean = float(clean_cost_fn(theta_clean))
+    clean_disp = float(np.linalg.norm(theta_clean - theta_init))
     baseline = NoiseRunResult(
         noise_model="none",
         noise_strength=0.0,
@@ -293,7 +356,16 @@ def run_noise_resilience(
         param_drift_l2=0.0,
         param_drift_cosine=1.0,
         convergence_history=conv_clean,
+        param_drift_rms=0.0,
+        param_drift_l2_wrapped=0.0,
+        clean_displacement_l2=clean_disp,
+        noisy_displacement_l2=clean_disp,
     )
+    optimum_parameters: Dict[str, object] = {
+        "theta_init": theta_init.tolist(),
+        "theta_clean_star": theta_clean.tolist(),
+        "theta_noisy_star": {},
+    }
 
     # ── 5. Noisy sweep ──────────────────────────────────────────────────
     results: List[NoiseRunResult] = []
@@ -312,6 +384,10 @@ def run_noise_resilience(
                     param_drift_l2=0.0,
                     param_drift_cosine=1.0,
                     convergence_history=list(conv_clean),
+                    param_drift_rms=0.0,
+                    param_drift_l2_wrapped=0.0,
+                    clean_displacement_l2=clean_disp,
+                    noisy_displacement_l2=clean_disp,
                 ))
                 continue
 
@@ -327,14 +403,18 @@ def run_noise_resilience(
                 noise_model=noise_model,
                 noise_strength=p,
                 initial_parameters=theta_init,
+                rotation_gates=rotation_gates,
             )
             e_noisy = float(conv_noisy[-1]) if conv_noisy else float("nan")
             # Re-evaluate the noisy-optimum parameters on the *clean* simulator
             e_clean_at_noisy = float(clean_cost_fn(theta_noisy))
-            drift_l2 = float(np.linalg.norm(theta_noisy - theta_clean))
+            drift = parameter_drift_metrics(theta_noisy, theta_clean, theta_init)
             denom = float(np.linalg.norm(theta_noisy) * np.linalg.norm(theta_clean))
             cos = (
                 float(np.dot(theta_noisy, theta_clean) / denom) if denom > 0 else 1.0
+            )
+            optimum_parameters["theta_noisy_star"][f"{noise_model}@{p:g}"] = (
+                theta_noisy.tolist()
             )
             results.append(NoiseRunResult(
                 noise_model=noise_model,
@@ -343,13 +423,26 @@ def run_noise_resilience(
                 energy_noisy=e_noisy,
                 energy_clean_at_noisy_params=e_clean_at_noisy,
                 energy_clean_baseline=e_clean,
-                param_drift_l2=drift_l2,
+                param_drift_l2=drift["param_drift_l2"],
                 param_drift_cosine=cos,
                 convergence_history=conv_noisy,
+                param_drift_rms=drift["param_drift_rms"],
+                param_drift_l2_wrapped=drift["param_drift_l2_wrapped"],
+                clean_displacement_l2=drift["clean_displacement_l2"],
+                noisy_displacement_l2=drift["noisy_displacement_l2"],
             ))
+            logger.info(
+                "    drift: L2=%.4f  RMS=%.4f rad  wrapped-L2=%.4f  cos=%.4f | "
+                "dE_clean=%.3e Ha",
+                drift["param_drift_l2"], drift["param_drift_rms"],
+                drift["param_drift_l2_wrapped"], cos,
+                e_clean_at_noisy - e_clean,
+            )
 
     # ── 6. Persist ──────────────────────────────────────────────────────
     _save_outputs(cfg, baseline, results, out_dir, save_plots=save_plots)
+    with open(Path(out_dir) / "optimum_parameters.json", "w") as f:
+        json.dump(optimum_parameters, f)
 
     return {
         "config": cfg,
@@ -378,24 +471,22 @@ def _save_outputs(
     cfg_dict = asdict(cfg)
     cfg_dict["noise_models"] = list(cfg.noise_models)
     cfg_dict["noise_strengths"] = list(cfg.noise_strengths)
+    cfg_dict["metric_definitions"] = METRIC_DEFINITIONS
     with open(out_dir / "run_config.json", "w") as f:
         json.dump(cfg_dict, f, indent=2)
 
     # results.csv -- one row per noisy run
     with open(out_dir / "results.csv", "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow([
-            "noise_model", "noise_strength", "n_iterations",
-            "energy_noisy", "energy_clean_at_noisy_params",
-            "energy_clean_baseline",
-            "param_drift_l2", "param_drift_cosine",
-        ])
+        w.writerow(RESULT_COLUMNS)
         for r in [baseline] + results:
             w.writerow([
                 r.noise_model, f"{r.noise_strength:.6g}", r.n_iterations,
                 f"{r.energy_noisy:.10f}", f"{r.energy_clean_at_noisy_params:.10f}",
                 f"{r.energy_clean_baseline:.10f}",
                 f"{r.param_drift_l2:.10f}", f"{r.param_drift_cosine:.10f}",
+                f"{r.param_drift_rms:.10f}", f"{r.param_drift_l2_wrapped:.10f}",
+                f"{r.clean_displacement_l2:.10f}", f"{r.noisy_displacement_l2:.10f}",
             ])
 
     # convergence_traces.csv -- long format
@@ -451,17 +542,24 @@ def _save_outputs(
     plt.close(fig)
 
     # 2) Parameter drift vs noise strength
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4.5))
+    fig, (ax1, ax3, ax2) = plt.subplots(1, 3, figsize=(17, 4.8))
     for model, rs in by_model.items():
         rs_sorted = sorted(rs, key=lambda r: r.noise_strength)
         xs = [r.noise_strength for r in rs_sorted]
         ax1.plot(xs, [r.param_drift_l2 for r in rs_sorted], marker="o", label=model)
+        ax3.plot(xs, [r.param_drift_rms for r in rs_sorted], marker="o", label=model)
         ax2.plot(xs, [r.param_drift_cosine for r in rs_sorted], marker="o", label=model)
     ax1.set_xlabel("Noise strength p")
     ax1.set_ylabel(r"$||\theta_{noisy}^* - \theta_{clean}^*||_2$")
-    ax1.set_title("Optimum parameter drift (L2)")
+    ax1.set_title("Drift between the two optima (L2)")
     ax1.grid(True, alpha=0.3)
     ax1.legend(fontsize=8)
+
+    ax3.set_xlabel("Noise strength p")
+    ax3.set_ylabel(r"$||\Delta\theta||_2 / \sqrt{N_{params}}$  (rad)")
+    ax3.set_title(f"RMS drift per parameter (N={cfg.n_parameters})")
+    ax3.grid(True, alpha=0.3)
+    ax3.legend(fontsize=8)
 
     ax2.set_xlabel("Noise strength p")
     ax2.set_ylabel(r"$\cos(\theta_{noisy}^*, \theta_{clean}^*)$")
@@ -469,6 +567,11 @@ def _save_outputs(
     ax2.set_ylim(-1.05, 1.05)
     ax2.grid(True, alpha=0.3)
     ax2.legend(fontsize=8)
+    fig.suptitle(
+        r"Drift = distance between noisy and noiseless OPTIMA "
+        r"(same $\theta_{init}$), not distance from $\theta_{init}$",
+        fontsize=10,
+    )
     fig.tight_layout()
     fig.savefig(out_dir / "param_drift_vs_noise.png", dpi=150)
     plt.close(fig)
@@ -670,6 +773,14 @@ def plot_noise_resilience_multi_molecule(
         "rocket",
         "heatmap_param_drift_l2.png",
     )
+    if "param_drift_rms" in df.columns and df["param_drift_rms"].notna().any():
+        _one_heatmap_panel(
+            "param_drift_rms",
+            r"RMS drift per parameter $||\Delta\theta||_2/\sqrt{N}$ (rad)",
+            "RMS drift (rad)",
+            "rocket",
+            "heatmap_param_drift_rms.png",
+        )
     _one_heatmap_panel(
         "param_drift_cosine",
         r"$\cos(\theta_{\mathrm{noisy}}^*, \theta_{\mathrm{clean}}^*)$",
@@ -759,8 +870,13 @@ def _rows_for_batch_csv(
             "energy_clean_baseline": r.energy_clean_baseline,
             "param_drift_l2": r.param_drift_l2,
             "param_drift_cosine": r.param_drift_cosine,
+            "param_drift_rms": r.param_drift_rms,
+            "param_drift_l2_wrapped": r.param_drift_l2_wrapped,
+            "clean_displacement_l2": r.clean_displacement_l2,
+            "noisy_displacement_l2": r.noisy_displacement_l2,
             "n_qubits_final": cfg.n_qubits_final,
             "n_parameters": cfg.n_parameters,
+            "rotation_gates": cfg.rotation_gates,
         })
     return rows
 
@@ -783,6 +899,7 @@ def run_noise_resilience_batch(
     save_per_molecule_plots: bool = True,
     save_aggregate_plots: bool = True,
     reference_p_for_bars: float = 0.02,
+    rotation_gates: Optional[str] = None,
 ) -> Dict[str, object]:
     """Run :func:`run_noise_resilience` for each molecule and aggregate CSV + plots.
 
@@ -816,7 +933,9 @@ def run_noise_resilience_batch(
         "molecule", "noise_model", "noise_strength", "n_iterations",
         "energy_noisy", "energy_clean_at_noisy_params", "energy_clean_baseline",
         "param_drift_l2", "param_drift_cosine",
-        "n_qubits_final", "n_parameters",
+        "param_drift_rms", "param_drift_l2_wrapped",
+        "clean_displacement_l2", "noisy_displacement_l2",
+        "n_qubits_final", "n_parameters", "rotation_gates",
     ]
     first = True
 
@@ -849,6 +968,7 @@ def run_noise_resilience_batch(
                 noise_strengths=noise_strengths,
                 output_dir=sub_out,
                 save_plots=save_per_molecule_plots,
+                rotation_gates=rotation_gates,
             )
             cfg: NoiseResilienceConfig = out["config"]
             baseline: NoiseRunResult = out["baseline"]
@@ -924,6 +1044,9 @@ def _build_argparser() -> argparse.ArgumentParser:
     p.add_argument("--cs-target-qubits", type=int, default=4,
                    help="CS reduction target qubits; <=0 to skip CS")
     p.add_argument("--n-layers", type=int, default=2)
+    p.add_argument("--rotation-gates", default=None, choices=["RY", "RY_RZ", "full"],
+                   help="HE-VQE rotation set (default: the ansatz default RY_RZ => "
+                        "2 params/qubit/layer; 6 qubits x 2 layers = 36 params).")
     p.add_argument("--max-iter", type=int, default=150,
                    help="COBYLA max iterations per run")
     p.add_argument("--convergence-threshold", type=float, default=1e-10,
@@ -1021,8 +1144,8 @@ def main() -> None:
             save_per_molecule_plots=not args.no_per_molecule_plots,
             save_aggregate_plots=True,
             reference_p_for_bars=args.reference_p_bars,
+            rotation_gates=args.rotation_gates,
         )
-        print("\n" + "=" * 60)
         print("BATCH NOISE RESILIENCE COMPLETE")
         print("=" * 60)
         print(f"OK: {summary['n_ok']}  failed: {summary['n_fail']}")
@@ -1048,6 +1171,7 @@ def main() -> None:
         noise_models=tuple(args.noise_models),
         noise_strengths=tuple(args.noise_strengths),
         save_plots=not args.no_plots,
+        rotation_gates=args.rotation_gates,
     )
 
     cfg: NoiseResilienceConfig = out["config"]
@@ -1065,13 +1189,21 @@ def main() -> None:
     print(f"CASCI energy: {cfg.casci_energy}")
     print(f"Noiseless VQE baseline: {baseline.energy_clean_baseline:.6f} Ha")
     print()
-    print(f"{'noise_model':<22} {'p':>8} {'E_noisy':>13} "
-          f"{'E_clean@noisy_θ':>18} {'||Δθ||₂':>10} {'cos':>7}")
+    print("Drift definition: ||Δθ||₂ = ||θ_noisy* - θ_clean*||₂  (noisy optimum vs "
+          "noiseless optimum, same θ_init).")
+    print("                  RMS = ||Δθ||₂ / sqrt(N_params);  wrapped = with each "
+          "angle difference mapped to (-π, π].")
+    print(f"                  N_params = {cfg.n_parameters}"
+          f"  (rotation_gates={cfg.rotation_gates})\n")
+    print(f"{'noise_model':<20} {'p':>7} {'E_noisy':>12} {'E_clean@noisy_θ':>16} "
+          f"{'ΔE_clean(mHa)':>14} {'||Δθ||₂':>9} {'RMS(rad)':>9} {'wrapped':>9} {'cos':>7}")
     for r in results:
+        d_e = (r.energy_clean_at_noisy_params - r.energy_clean_baseline) * 1e3
         print(
-            f"{r.noise_model:<22} {r.noise_strength:>8.4f} "
-            f"{r.energy_noisy:>13.6f} {r.energy_clean_at_noisy_params:>18.6f} "
-            f"{r.param_drift_l2:>10.4f} {r.param_drift_cosine:>7.3f}"
+            f"{r.noise_model:<20} {r.noise_strength:>7.4f} "
+            f"{r.energy_noisy:>12.6f} {r.energy_clean_at_noisy_params:>16.6f} "
+            f"{d_e:>14.3f} {r.param_drift_l2:>9.4f} {r.param_drift_rms:>9.4f} "
+            f"{r.param_drift_l2_wrapped:>9.4f} {r.param_drift_cosine:>7.3f}"
         )
     print(f"\nResults saved to: {out['output_dir']}")
 

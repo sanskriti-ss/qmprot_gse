@@ -375,10 +375,8 @@ def make_run_dir(
 # ──────────────────────────────────────────────────────────────────────────
 
 class CostEvalCounter:
-    """Wrap a VQE algorithm so every call to its cost evaluator increments
-    a counter, regardless of whether the underlying call goes through
-    ``cost_function`` (BaseVQE / ADAPT) or directly through ``cost_fn``
-    (the QNode used by hardware-efficient / pennylane VQE).
+    """Wrap a VQE algorithm so every energy evaluation requested through
+    its ``cost_function`` is counted (and its energy recorded).
 
     Usage::
 
@@ -396,12 +394,35 @@ class CostEvalCounter:
     issues ``|pool|*2 + ~100`` cost evaluations under the hood, so any
     fair "trainability" comparison must count the actual cost-function
     calls.
+
+    What is counted
+    ---------------
+    ``count`` is the number of energy evaluations *requested by the
+    optimiser / gradient screening* -- the quantity a real device would
+    pay for.  ``BaseVQE.callback`` re-evaluates the energy purely for
+    bookkeeping after every optimiser step; those calls are tallied
+    separately in ``callback_evals`` and are NOT part of ``count``.
+
+    Every counted evaluation's energy is stored in ``energies`` so the
+    cost needed to first reach a given accuracy can be read off exactly
+    with :meth:`evals_to_reach` (no interpolation).
+
+    Optional early stop
+    -------------------
+    ``stop_below`` (an absolute energy in Ha) makes the counter raise
+    :class:`AccuracyReached` as soon as an evaluation falls at or below
+    it, so a budget-limited run can end the moment it hits the target
+    accuracy.  Callers catch the exception.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, stop_below: Optional[float] = None) -> None:
         self.count: int = 0
+        self.callback_evals: int = 0
+        self.energies: List[float] = []
+        self.stop_below = stop_below
         self._orig_cost_function = None
-        self._orig_cost_fn = None
+        self._orig_callback = None
+        self._in_callback = False
         self._vqe = None
 
     def attach(self, vqe) -> None:
@@ -409,35 +430,142 @@ class CostEvalCounter:
             raise RuntimeError("CostEvalCounter is already attached")
         self._vqe = vqe
         self.count = 0
+        self.callback_evals = 0
+        self.energies = []
 
-        # Wrap ``cost_function`` (BaseVQE method, used by ADAPT)
         self._orig_cost_function = vqe.cost_function
+        self._orig_callback = getattr(vqe, "callback", None)
 
         def counted_cost_function(parameters):
+            energy = self._orig_cost_function(parameters)
+            if self._in_callback:
+                self.callback_evals += 1
+                return energy
             self.count += 1
-            return self._orig_cost_function(parameters)
+            self.energies.append(float(energy))
+            if self.stop_below is not None and energy <= self.stop_below:
+                raise AccuracyReached(self.count, float(energy))
+            return energy
 
         vqe.cost_function = counted_cost_function  # type: ignore[assignment]
 
-        # Wrap ``cost_fn`` if present (the raw QNode, used by HE/PennyLane VQE)
-        if getattr(vqe, "cost_fn", None) is not None:
-            self._orig_cost_fn = vqe.cost_fn
-            orig = self._orig_cost_fn
+        if self._orig_callback is not None:
+            orig_cb = self._orig_callback
 
-            def counted_qnode(parameters):
-                self.count += 1
-                return orig(parameters)
+            def flagged_callback(parameters):
+                self._in_callback = True
+                try:
+                    return orig_cb(parameters)
+                finally:
+                    self._in_callback = False
 
-            vqe.cost_fn = counted_qnode
+            vqe.callback = flagged_callback  # type: ignore[assignment]
 
     def detach(self, vqe) -> None:
         if self._orig_cost_function is not None:
             vqe.cost_function = self._orig_cost_function  # type: ignore[assignment]
-        if self._orig_cost_fn is not None:
-            vqe.cost_fn = self._orig_cost_fn
+        if self._orig_callback is not None:
+            vqe.callback = self._orig_callback  # type: ignore[assignment]
         self._vqe = None
         self._orig_cost_function = None
-        self._orig_cost_fn = None
+        self._orig_callback = None
+        self._in_callback = False
+
+    def running_min(self) -> np.ndarray:
+        """Best energy seen after each counted evaluation."""
+        if not self.energies:
+            return np.array([], dtype=float)
+        return np.minimum.accumulate(np.asarray(self.energies, dtype=float))
+
+    def evals_to_reach(self, energy_threshold: float) -> Optional[int]:
+        """1-based index of the first evaluation with energy <= threshold,
+        or ``None`` if never reached."""
+        rm = self.running_min()
+        hit = np.flatnonzero(rm <= energy_threshold)
+        return int(hit[0]) + 1 if hit.size else None
+
+
+class AccuracyReached(Exception):
+    """Raised by :class:`CostEvalCounter` when ``stop_below`` is met."""
+
+    def __init__(self, n_evals: int, energy: float) -> None:
+        super().__init__(f"accuracy target reached after {n_evals} evaluations "
+                         f"(E = {energy:.8f} Ha)")
+        self.n_evals = n_evals
+        self.energy = energy
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Accuracy thresholds (used by the "cost to reach a fixed accuracy" metric)
+# ──────────────────────────────────────────────────────────────────────────
+
+CHEMICAL_ACCURACY_HA: float = 1.6e-3   # 1 kcal/mol ~ 1.6 mHa
+
+# Error thresholds relative to E_CASCI (Ha), loosest -> tightest.
+ACCURACY_LADDER_HA: Tuple[float, ...] = (1.0e-1, 1.0e-2, CHEMICAL_ACCURACY_HA)
+
+
+def threshold_label(threshold_ha: float) -> str:
+    """Human-readable label, e.g. ``0.0016 -> '1.6mHa'``."""
+    return f"{threshold_ha * 1e3:g}mHa"
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Parameter-drift metrics (single definition shared by all noise code)
+# ──────────────────────────────────────────────────────────────────────────
+
+def wrap_angles(delta: np.ndarray) -> np.ndarray:
+    """Map angle differences to (-pi, pi]."""
+    return (np.asarray(delta, dtype=float) + np.pi) % (2.0 * np.pi) - np.pi
+
+
+def parameter_drift_metrics(
+    theta_noisy: np.ndarray,
+    theta_clean: np.ndarray,
+    theta_init: Optional[np.ndarray] = None,
+) -> Dict[str, float]:
+    """All drift quantities for one noisy run, computed in one place.
+
+    Primary quantity (the one plotted in the paper)::
+
+        param_drift_l2   = || theta_noisy* - theta_clean* ||_2
+
+    i.e. the Euclidean distance between the *two optimised parameter
+    vectors* (noisy optimum vs noiseless optimum, both started from the
+    same ``theta_init``).  It is NOT a distance from the initial point.
+
+    Companion quantities (so the number is interpretable):
+
+    ``param_drift_rms``
+        ``param_drift_l2 / sqrt(n_params)`` -- root-mean-square shift per
+        parameter in radians.  Comparable across ansatz sizes.
+    ``param_drift_l2_wrapped``
+        Same as ``param_drift_l2`` after wrapping each coordinate's
+        difference to (-pi, pi]; rotation angles that differ by 2*pi are
+        the same gate, so this is the physically meaningful distance.
+    ``clean_displacement_l2`` / ``noisy_displacement_l2``
+        ``||theta* - theta_init||_2`` for each run: how far each
+        optimiser travelled from the shared start.  These are the
+        "initial vs final" distances.
+    """
+    theta_noisy = np.asarray(theta_noisy, dtype=float)
+    theta_clean = np.asarray(theta_clean, dtype=float)
+    n = max(1, theta_noisy.size)
+    l2 = float(np.linalg.norm(theta_noisy - theta_clean))
+    out = {
+        "param_drift_l2": l2,
+        "param_drift_rms": l2 / float(np.sqrt(n)),
+        "param_drift_l2_wrapped": float(
+            np.linalg.norm(wrap_angles(theta_noisy - theta_clean))
+        ),
+        "clean_displacement_l2": float("nan"),
+        "noisy_displacement_l2": float("nan"),
+    }
+    if theta_init is not None:
+        theta_init = np.asarray(theta_init, dtype=float)
+        out["clean_displacement_l2"] = float(np.linalg.norm(theta_clean - theta_init))
+        out["noisy_displacement_l2"] = float(np.linalg.norm(theta_noisy - theta_init))
+    return out
 
 
 # ──────────────────────────────────────────────────────────────────────────

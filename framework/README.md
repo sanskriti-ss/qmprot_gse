@@ -42,6 +42,35 @@ All errors are **positive** (variational principle holds). Chemical accuracy thr
 
 ![Cost vs error](plots/20260318_200609/computation_vs_error.png)
 
+## Experiment tooling (run from `framework/`, WSL)
+
+```bash
+source framework.venv/bin/activate
+
+# 1. How much correlation energy is there to recover?  E_CASCI - E_HF per molecule
+python -m experiments.active_space_report            # -> results/active_space_report/<ts>/
+
+# 2. Noise -> parameter drift.  Drift = ||theta_noisy* - theta_clean*||_2 (distance
+#    between the two optima, same theta_init); RMS/wrapped/displacement columns added
+python -m experiments.noise_resilience --molecule hydrogen --cs-target-qubits 0 \
+    --rotation-gates RY --noise-models depolarizing --noise-strengths 0 0.01 0.05
+
+# 3+4. Matched parameter counts and COST TO REACH A FIXED ACCURACY
+python -m experiments.trainability --molecule hydrogen --param-targets 10 50 100 --he-eval-budget 1500
+python -m experiments.trainability --all-molecules --param-targets 10 50 100 --he-eval-budget 3000
+python -m experiments.trainability --analyze-existing experiments/results/trainability/<run>   # old data
+```
+
+Key conventions
+* `target_n_params` is what was requested; `actual_n_params` + `param_match`
+  (`exact` | `rounded_up` | `stopped_early`) are in every CSV row and plot label.
+  Hardware-efficient VQE now matches the target exactly by default (`--he-param-match exact`).
+* Cost = optimiser-requested energy evaluations (callback bookkeeping excluded). The headline
+  metric is evaluations to first reach 100 mHa / 10 mHa / 1.6 mHa (chemical accuracy) vs CASCI;
+  runs that never get there are reported as censored, not as cheap.
+* Hardware-efficient VQE starts from |0...0> unless `--he-hf-init` is passed (ADAPT always
+  starts from the Hartree-Fock reference).
+
 ## 📁 Project Structure
 
 ```

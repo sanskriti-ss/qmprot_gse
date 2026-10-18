@@ -28,6 +28,8 @@ class HardwareEfficientVQE(BaseVQE):
                  n_layers: int = 4,
                  entangling_gate: str = "CNOT",
                  rotation_gates: str = "RY_RZ",
+                 max_free_parameters: Optional[int] = None,
+                 prepare_hf: bool = False,
                  **kwargs):
         """
         Initialize Hardware-Efficient VQE.
@@ -37,6 +39,14 @@ class HardwareEfficientVQE(BaseVQE):
             n_layers: Number of variational layers
             entangling_gate: Type of entangling gate (CNOT, CZ, etc.)
             rotation_gates: Type of rotation gates (RY, RY_RZ, full)
+            max_free_parameters: If set, only the first K rotation slots are
+                variational; the remaining rotation gates are omitted (equal
+                to fixing them at 0).  Lets the ansatz hit an exact parameter
+                count (e.g. 10 / 50 / 100) instead of the next multiple of
+                ``n_qubits * rotations_per_qubit``.  ``None`` keeps every slot.
+            prepare_hf: If True, start from the Hartree-Fock (or CS-rotated)
+                reference state instead of |0...0>.  Default False keeps the
+                original behaviour.
             **kwargs: Additional arguments passed to BaseVQE
         """
         super().__init__(hamiltonian, **kwargs)
@@ -46,6 +56,8 @@ class HardwareEfficientVQE(BaseVQE):
         self.n_layers = n_layers
         self.entangling_gate = entangling_gate
         self.rotation_gates = rotation_gates
+        self.max_free_parameters = max_free_parameters
+        self.prepare_hf = prepare_hf
         
         # Will be set in build_ansatz
         self.device = None
@@ -67,7 +79,21 @@ class HardwareEfficientVQE(BaseVQE):
         else:  # full
             rotations_per_qubit = 3
         
-        self.n_parameters = n_qubits * rotations_per_qubit * (n_layers + 1)
+        n_slots = n_qubits * rotations_per_qubit * (n_layers + 1)
+        if self.max_free_parameters is None:
+            n_free = n_slots
+        else:
+            n_free = int(self.max_free_parameters)
+            if not 1 <= n_free <= n_slots:
+                raise ValueError(
+                    f"max_free_parameters={n_free} must be in [1, {n_slots}] "
+                    f"for {n_qubits} qubits, {n_layers} layers, "
+                    f"rotation_gates={self.rotation_gates}"
+                )
+        self.n_parameters = n_free
+        gate_seq = {"RY": (qml.RY,), "RY_RZ": (qml.RY, qml.RZ)}.get(
+            self.rotation_gates, (qml.RX, qml.RY, qml.RZ)
+        )
         
         # Create device via backend manager
         self.device = create_device(self.backend_config)
@@ -78,24 +104,23 @@ class HardwareEfficientVQE(BaseVQE):
         # Noise insertion callback (no-op for statevector)
         insert_noise = self.noise_inserter
         
+        def rotate(params, qubit, slot):
+            # Slots >= n_free are frozen at 0 (identity), i.e. omitted.
+            for k, gate in enumerate(gate_seq):
+                if slot + k < n_free:
+                    gate(params[slot + k], wires=qubit)
+            return slot + len(gate_seq)
+        
         @qml.qnode(self.device)
         def circuit(params):
             param_idx = 0
             
+            if self.prepare_hf:
+                self._prepare_initial_state()
+            
             # Initial rotation layer
             for qubit in range(n_qubits):
-                if self.rotation_gates == "RY":
-                    qml.RY(params[param_idx], wires=qubit)
-                    param_idx += 1
-                elif self.rotation_gates == "RY_RZ":
-                    qml.RY(params[param_idx], wires=qubit)
-                    qml.RZ(params[param_idx + 1], wires=qubit)
-                    param_idx += 2
-                else:
-                    qml.RX(params[param_idx], wires=qubit)
-                    qml.RY(params[param_idx + 1], wires=qubit)
-                    qml.RZ(params[param_idx + 2], wires=qubit)
-                    param_idx += 3
+                param_idx = rotate(params, qubit, param_idx)
             
             # Variational layers
             for layer in range(n_layers):
@@ -114,18 +139,7 @@ class HardwareEfficientVQE(BaseVQE):
                 
                 # Rotation layer
                 for qubit in range(n_qubits):
-                    if self.rotation_gates == "RY":
-                        qml.RY(params[param_idx], wires=qubit)
-                        param_idx += 1
-                    elif self.rotation_gates == "RY_RZ":
-                        qml.RY(params[param_idx], wires=qubit)
-                        qml.RZ(params[param_idx + 1], wires=qubit)
-                        param_idx += 2
-                    else:
-                        qml.RX(params[param_idx], wires=qubit)
-                        qml.RY(params[param_idx + 1], wires=qubit)
-                        qml.RZ(params[param_idx + 2], wires=qubit)
-                        param_idx += 3
+                    param_idx = rotate(params, qubit, param_idx)
                 
                 # Apply noise after each layer (no-op for statevector)
                 insert_noise()
@@ -133,8 +147,10 @@ class HardwareEfficientVQE(BaseVQE):
             return qml.expval(H)
         
         self.cost_fn = circuit
-        logger.info(f"Built HW-efficient ansatz with {self.n_parameters} parameters, "
+        logger.info(f"Built HW-efficient ansatz with {self.n_parameters} parameters "
+                   f"({n_slots} rotation slots), "
                    f"{n_layers} layers, {self.entangling_gate} entangling, "
+                   f"prepare_hf={self.prepare_hf}, "
                    f"backend={self.backend_config.label}")
         
         return circuit
