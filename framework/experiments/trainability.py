@@ -27,11 +27,12 @@ makes ADAPT exit at k=0.
 
 Comparison metric
 -----------------
-"How long did it take to train?" is measured as the **number of
-cost-function evaluations needed to first reach a fixed accuracy** (error
-vs CASCI of 100 mHa, 10 mHa and chemical accuracy 1.6 mHa), not as the
-total spent by a run.  Comparing totals is misleading: a run that simply
-hits its iteration cap while still ~1 Ha above CASCI looks "cheap".
+Both algorithms receive the same energy-evaluation budget (default 2000).
+Qubit-ADAPT's gradient screening counts toward that budget.  Neither run
+stops when it reaches chemical accuracy.  The trace still records the first
+evaluation at which the error vs CASCI crosses 100 mHa, 10 mHa, and
+chemical accuracy (1.6 mHa).  A run that never crosses is censored: the
+report says it did not reach the threshold within the shared budget.
 
 Every evaluation's energy is recorded by
 :class:`experiments._common.CostEvalCounter`, so the first evaluation at
@@ -65,10 +66,11 @@ What we measure (per (target_n_params, algorithm) pair)
 * ``n_cost_evals``     -- the *true* number of optimiser-requested evaluations.
 * ``evals_to_<thr>``   -- evaluations to first reach ``thr`` (blank = never).
 * ``runtime_seconds``  -- wall time.
-* ``final_energy``     -- energy returned by the optimiser (``result.fun``).
-  For hardware-efficient this is the COBYLA solution or, under Bayesian
-  optimisation, the best energy evaluated -- not the last raw sample.
-  A run that stops at chemical accuracy uses that crossing energy instead.
+* ``final_energy``     -- energy of the finished search, not a point where
+  the run was cut for reaching chemical accuracy.  Hardware-efficient uses
+  the energy the optimiser returns.  Qubit-ADAPT uses the energy of the
+  last operator whose re-optimization finished.  The first crossing of
+  chemical accuracy is ``evals_to_1.6mHa``, read from the trace.
 * ``error_vs_casci``   -- ``final_energy - CASCI`` (positive when above CI).
 * ``hf_error_vs_casci`` / ``hf_within_chem_acc`` -- the free HF baseline; if
   HF already meets chemical accuracy the molecule cannot rank ansaetze.
@@ -136,6 +138,7 @@ if str(_FW_DIR) not in sys.path:
 from algorithms import get_algorithm  # noqa: E402
 
 from experiments import cost_to_accuracy as cta  # noqa: E402
+from core.base_vqe import EvaluationBudgetExhausted  # noqa: E402
 from experiments._common import (  # noqa: E402
     ACCURACY_LADDER_HA,
     AccuracyReached,
@@ -157,8 +160,6 @@ logger = logging.getLogger(__name__)
 DEFAULT_PARAM_TARGETS: Tuple[int, ...] = (10, 50, 100)
 DEFAULT_ALGORITHMS: Tuple[str, ...] = ("qubit_adapt_vqe", "hardware_efficient_vqe")
 DEFAULT_GRADIENT_THRESHOLD: float = 1e-8
-# COBYLA cannot even build its initial simplex with fewer than n+1 evals.
-HE_MIN_EVALS_PER_PARAM: int = 5
 DEFAULT_HE_EVAL_BUDGET: int = 2000
 
 
@@ -264,13 +265,15 @@ def _run_adapt_at_target(
     max_iterations: int,
     convergence_threshold: float,
     random_seed: int,
+    eval_budget: int = DEFAULT_HE_EVAL_BUDGET,
 ) -> TrainabilityRow:
-    """Run an adaptive VQE (``adapt_vqe`` or ``qubit_adapt_vqe``) capped
-    at ``target_n_params`` operators.
+    """Run an adaptive VQE capped at ``target_n_params`` operators and at
+    ``eval_budget`` energy evaluations.
 
-    If the pool is smaller than ``target_n_params`` or gradients fall
-    below ``gradient_threshold``, ADAPT exits early and the row records
-    the actual parameter count.
+    Gradient screening counts toward the budget.  The run also stops early
+    when the pool is exhausted or the largest gradient falls below
+    ``gradient_threshold``.  ``max_iterations`` is the cap on one inner
+    re-optimization, and it is lowered further when fewer evaluations remain.
     """
     if algorithm not in ("adapt_vqe", "qubit_adapt_vqe"):
         raise ValueError(
@@ -295,7 +298,7 @@ def _run_adapt_at_target(
         **algo_kwargs,
     )
 
-    counter = CostEvalCounter()
+    counter = CostEvalCounter(max_evals=eval_budget)
     counter.attach(vqe)
     t0 = time.time()
     try:
@@ -306,10 +309,26 @@ def _run_adapt_at_target(
 
     history = list(result.convergence_history)
     final_e = float(history[-1]) if history else float(result.calculated_energy)
+    if (
+        not np.isfinite(final_e)
+        and int(result.n_parameters) == 0
+        and loaded.hf_energy is not None
+    ):
+        # The budget ran out while scoring the first pool, before any
+        # operator existed.  The state is still the Hartree-Fock determinant.
+        final_e = float(loaded.hf_energy)
     casci = loaded.casci_energy if loaded.casci_energy is not None else float("nan")
 
+    limited = (result.metadata or {}).get("evaluation_budget")
     notes = ""
-    if result.n_parameters < target_n_params:
+    if limited:
+        notes = (
+            f"shared evaluation budget {eval_budget} exhausted during {limited}; "
+            f"{result.n_parameters} operators fully optimized "
+            f"(target={target_n_params})"
+        )
+        logger.info(notes)
+    elif result.n_parameters < target_n_params:
         notes = (
             f"{algorithm} terminated early at {result.n_parameters} ops "
             f"(target={target_n_params}); pool exhausted or gradient below threshold"
@@ -331,6 +350,7 @@ def _run_adapt_at_target(
         param_match=(
             "exact" if int(result.n_parameters) == target_n_params else "stopped_early"
         ),
+        eval_budget=eval_budget,
         init_label="HF reference",
     )
     _fill_accuracy_metrics(row, counter, loaded)
@@ -350,7 +370,7 @@ def _run_he_at_target(
     eval_budget: int = DEFAULT_HE_EVAL_BUDGET,
     init_strategy: str = "small_random",
     hf_init: bool = True,
-    stop_at_accuracy: bool = True,
+    stop_at_accuracy: bool = False,
 ) -> TrainabilityRow:
     """Run HardwareEfficientVQE with ``target_n_params`` parameters.
 
@@ -358,11 +378,11 @@ def _run_he_at_target(
     smallest sufficient depth so the variational parameter count equals the
     target; ``'round_up'`` keeps every slot (legacy behaviour).
 
-    The optimiser gets ``eval_budget`` energy evaluations (raised to
-    ``HE_MIN_EVALS_PER_PARAM * (n_params + 1)`` if smaller, since COBYLA
-    needs ``n_params + 1`` evaluations just to build its starting simplex).
-    With ``stop_at_accuracy`` the run ends as soon as chemical accuracy vs
-    CASCI is reached, so the recorded cost is the cost *to reach it*.
+    The optimiser gets ``eval_budget`` energy evaluations, the same cap the
+    adaptive run uses.  The budget is not increased to fit the parameter
+    count.  ``stop_at_accuracy`` ends the run at chemical accuracy; the
+    default leaves it off so the final energy and the first crossing of
+    1.6 mHa come from the same uninterrupted trace.
     """
     if param_match not in ("exact", "round_up"):
         raise ValueError(f"param_match must be 'exact' or 'round_up', got {param_match!r}")
@@ -375,13 +395,14 @@ def _run_he_at_target(
     exact = param_match == "exact"
     n_free = target_n_params if exact else slots
 
-    min_budget = HE_MIN_EVALS_PER_PARAM * (n_free + 1)
-    budget = max(int(eval_budget), min_budget)
+    budget = int(eval_budget)
+    if budget < 1:
+        raise ValueError(f"eval_budget must be >= 1, got {eval_budget}")
     budget_note = ""
-    if budget != eval_budget:
+    if budget < n_free + 1:
         budget_note = (
-            f"; eval_budget raised {eval_budget}->{budget} (COBYLA needs >= "
-            f"{n_free + 1} evals for its initial simplex)"
+            f"; budget {budget} is below n_params+1={n_free + 1}, so COBYLA "
+            "cannot take a step along every parameter"
         )
         logger.warning("HE target=%d: %s", target_n_params, budget_note.lstrip("; "))
 
@@ -409,24 +430,32 @@ def _run_he_at_target(
     stop_below = (
         casci + CHEMICAL_ACCURACY_HA if (stop_at_accuracy and casci is not None) else None
     )
-    counter = CostEvalCounter(stop_below=stop_below)
+    counter = CostEvalCounter(stop_below=stop_below, max_evals=budget)
     counter.attach(vqe)
     stopped = False
+    budget_hit = False
     optimal_energy = None
     t0 = time.time()
     try:
         _, optimal_energy = vqe.optimize(initial_parameters=theta0)
     except AccuracyReached:
         stopped = True
+    except EvaluationBudgetExhausted:
+        # COBYLA's own maxiter is the same budget.  This catches a solver
+        # that requests one evaluation past that count.
+        budget_hit = True
     finally:
         counter.detach(vqe)
     runtime = time.time() - t0
 
     history = list(vqe.convergence_history)
-    if stopped or optimal_energy is None:
-        # Early stop raises inside the cost call, so ``optimize`` does not
-        # return.  The crossing evaluation is the energy we actually reached.
+    if stopped:
+        # The accuracy stop raises inside the crossing evaluation, so
+        # ``optimize`` does not return.  That crossing energy is the one
+        # the optional early stop is defined to report.
         final_e = float(counter.energies[-1]) if counter.energies else float("nan")
+    elif budget_hit or optimal_energy is None:
+        final_e = float(min(counter.energies)) if counter.energies else float("nan")
     else:
         final_e = float(optimal_energy)
     casci_f = casci if casci is not None else float("nan")
@@ -438,6 +467,8 @@ def _run_he_at_target(
     )
     if stopped:
         notes += "; stopped at chemical accuracy"
+    if budget_hit:
+        notes += "; stopped at the shared evaluation budget"
 
     row = TrainabilityRow(
         algorithm="hardware_efficient_vqe",
@@ -483,14 +514,14 @@ def run_trainability(
     he_eval_budget: int = DEFAULT_HE_EVAL_BUDGET,
     he_init_strategy: str = "small_random",
     he_hf_init: bool = True,
-    he_stop_at_accuracy: bool = True,
+    he_stop_at_accuracy: bool = False,
 ) -> Dict[str, object]:
     """Run the full trainability comparison.
 
-    ``he_eval_budget`` is the evaluation cap for hardware-efficient runs;
-    ``0`` means "give HE the same number of evaluations ADAPT used at the
-    same target" (equal-cost comparison).  See the module docstring for
-    ``he_param_match`` and the cost-to-accuracy metric.
+    ``he_eval_budget`` is the shared energy-evaluation cap.  Qubit-ADAPT
+    screening and hardware-efficient optimisation both stop at that count.
+    ``he_stop_at_accuracy`` is off: chemical accuracy is recorded from the
+    trace and does not end the run.  See the module docstring.
 
     Returns a dict with keys ``"config"``, ``"rows"``, ``"output_dir"``.
     """
@@ -529,7 +560,8 @@ def run_trainability(
     # round up to the same ansatz (e.g. 5 and 10 both -> 24 parameters), so
     # HE rows are cached by actual_n_params and re-used instead of re-run.
     he_cache: Dict[int, TrainabilityRow] = {}
-    adapt_evals_at_target: Dict[int, int] = {}
+    if int(he_eval_budget) < 1:
+        raise ValueError(f"he_eval_budget must be >= 1, got {he_eval_budget}")
 
     rows: List[TrainabilityRow] = []
     for target in param_targets:
@@ -549,8 +581,8 @@ def run_trainability(
                         max_iterations=max_iterations,
                         convergence_threshold=convergence_threshold,
                         random_seed=random_seed,
+                        eval_budget=he_eval_budget,
                     )
-                    adapt_evals_at_target[target] = row.n_cost_evals
                 elif algo == "hardware_efficient_vqe":
                     n_layers, actual = he_layers_for_target_params(
                         loaded.hamiltonian.n_qubits, target,
@@ -577,12 +609,6 @@ def run_trainability(
                             ),
                         )
                     else:
-                        budget = he_eval_budget
-                        if budget <= 0:
-                            budget = adapt_evals_at_target.get(target, DEFAULT_HE_EVAL_BUDGET)
-                            logger.info(
-                                "HE budget = ADAPT's evals at target=%d -> %d", target, budget,
-                            )
                         row = _run_he_at_target(
                             loaded,
                             target_n_params=target,
@@ -592,7 +618,7 @@ def run_trainability(
                             random_seed=random_seed,
                             rotation_gates=he_rotation_gates,
                             param_match=he_param_match,
-                            eval_budget=budget,
+                            eval_budget=he_eval_budget,
                             init_strategy=he_init_strategy,
                             hf_init=he_hf_init,
                             stop_at_accuracy=he_stop_at_accuracy,
@@ -701,7 +727,7 @@ def run_trainability_all_molecules(
     he_eval_budget: int = DEFAULT_HE_EVAL_BUDGET,
     he_init_strategy: str = "small_random",
     he_hf_init: bool = True,
-    he_stop_at_accuracy: bool = True,
+    he_stop_at_accuracy: bool = False,
 ) -> Dict[str, object]:
     """Run trainability comparison for multiple molecules and aggregate outputs."""
     import csv
@@ -1196,8 +1222,9 @@ def _build_argparser() -> argparse.ArgumentParser:
     )
     p.add_argument("--optimizer", default="COBYLA")
     p.add_argument("--max-iter", type=int, default=500,
-                   help="Per-ADAPT-step optimiser cap (also the generic COBYLA cap). "
-                        "Hardware-efficient runs use --he-eval-budget instead.")
+                   help="Cap on one ADAPT re-optimization. The shared "
+                        "--eval-budget still limits the whole run, including "
+                        "gradient screening.")
     p.add_argument("--convergence-threshold", type=float, default=1e-10)
     p.add_argument("--he-rotation-gates", default="RY",
                    choices=["RY", "RY_RZ", "full"])
@@ -1205,10 +1232,11 @@ def _build_argparser() -> argparse.ArgumentParser:
                    help="exact: freeze surplus rotation slots so HE has exactly "
                         "target_n_params parameters; round_up: legacy behaviour "
                         "(next multiple of n_qubits*rotations).")
-    p.add_argument("--he-eval-budget", type=int, default=DEFAULT_HE_EVAL_BUDGET,
-                   help="Cost-function evaluations HE may use (0 = same as ADAPT used "
-                        "at that target). Raised automatically to "
-                        f"{HE_MIN_EVALS_PER_PARAM}*(n_params+1) if smaller.")
+    p.add_argument("--eval-budget", "--he-eval-budget", dest="eval_budget",
+                   type=int, default=DEFAULT_HE_EVAL_BUDGET,
+                   help="Energy evaluations each algorithm may use. ADAPT "
+                        "gradient screening counts. Neither algorithm stops "
+                        "at chemical accuracy. --he-eval-budget is an alias.")
     p.add_argument("--he-init-strategy", default="small_random",
                    choices=["random_uniform", "small_random", "near_identity", "zeros"],
                    help="HE initial parameters. small_random is U[-pi/8, pi/8], "
@@ -1217,9 +1245,11 @@ def _build_argparser() -> argparse.ArgumentParser:
     p.add_argument("--he-hf-init", action=argparse.BooleanOptionalAction, default=True,
                    help="Prepare the Hartree-Fock reference before the HE rotations. "
                         "On by default. Pass --no-he-hf-init to start from |0...0>.")
-    p.add_argument("--no-he-stop-at-accuracy", action="store_true",
-                   help="Do not end HE runs when chemical accuracy is reached; use "
-                        "the full budget.")
+    p.add_argument("--he-stop-at-accuracy", action=argparse.BooleanOptionalAction,
+                   default=False,
+                   help="End hardware-efficient at chemical accuracy. Off by "
+                        "default, so both algorithms run to the shared budget "
+                        "and the 1.6 mHa crossing is only recorded.")
     p.add_argument("--analyze-existing", type=Path, default=None, metavar="DIR",
                    help="Do not run anything: re-analyse an existing batch folder "
                         "(<mol>/results.csv + run_config.json) with the cost-to-"
@@ -1257,10 +1287,10 @@ def main() -> None:
     )
     he_kwargs = dict(
         he_param_match=args.he_param_match,
-        he_eval_budget=args.he_eval_budget,
+        he_eval_budget=args.eval_budget,
         he_init_strategy=args.he_init_strategy,
         he_hf_init=args.he_hf_init,
-        he_stop_at_accuracy=not args.no_he_stop_at_accuracy,
+        he_stop_at_accuracy=args.he_stop_at_accuracy,
     )
 
     batch_mode = args.all_molecules or bool(args.molecules)
@@ -1328,7 +1358,9 @@ def main() -> None:
         gap = (cfg.hf_energy - cfg.casci_energy) * 1e3
         flag = "  <-- HF already within chemical accuracy: nothing to rank" if gap < 1.6 else ""
         print(f"E_HF - E_CASCI = {gap:.2f} mHa  (chemical accuracy = 1.6 mHa){flag}")
-    print(f"HE settings:   param_match={cfg.he_param_match}, eval_budget={cfg.he_eval_budget}, "
+    print(f"Shared budget: {cfg.he_eval_budget} energy evaluations "
+          f"(stop at chemical accuracy: {he_kwargs['he_stop_at_accuracy']})")
+    print(f"HE settings:   param_match={cfg.he_param_match}, "
           f"init={cfg.he_init_strategy}{'+HF' if cfg.he_hf_init else ''}")
     print()
     header = (

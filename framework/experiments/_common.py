@@ -43,6 +43,7 @@ if str(_FW_DIR) not in sys.path:
 
 # Imports from the framework
 from core.backend_manager import BackendConfig  # noqa: E402
+from core.base_vqe import EvaluationBudgetExhausted  # noqa: E402
 from core.hamiltonian_loader import QubitHamiltonian  # noqa: E402
 from algorithms import get_algorithm  # noqa: E402
 
@@ -430,11 +431,18 @@ class CostEvalCounter:
     accuracy.  Callers catch the exception.
     """
 
-    def __init__(self, stop_below: Optional[float] = None) -> None:
+    def __init__(
+        self,
+        stop_below: Optional[float] = None,
+        max_evals: Optional[int] = None,
+    ) -> None:
         self.count: int = 0
         self.callback_evals: int = 0
         self.energies: List[float] = []
         self.stop_below = stop_below
+        self.max_evals = None if max_evals is None else int(max_evals)
+        if self.max_evals is not None and self.max_evals < 1:
+            raise ValueError(f"max_evals must be >= 1, got {max_evals}")
         self._orig_cost_function = None
         self._orig_callback = None
         self._in_callback = False
@@ -447,15 +455,18 @@ class CostEvalCounter:
         self.count = 0
         self.callback_evals = 0
         self.energies = []
+        vqe._eval_counter = self
 
         self._orig_cost_function = vqe.cost_function
         self._orig_callback = getattr(vqe, "callback", None)
 
         def counted_cost_function(parameters):
-            energy = self._orig_cost_function(parameters)
             if self._in_callback:
                 self.callback_evals += 1
-                return energy
+                return self._orig_cost_function(parameters)
+            if self.max_evals is not None and self.count >= self.max_evals:
+                raise EvaluationBudgetExhausted(self.count)
+            energy = self._orig_cost_function(parameters)
             self.count += 1
             self.energies.append(float(energy))
             if self.stop_below is not None and energy <= self.stop_below:
@@ -481,6 +492,8 @@ class CostEvalCounter:
             vqe.cost_function = self._orig_cost_function  # type: ignore[assignment]
         if self._orig_callback is not None:
             vqe.callback = self._orig_callback  # type: ignore[assignment]
+        if self._vqe is not None and getattr(self._vqe, "_eval_counter", None) is self:
+            self._vqe._eval_counter = None
         self._vqe = None
         self._orig_cost_function = None
         self._orig_callback = None

@@ -39,6 +39,32 @@ def is_bayesian_optimizer(name: str) -> bool:
     return str(name).strip().upper() in BAYESIAN_OPTIMIZER_NAMES
 
 
+class EvaluationBudgetExhausted(Exception):
+    """Raised when another energy evaluation would pass the shared budget.
+
+    The evaluation that hits the limit is allowed.  The next request raises
+    before the circuit runs, so both algorithms stop on the same count.
+    """
+
+    def __init__(self, n_evals: int) -> None:
+        super().__init__(
+            f"evaluation budget exhausted after {n_evals} energy evaluations"
+        )
+        self.n_evals = int(n_evals)
+
+
+def remaining_evaluation_budget(vqe: Any) -> Optional[int]:
+    """Evaluations left on the counter attached by the trainability runner.
+
+    ``None`` means no shared budget is attached.  Zero means the next
+    energy evaluation would raise :class:`EvaluationBudgetExhausted`.
+    """
+    counter = getattr(vqe, "_eval_counter", None)
+    if counter is None or getattr(counter, "max_evals", None) is None:
+        return None
+    return max(0, int(counter.max_evals) - int(counter.count))
+
+
 def incumbent_history(history: List[float]) -> List[float]:
     """Best energy at or before each sample. Empty input stays empty."""
     if not history:
