@@ -15,7 +15,7 @@ from datetime import datetime
 
 import sys
 sys.path.append('..')
-from core.base_vqe import VQEResult
+from core.base_vqe import VQEResult, incumbent_history, is_bayesian_optimizer
 from core.results_manager import ResultsManager
 
 logger = logging.getLogger(__name__)
@@ -242,11 +242,35 @@ class VQEVisualizer:
         
         fig, ax = plt.subplots(figsize=figsize)
         
+        showed_raw = False
         for r in results:
             if r.convergence_history:
                 color = self._get_color(r.algorithm_name)
                 label = f"{r.algorithm_name} ({r.molecule_abbrev})"
-                ax.plot(r.convergence_history, color=color, label=label, linewidth=1.5)
+                optimizer = ""
+                if r.metadata:
+                    optimizer = str(r.metadata.get("optimizer", ""))
+                if is_bayesian_optimizer(optimizer):
+                    ax.plot(
+                        r.convergence_history,
+                        color=color,
+                        alpha=0.25,
+                        linewidth=1,
+                        zorder=1,
+                    )
+                    if not showed_raw:
+                        ax.plot(
+                            [], [], color="0.5", alpha=0.7, linewidth=1,
+                            label="raw acquisition",
+                        )
+                        showed_raw = True
+                ax.plot(
+                    incumbent_history(r.convergence_history),
+                    color=color,
+                    label=label,
+                    linewidth=1.5,
+                    zorder=2,
+                )
         
         ax.set_xlabel('Iteration', fontsize=12)
         ax.set_ylabel('Energy (Hartree)', fontsize=12)

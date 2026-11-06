@@ -270,14 +270,18 @@ def sample_initial_parameters(
         Uniform on ``[-pi/8, pi/8]`` -- moderate Grant et al. (2019) style
         initialisation.
     ``near_identity``
-        Uniform on ``[-0.05, 0.05]`` -- "drop into the solution region".
-        Because the ansatz prepares the HF reference first, near-zero
-        rotations leave the state close to HF, where the cost landscape has
-        large gradients.
+        Uniform on ``[-0.05, 0.05]``.  Near-zero rotations leave the state
+        close to whatever the circuit prepares before the variational
+        layers.  That is the Hartree--Fock reference only for ansatze that
+        call ``_prepare_initial_state`` (UCC, HVA, ADAPT) or for
+        hardware-efficient with ``prepare_hf=True``.  The hardware-efficient
+        default starts from ``|0...0>``, so this strategy stays near the
+        vacuum.
     ``zeros``
-        Identically zero -- exact HF reference for ansatze whose gates are
-        identity at theta=0 (HVA, UCC).  For general HW-efficient ansatze
-        it is still a fixed deterministic point, useful as a control.
+        Identically zero.  Exact HF reference when the gates are identity at
+        theta=0 *and* the circuit prepares HF first (HVA, UCC).  For
+        hardware-efficient ansatze it is a fixed point near ``|0...0>``
+        unless ``prepare_hf`` is set.
     """
     rng = rng if rng is not None else np.random.default_rng()
 

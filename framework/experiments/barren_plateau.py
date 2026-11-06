@@ -15,8 +15,12 @@ B. the **convergence quality** of the optimisation that follows?
 The hypothesis we test is:
 
     Sampling the initial parameters from a *narrow* distribution centred on
-    zero leaves the state close to the Hartree-Fock reference (where the
-    cost landscape has substantial gradient).  Sampling from a wide
+    zero keeps every rotation near the identity, so the state stays close
+    to the circuit's reference.  That reference is Hartree--Fock only when
+    the ansatz prepares it (UCC, HVA, ADAPT, or hardware-efficient with
+    ``prepare_hf=True``).  Hardware-efficient runs built here do not:
+    ``build_vqe`` leaves ``prepare_hf`` off, so near-zero parameters sit
+    next to ``|0...0>``, not the HF determinant.  Sampling from a wide
     distribution like ``[0, 2*pi]`` lands in the flat exponentially-
     suppressed region of the loss surface, so optimisation stalls or
     converges to a noticeably worse solution.
@@ -79,6 +83,7 @@ _FW_DIR = Path(__file__).resolve().parent.parent
 if str(_FW_DIR) not in sys.path:
     sys.path.insert(0, str(_FW_DIR))
 
+from core.base_vqe import incumbent_history, is_bayesian_optimizer  # noqa: E402
 from experiments._common import (  # noqa: E402
     INIT_STRATEGIES,
     LoadedHamiltonian,
@@ -393,6 +398,15 @@ def run_barren_plateau(
     }
 
 
+def _mean_std_trace(traces: List[List[float]]) -> Tuple[np.ndarray, np.ndarray]:
+    """Column-wise mean and std of ragged energy traces (NaN-padded)."""
+    max_len = max(len(t) for t in traces)
+    mat = np.full((len(traces), max_len), np.nan)
+    for i, trace in enumerate(traces):
+        mat[i, : len(trace)] = trace
+    return np.nanmean(mat, axis=0), np.nanstd(mat, axis=0)
+
+
 # ──────────────────────────────────────────────────────────────────────────
 # Output: CSV / JSON / plots
 # ──────────────────────────────────────────────────────────────────────────
@@ -512,15 +526,24 @@ def _save_outputs(
             ax.axhline(cfg.hf_energy, color="grey", linestyle="--",
                        linewidth=1, label=f"HF = {cfg.hf_energy:.5f}")
 
+        bayesian = is_bayesian_optimizer(cfg.optimizer)
+        if bayesian:
+            ax.plot(
+                [], [], color="0.5", alpha=0.7, linewidth=1,
+                label="raw acquisition (mean)",
+            )
         for strategy, rs in by_strategy.items():
-            max_len = max(len(r.convergence_history) for r in rs)
-            mat = np.full((len(rs), max_len), np.nan)
-            for i, r in enumerate(rs):
-                mat[i, : len(r.convergence_history)] = r.convergence_history
-            mean = np.nanmean(mat, axis=0)
-            std = np.nanstd(mat, axis=0)
-            xs = np.arange(max_len)
-            line, = ax.plot(xs, mean, label=strategy, linewidth=2)
+            raw_traces = [r.convergence_history for r in rs]
+            inc_traces = [incumbent_history(t) for t in raw_traces]
+            mean, std = _mean_std_trace(inc_traces)
+            xs = np.arange(len(mean))
+            line, = ax.plot(xs, mean, label=strategy, linewidth=2, zorder=2)
+            if bayesian:
+                mean_raw, _ = _mean_std_trace(raw_traces)
+                ax.plot(
+                    np.arange(len(mean_raw)), mean_raw,
+                    color=line.get_color(), alpha=0.25, linewidth=1, zorder=1,
+                )
             ax.fill_between(xs, mean - std, mean + std,
                             alpha=0.15, color=line.get_color())
         ax.set_xlabel("Optimizer iteration")

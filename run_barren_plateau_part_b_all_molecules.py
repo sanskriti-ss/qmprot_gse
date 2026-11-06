@@ -26,7 +26,8 @@ _FW_DIR = Path(__file__).resolve().parent / "framework"
 if str(_FW_DIR) not in sys.path:
     sys.path.insert(0, str(_FW_DIR))
 
-from experiments.barren_plateau import OptTrialRow, run_barren_plateau
+from core.base_vqe import incumbent_history, is_bayesian_optimizer
+from experiments.barren_plateau import OptTrialRow, _mean_std_trace, run_barren_plateau
 from experiments.trainability import discover_trainability_molecules
 
 
@@ -43,6 +44,7 @@ def _save_aggregate_outputs(
     output_root: Path,
     aggregated_rows: List[Tuple[str, OptTrialRow]],
     save_plots: bool,
+    optimizer: str,
 ) -> None:
     output_root.mkdir(parents=True, exist_ok=True)
 
@@ -142,16 +144,25 @@ def _save_aggregate_outputs(
 
     # Plot 2: convergence mean +/- std by strategy across all rows
     fig, ax = plt.subplots(figsize=(8, 5))
+    bayesian = is_bayesian_optimizer(optimizer)
+    if bayesian:
+        ax.plot(
+            [], [], color="0.5", alpha=0.7, linewidth=1,
+            label="raw acquisition (mean)",
+        )
     for strategy in strategies:
         rows = by_strategy[strategy]
-        max_len = max(len(r.convergence_history) for r in rows)
-        mat = np.full((len(rows), max_len), np.nan)
-        for i, row in enumerate(rows):
-            mat[i, : len(row.convergence_history)] = row.convergence_history
-        mean = np.nanmean(mat, axis=0)
-        std = np.nanstd(mat, axis=0)
-        xs = np.arange(max_len)
-        line, = ax.plot(xs, mean, linewidth=2, label=strategy)
+        raw_traces = [r.convergence_history for r in rows]
+        inc_traces = [incumbent_history(t) for t in raw_traces]
+        mean, std = _mean_std_trace(inc_traces)
+        xs = np.arange(len(mean))
+        line, = ax.plot(xs, mean, linewidth=2, label=strategy, zorder=2)
+        if bayesian:
+            mean_raw, _ = _mean_std_trace(raw_traces)
+            ax.plot(
+                np.arange(len(mean_raw)), mean_raw,
+                color=line.get_color(), alpha=0.25, linewidth=1, zorder=1,
+            )
         ax.fill_between(xs, mean - std, mean + std, alpha=0.15, color=line.get_color())
 
     ax.set_xlabel("Optimizer iteration")
@@ -239,7 +250,9 @@ def run_part_b_all_molecules(
             print(f"  [WARN] failed: {exc}")
 
     if aggregated_rows:
-        _save_aggregate_outputs(output_root, aggregated_rows, save_plots=save_plots)
+        _save_aggregate_outputs(
+            output_root, aggregated_rows, save_plots=save_plots, optimizer=optimizer,
+        )
 
     manifest = {
         "molecules_requested": list(molecules) if molecules else None,

@@ -65,7 +65,10 @@ What we measure (per (target_n_params, algorithm) pair)
 * ``n_cost_evals``     -- the *true* number of optimiser-requested evaluations.
 * ``evals_to_<thr>``   -- evaluations to first reach ``thr`` (blank = never).
 * ``runtime_seconds``  -- wall time.
-* ``final_energy``     -- last energy on convergence trace.
+* ``final_energy``     -- energy returned by the optimiser (``result.fun``).
+  For hardware-efficient this is the COBYLA solution or, under Bayesian
+  optimisation, the best energy evaluated -- not the last raw sample.
+  A run that stops at chemical accuracy uses that crossing energy instead.
 * ``error_vs_casci``   -- ``final_energy - CASCI`` (positive when above CI).
 * ``hf_error_vs_casci`` / ``hf_within_chem_acc`` -- the free HF baseline; if
   HF already meets chemical accuracy the molecule cannot rank ansaetze.
@@ -409,9 +412,10 @@ def _run_he_at_target(
     counter = CostEvalCounter(stop_below=stop_below)
     counter.attach(vqe)
     stopped = False
+    optimal_energy = None
     t0 = time.time()
     try:
-        vqe.optimize(initial_parameters=theta0)
+        _, optimal_energy = vqe.optimize(initial_parameters=theta0)
     except AccuracyReached:
         stopped = True
     finally:
@@ -419,10 +423,12 @@ def _run_he_at_target(
     runtime = time.time() - t0
 
     history = list(vqe.convergence_history)
-    if stopped or not history:
-        final_e = float(counter.energies[-1])
+    if stopped or optimal_energy is None:
+        # Early stop raises inside the cost call, so ``optimize`` does not
+        # return.  The crossing evaluation is the energy we actually reached.
+        final_e = float(counter.energies[-1]) if counter.energies else float("nan")
     else:
-        final_e = float(history[-1])
+        final_e = float(optimal_energy)
     casci_f = casci if casci is not None else float("nan")
 
     notes = (

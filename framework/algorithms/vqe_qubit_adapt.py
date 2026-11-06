@@ -10,7 +10,7 @@ import logging
 
 import sys
 sys.path.append('..')
-from core.base_vqe import BaseVQE, VQEResult
+from core.base_vqe import BaseVQE, VQEResult, incumbent_history
 from core.hamiltonian_loader import QubitHamiltonian
 
 logger = logging.getLogger(__name__)
@@ -337,7 +337,6 @@ class QubitAdaptVQE(BaseVQE):
     def run(self) -> VQEResult:
         """Run Qubit-ADAPT-VQE"""
         import time
-        from scipy.optimize import minimize
         
         logger.info(f"Running {self.name} on {self.hamiltonian.molecule.name}")
         start_time = time.time()
@@ -349,7 +348,10 @@ class QubitAdaptVQE(BaseVQE):
         self.build_ansatz()
         self.convergence_history = []
         
-        # ADAPT loop
+        # ADAPT loop.  Inner solves use BaseVQE.optimize so the configured
+        # iteration budget and the Bayesian optimizer both apply.
+        # ``update_history=False`` keeps one energy per accepted operator.
+        grad_converged = False
         for iteration in range(self.max_operators):
             # 1. Compute Gradients
             gradients = self._compute_gradients()
@@ -361,6 +363,7 @@ class QubitAdaptVQE(BaseVQE):
             # 2. Check Convergence
             if max_grad < self.gradient_threshold:
                 logger.info(f"Converged at iteration {iteration} (gradient {max_grad:.2e} < {self.gradient_threshold})")
+                grad_converged = True
                 break
             
             # 3. Add Operator
@@ -368,21 +371,11 @@ class QubitAdaptVQE(BaseVQE):
             self.parameters = np.append(self.parameters, 0.0)
             self.n_parameters = len(self.parameters)
             
-            # 4. Re-optimize all parameters
-            if len(self.parameters) > 0:
-                result = minimize(
-                    self.cost_function,
-                    self.parameters,
-                    method=self.optimizer_name,
-                    options={"maxiter": self.max_iterations},
-                    tol=self.convergence_threshold,
-                )
-                self.parameters = result.x
-                current_energy = result.fun
-            else:
-                current_energy = self.cost_function(self.parameters)
-            
-            self.convergence_history.append(current_energy)
+            self.parameters, current_energy = self.optimize(
+                initial_parameters=self.parameters,
+                update_history=False,
+            )
+            self.convergence_history.append(float(current_energy))
             logger.info(f"Iter {iteration}: Energy = {current_energy:.8f}, Added {self.operator_pool[max_grad_idx]}")
         
         runtime = time.time() - start_time
@@ -405,8 +398,9 @@ class QubitAdaptVQE(BaseVQE):
             n_parameters=self.n_parameters,
             runtime_seconds=runtime,
             convergence_history=self.convergence_history,
+            best_so_far_history=incumbent_history(self.convergence_history),
             optimal_parameters=self.parameters,
-            converged=True,
+            converged=grad_converged,
             metadata={
                 "optimizer": self.optimizer_name,
                 "n_operators_selected": len(self.selected_operators),

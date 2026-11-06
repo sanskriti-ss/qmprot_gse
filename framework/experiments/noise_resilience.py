@@ -91,6 +91,7 @@ _FW_DIR = Path(__file__).resolve().parent.parent
 if str(_FW_DIR) not in sys.path:
     sys.path.insert(0, str(_FW_DIR))
 
+from core.base_vqe import incumbent_history, is_bayesian_optimizer  # noqa: E402
 from experiments._common import (  # noqa: E402
     INIT_STRATEGIES,
     LoadedHamiltonian,
@@ -601,21 +602,34 @@ def _save_outputs(
     # 3) Convergence trajectories
     fig, axes = plt.subplots(1, len(by_model), figsize=(5 * len(by_model), 4.5),
                              sharey=True, squeeze=False)
+    bayesian = is_bayesian_optimizer(cfg.optimizer)
+
+    def _plot_trace(ax, history, **style):
+        hist = list(history)
+        if bayesian:
+            ax.plot(hist, color=style.get("color", "black"), alpha=0.25,
+                    linewidth=1, zorder=1)
+        ax.plot(incumbent_history(hist), zorder=2, **style)
+
     for ax, (model, rs) in zip(axes[0], by_model.items()):
-        ax.plot(baseline.convergence_history, color="black", linewidth=2,
-                label="noiseless")
+        if bayesian:
+            ax.plot([], [], color="0.5", alpha=0.7, linewidth=1,
+                    label="raw acquisition")
+        _plot_trace(ax, baseline.convergence_history, color="black",
+                    linewidth=2, label="noiseless")
         rs_sorted = sorted(rs, key=lambda r: r.noise_strength)
         cmap = plt.get_cmap("viridis")
         nz_runs = [r for r in rs_sorted if r.noise_strength > 0]
         n = max(1, len(nz_runs))
         for i, r in enumerate(nz_runs):
-            ax.plot(
+            _plot_trace(
+                ax,
                 r.convergence_history,
                 color=cmap(i / n),
                 linewidth=1,
                 label=f"p={r.noise_strength:g}",
             )
-        ax.set_xlabel("COBYLA iteration")
+        ax.set_xlabel("Optimizer iteration")
         ax.set_title(model)
         ax.grid(True, alpha=0.3)
         ax.legend(fontsize=7, loc="best")

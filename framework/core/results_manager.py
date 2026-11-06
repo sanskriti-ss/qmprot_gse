@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Union
 from datetime import datetime
 import logging
 
-from .base_vqe import VQEResult
+from .base_vqe import VQEResult, incumbent_history
 
 logger = logging.getLogger(__name__)
 
@@ -208,6 +208,8 @@ class ResultsManager:
                 n_parameters=rd["n_parameters"],
                 runtime_seconds=rd["runtime_seconds"],
                 convergence_history=rd.get("convergence_history", []),
+                best_so_far_history=rd.get("best_so_far_history")
+                or incumbent_history(rd.get("convergence_history", [])),
                 optimal_parameters=np.array(rd["optimal_parameters"]) if rd.get("optimal_parameters") else None,
                 final_gradient_norm=rd.get("final_gradient_norm"),
                 converged=rd.get("converged", False),

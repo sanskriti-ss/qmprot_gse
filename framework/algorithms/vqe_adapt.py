@@ -10,7 +10,7 @@ import logging
 
 import sys
 sys.path.append('..')
-from core.base_vqe import BaseVQE, VQEResult
+from core.base_vqe import BaseVQE, VQEResult, incumbent_history
 from core.hamiltonian_loader import QubitHamiltonian
 
 logger = logging.getLogger(__name__)
@@ -163,9 +163,7 @@ class AdaptVQE(BaseVQE):
     def run(self) -> VQEResult:
         """Run ADAPT-VQE with iterative operator selection"""
         import time
-        from scipy.optimize import minimize
-        # HF verification handled by parent class
-        
+
         logger.info(f"Running {self.name} on {self.hamiltonian.molecule.name}")
         logger.info(f"Backend: {self.backend_config.label}")
         start_time = time.time()
@@ -178,7 +176,11 @@ class AdaptVQE(BaseVQE):
         
         self.convergence_history = []
         
-        # ADAPT loop
+        # ADAPT loop.  The inner solve goes through BaseVQE.optimize so
+        # ``max_iterations``, the convergence tolerance, and the Bayesian
+        # path all apply.  ``update_history=False`` keeps this list as one
+        # energy per accepted operator.
+        grad_converged = False
         for iteration in range(self.max_operators):
             # Compute gradients
             gradients = self._compute_gradients()
@@ -190,6 +192,7 @@ class AdaptVQE(BaseVQE):
             # Check convergence
             if max_grad < self.gradient_threshold:
                 logger.info(f"Converged at iteration {iteration} (gradient below threshold)")
+                grad_converged = True
                 break
             
             # Add best operator
@@ -197,21 +200,11 @@ class AdaptVQE(BaseVQE):
             self.parameters = np.append(self.parameters, 0.0)
             self.n_parameters = len(self.parameters)
             
-            # Optimize all parameters
-            if len(self.parameters) > 0:
-                #print(type(self.optimizer_name))
-                result = minimize(
-                    self.cost_function,
-                    self.parameters,
-                    method=self.optimizer_name,
-                    options={"maxiter": 100}
-                )
-                self.parameters = result.x
-                current_energy = result.fun
-            else:
-                current_energy = self.cost_function(self.parameters)
-            
-            self.convergence_history.append(current_energy)
+            self.parameters, current_energy = self.optimize(
+                initial_parameters=self.parameters,
+                update_history=False,
+            )
+            self.convergence_history.append(float(current_energy))
         
         runtime = time.time() - start_time
         
@@ -234,8 +227,9 @@ class AdaptVQE(BaseVQE):
             n_parameters=self.n_parameters,
             runtime_seconds=runtime,
             convergence_history=self.convergence_history,
+            best_so_far_history=incumbent_history(self.convergence_history),
             optimal_parameters=self.parameters,
-            converged=True,
+            converged=grad_converged,
             metadata={
                 "optimizer": self.optimizer_name,
                 "n_operators_selected": len(self.selected_operators),
