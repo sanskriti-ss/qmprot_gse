@@ -472,7 +472,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
     parser.add_argument(
         "--out-dir",
         type=Path,
-        default=FRAMEWORK_DIR / "datasets2",
+        default=FRAMEWORK_DIR / "datasets",
         help="Root directory: h5 → <out>/<id>/<id>.h5; txt → <out>/hamiltonian_<id>.txt",
     )
     parser.add_argument(
