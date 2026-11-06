@@ -173,8 +173,12 @@ class BackendConfig:
     def label(self) -> str:
         """Short human-readable label for display in plots / CSV."""
         if self.backend_type == "noisy":
-            return f"noisy({self.noise_model}, p={self.noise_strength})"
-        return "statevector"
+            base = f"noisy({self.noise_model}, p={self.noise_strength})"
+        else:
+            base = "statevector"
+        if self.n_shots > 0:
+            return f"{base}, shots={self.n_shots}"
+        return base
 
     @property
     def is_noisy(self) -> bool:

@@ -181,6 +181,7 @@ def make_backend_config(
     n_qubits: int,
     noise_model: Optional[str] = None,
     noise_strength: float = 0.0,
+    n_shots: int = 0,
 ) -> BackendConfig:
     """Build a noiseless or noisy ``BackendConfig`` for the given qubit count.
 
@@ -188,13 +189,19 @@ def make_backend_config(
     config that uses ``default.qubit``; otherwise we fall back to the
     density-matrix simulator ``default.mixed`` and the framework's per-layer
     noise inserter applies the requested PennyLane channel after each layer.
+
+    ``n_shots=0`` keeps the analytic expectation.  A positive count is the
+    number of measurement shots PennyLane uses for each ``expval``.
     """
+    if int(n_shots) < 0:
+        raise ValueError(f"n_shots must be >= 0, got {n_shots}")
     if noise_model in (None, "none", "") or noise_strength == 0.0:
-        return BackendConfig.statevector(n_qubits=n_qubits)
+        return BackendConfig.statevector(n_qubits=n_qubits, n_shots=int(n_shots))
     return BackendConfig.noisy(
         n_qubits=n_qubits,
         noise_model=noise_model,
         noise_strength=noise_strength,
+        n_shots=int(n_shots),
     )
 
 
@@ -207,6 +214,7 @@ def build_vqe(
     max_iterations: int = 100,
     convergence_threshold: float = 1e-10,
     random_seed: int = 42,
+    n_shots: int = 0,
     **algo_kwargs,
 ):
     """Instantiate a VQE algorithm and call ``build_ansatz`` once.
@@ -229,7 +237,7 @@ def build_vqe(
 
     AlgorithmCls = get_algorithm(algorithm)
     if backend_config is None:
-        backend_config = make_backend_config(hamiltonian.n_qubits)
+        backend_config = make_backend_config(hamiltonian.n_qubits, n_shots=n_shots)
 
     vqe = AlgorithmCls(
         hamiltonian,
@@ -238,6 +246,7 @@ def build_vqe(
         max_iterations=max_iterations,
         convergence_threshold=convergence_threshold,
         random_seed=random_seed,
+        n_shots=n_shots,
         backend_config=backend_config,
         **algo_kwargs,
     )

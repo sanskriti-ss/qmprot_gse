@@ -189,7 +189,11 @@ class BaseVQE(ABC):
             optimizer: Optimization method name
             max_iterations: Maximum optimization iterations
             convergence_threshold: Convergence threshold for energy
-            n_shots: Number of measurement shots (0 for exact simulation)
+            n_shots: Number of measurement shots passed to the PennyLane
+                device.  0 keeps the exact statevector expectation.  A
+                positive value is copied onto ``backend_config`` when that
+                config is still analytic, so the device and the recorded
+                metadata use the same count.
             random_seed: Random seed for reproducibility
             backend_config: BackendConfig for device creation. If None,
                             defaults to statevector (default.qubit).
@@ -199,7 +203,9 @@ class BaseVQE(ABC):
         self.optimizer_name = optimizer
         self.max_iterations = max_iterations
         self.convergence_threshold = convergence_threshold
-        self.n_shots = n_shots
+        if int(n_shots) < 0:
+            raise ValueError(f"n_shots must be >= 0, got {n_shots}")
+        self.n_shots = int(n_shots)
         self.random_seed = random_seed
         self.kwargs = kwargs
         
@@ -212,6 +218,19 @@ class BaseVQE(ABC):
             )
         # Ensure n_qubits is consistent
         self.backend_config.n_qubits = hamiltonian.n_qubits
+        # One shot count for the device and the result metadata.  Every
+        # ansatz builds its QNode with create_device(self.backend_config),
+        # which reads BackendConfig.n_shots and ignores BaseVQE.n_shots.
+        config_shots = int(self.backend_config.n_shots)
+        if self.n_shots > 0 and config_shots > 0 and self.n_shots != config_shots:
+            raise ValueError(
+                f"n_shots={self.n_shots} disagrees with "
+                f"backend_config.n_shots={config_shots}"
+            )
+        if self.n_shots > 0 and config_shots <= 0:
+            self.backend_config.n_shots = self.n_shots
+        elif config_shots > 0 and self.n_shots <= 0:
+            self.n_shots = config_shots
         self.noise_inserter = get_noise_inserter(self.backend_config)
         
         # Set random seed
