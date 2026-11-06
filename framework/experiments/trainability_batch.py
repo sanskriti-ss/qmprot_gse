@@ -1,7 +1,7 @@
 """Trainability batch runner + aggregate shaded plot
 ================================================
 
-Wrapper around the existing `run_trainability_batch` that runs the
+Wrapper around `run_trainability_all_molecules` that runs the
 experiment across multiple molecules and then produces an aggregated
 plot which shows per-algorithm mean ±1σ bands and thin per-molecule
 traces for quick comparison.
@@ -35,7 +35,7 @@ import sys
 if str(_FW_DIR.parent) not in sys.path:
     sys.path.insert(0, str(_FW_DIR.parent))
 
-from experiments.trainability import run_trainability_batch, TrainabilityBatchConfig  # noqa: E402
+from experiments.trainability import run_trainability_all_molecules  # noqa: E402
 from experiments.noise_resilience import DATASETS2_AMINO_ACIDS  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -187,7 +187,7 @@ def main() -> None:
     molecules = tuple(DATASETS2_AMINO_ACIDS) if args.batch_amino_acids else tuple(args.molecules or [])
     cs_target = args.cs_target_qubits if args.cs_target_qubits > 0 else None
 
-    out = run_trainability_batch(
+    out = run_trainability_all_molecules(
         molecules=molecules,
         basis="sto-3g",
         cs_target_qubits=cs_target,
@@ -195,13 +195,11 @@ def main() -> None:
         param_targets=tuple(args.param_targets),
         max_iterations=args.max_iter,
         random_seed=42,
-        output_dir=args.output_dir,
+        output_root=args.output_dir,
         save_plots=False,
     )
 
-    results_csv = out["output_dir"] / "results_all.csv"
-    # Also copy any traces file exists
-    traces_csv = out["output_dir"] / "convergence_traces_all.csv"
+    results_csv = out["output_dir"] / "all_molecules_results.csv"
 
     # Generate aggregate shaded plot (per-algo mean ±1σ + per-molecule traces)
     _aggregate_and_plot(results_csv, out["output_dir"])

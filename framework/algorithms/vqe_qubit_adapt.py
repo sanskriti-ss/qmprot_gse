@@ -10,10 +10,33 @@ import logging
 
 import sys
 sys.path.append('..')
-from core.base_vqe import BaseVQE, VQEResult
+from core.base_vqe import (
+    BaseVQE,
+    EvaluationBudgetExhausted,
+    VQEResult,
+    incumbent_history,
+    inner_solve_iteration_cap,
+)
 from core.hamiltonian_loader import QubitHamiltonian
 
 logger = logging.getLogger(__name__)
+
+
+def _pauli_string_from_pool_label(label: str, n_qubits: int) -> str:
+    """Expand ``'Y0 X1'`` to a length-``n_qubits`` string, index 0 on wire 0."""
+    chars = ["I"] * n_qubits
+    for term in label.split():
+        chars[int(term[1:])] = term[0]
+    return "".join(chars)
+
+
+def _paulis_commute(left: str, right: str) -> bool:
+    """Two Pauli strings commute when they anticommute on an even number of wires."""
+    anticommuting_sites = 0
+    for left_op, right_op in zip(left, right):
+        if left_op != "I" and right_op != "I" and left_op != right_op:
+            anticommuting_sites += 1
+    return anticommuting_sites % 2 == 0
 
 
 class QubitAdaptVQE(BaseVQE):
@@ -29,6 +52,7 @@ class QubitAdaptVQE(BaseVQE):
                  max_operators: int = 20,
                  gradient_threshold: float = 1e-4,
                  use_restricted_pool: bool = True,
+                 max_gradient_candidates: Optional[int] = None,
                  **kwargs):
         """
         Initialize Qubit-ADAPT-VQE.
@@ -41,6 +65,9 @@ class QubitAdaptVQE(BaseVQE):
                            over all qubit combinations. If True, restrict to
                            occupied->virtual excitations based on n_electrons
                            (smaller pool, faster gradient screening).
+            max_gradient_candidates: If set, evaluate gradients on at most this
+                           many viable pool operators per ADAPT iteration
+                           (random subset, deterministic under random_seed).
             **kwargs: Additional arguments passed to BaseVQE
         """
         super().__init__(hamiltonian, **kwargs)
@@ -50,14 +77,25 @@ class QubitAdaptVQE(BaseVQE):
         self.max_operators = max_operators
         self.gradient_threshold = gradient_threshold
         self.use_restricted_pool = use_restricted_pool
+        self.max_gradient_candidates = (
+            int(max_gradient_candidates)
+            if max_gradient_candidates is not None and int(max_gradient_candidates) > 0
+            else None
+        )
 
         # Operator pool is now a list of Pauli strings (e.g., "Y0 X1")
         self.operator_pool: List[str] = []
         self.selected_operators: List[int] = []
         self.parameters: np.ndarray = np.array([])
+        # Operators that fail to commute with H.  Exact on every state, so
+        # it can be cached.  Gradients of this set are recomputed each iteration.
+        self._noncommuting_ops: Optional[List[int]] = None
+        self._rng = np.random.default_rng(kwargs.get("random_seed", None))
         
         # Will be set in build_ansatz
         self.device = None
+        self.cost_fn = None
+        self._cost_fn_signature: Optional[Tuple[int, ...]] = None
         
     def _generate_full_pool(self, n_qubits: int) -> List[str]:
         """
@@ -144,6 +182,8 @@ class QubitAdaptVQE(BaseVQE):
         
         # Create device via backend manager
         self.device = create_device(self.backend_config)
+        self.cost_fn = None
+        self._cost_fn_signature = None
         
         # Generate Pauli Pool
         # Use full pool when CS reduction is active (no meaningful occupied/virtual split)
@@ -166,10 +206,11 @@ class QubitAdaptVQE(BaseVQE):
         self.selected_operators = []
         self.parameters = np.array([])
         self.n_parameters = 0
+        self._noncommuting_ops = None
         
         return self.operator_pool
     
-    def _build_circuit(self, params: np.ndarray):
+    def _build_circuit(self):
         """Build circuit with currently selected Pauli operators"""
         import pennylane as qml
         
@@ -226,59 +267,85 @@ class QubitAdaptVQE(BaseVQE):
     
     def cost_function(self, parameters: np.ndarray) -> float:
         """Evaluate the cost function"""
-        circuit = self._build_circuit(parameters)
-        return float(circuit(parameters))
+        signature = tuple(self.selected_operators)
+        if self.cost_fn is None or self._cost_fn_signature != signature:
+            self.cost_fn = self._build_circuit()
+            self._cost_fn_signature = signature
+        return float(self.cost_fn(parameters))
     
-    def _prescreen_pool(self) -> List[int]:
-        """
-        Pre-screen the operator pool against the Hamiltonian to find operators
-        that could have non-zero gradient from a computational basis state.
-        
-        An operator P can only produce a non-zero gradient if some Hamiltonian
-        term flips the exact same qubits (X/Y positions match). This is exact
-        for the first ADAPT iteration (HF state) and a useful heuristic for
-        later iterations.
-        """
-        h_flip_patterns = set()
-        for pauli_str in self.hamiltonian.pauli_strings:
-            flips = frozenset(i for i, c in enumerate(pauli_str) if c in ('X', 'Y'))
-            if flips:
-                h_flip_patterns.add(flips)
+    def _noncommuting_pool_indices(self) -> List[int]:
+        """Pool operators whose commutator with H is not identically zero.
 
-        viable = []
+        ``[H, P] = 0`` means the gradient of ``exp(-i θ P)`` vanishes on
+        every state, so those operators can be dropped for the whole run.
+        Matching X/Y supports against the Hartree--Fock determinant is a
+        stronger screen and is exact only on that first state.  It is not
+        used here: an operator that is flat on Hartree--Fock can be the
+        largest gradient after the first accepted rotation.
+        """
+        h_terms = [
+            pauli for pauli in self.hamiltonian.pauli_strings
+            if any(char != "I" for char in pauli)
+        ]
+        kept: List[int] = []
         for op_idx, op_str in enumerate(self.operator_pool):
-            terms = op_str.split()
-            op_flips = frozenset(int(t[1:]) for t in terms)
-            if op_flips in h_flip_patterns:
-                viable.append(op_idx)
+            op_pauli = _pauli_string_from_pool_label(op_str, self.n_qubits)
+            if any(not _paulis_commute(op_pauli, term) for term in h_terms):
+                kept.append(op_idx)
 
-        logger.info(f"Pre-screening: {len(viable)}/{len(self.operator_pool)} operators viable "
-                    f"({len(self.operator_pool) - len(viable)} skipped, "
-                    f"{len(h_flip_patterns)} unique off-diagonal patterns in H)")
-        return viable
+        logger.info(
+            "Commutator screen: %d/%d pool operators fail to commute with H "
+            "(%d dropped)",
+            len(kept),
+            len(self.operator_pool),
+            len(self.operator_pool) - len(kept),
+        )
+        return kept
 
     def _compute_gradients(self) -> np.ndarray:
-        """Compute gradients for all operators in the pool via Finite Difference"""
+        """Finite-difference gradients of the pool on the current ansatz.
+
+        The difference uses step ``1e-5`` and the parameters already stored
+        on the ansatz.  Already selected operators are left at zero so the
+        same Pauli is not appended twice.  ``max_gradient_candidates``, when
+        set, draws a random subset of this list; the default scores every
+        operator that does not commute with H.
+        """
         gradients = np.zeros(len(self.operator_pool))
         delta = 1e-5
-        
-        n_qubits = self.n_qubits
-        cs_active = getattr(self.hamiltonian, "cs_initial_state", None) is not None
-        if cs_active:
-            logger.info(f"Gradient computation: n_qubits={n_qubits}, "
-                        f"initial_state=CS-rotated HF, pool_size={len(self.operator_pool)}")
-        else:
-            n_elec = min(self.hamiltonian.molecule.n_electrons or n_qubits // 2, n_qubits // 2)
-            logger.info(f"Gradient computation: n_qubits={n_qubits}, n_electrons_used={n_elec}, "
-                        f"HF state={'|' + '1'*n_elec + '0'*(n_qubits-n_elec) + '>'}, "
-                        f"pool_size={len(self.operator_pool)}")
-        
-        viable_ops = self._prescreen_pool()
+
+        if self._noncommuting_ops is None:
+            self._noncommuting_ops = self._noncommuting_pool_indices()
+
+        viable_ops = [
+            op_idx for op_idx in self._noncommuting_ops
+            if op_idx not in self.selected_operators
+        ]
+        logger.info(
+            "Gradient computation: scoring %d/%d non-commuting operators "
+            "on the current %d-parameter ansatz",
+            len(viable_ops),
+            len(self._noncommuting_ops),
+            len(self.parameters),
+        )
+
+        if (
+            self.max_gradient_candidates is not None
+            and len(viable_ops) > self.max_gradient_candidates
+        ):
+            n_total = len(viable_ops)
+            viable_ops = self._rng.choice(
+                viable_ops,
+                size=self.max_gradient_candidates,
+                replace=False,
+            ).tolist()
+            logger.info(
+                "Gradient screening cap active: evaluating %d/%d viable operators",
+                len(viable_ops),
+                n_total,
+            )
         
         for op_idx in viable_ops:
-            if op_idx in self.selected_operators:
-                continue
-            
             # Temporarily add operator at the END of the ansatz
             self.selected_operators.append(op_idx)
             test_params = np.append(self.parameters, delta)
@@ -299,7 +366,6 @@ class QubitAdaptVQE(BaseVQE):
     def run(self) -> VQEResult:
         """Run Qubit-ADAPT-VQE"""
         import time
-        from scipy.optimize import minimize
         
         logger.info(f"Running {self.name} on {self.hamiltonian.molecule.name}")
         start_time = time.time()
@@ -311,45 +377,80 @@ class QubitAdaptVQE(BaseVQE):
         self.build_ansatz()
         self.convergence_history = []
         
-        # ADAPT loop
+        # ADAPT loop.  Inner solves use BaseVQE.optimize so the configured
+        # iteration budget and the Bayesian optimizer both apply.
+        # ``update_history=False`` keeps one energy per accepted operator.
+        # A shared evaluation budget, when the trainability counter is
+        # attached, stops screening or the inner solve without a further
+        # energy call.  An operator whose re-optimization did not return
+        # is removed again: theta=0 would have left the state unchanged,
+        # and the partial COBYLA point is not a finished solve.
+        grad_converged = False
+        budget_limited = None
         for iteration in range(self.max_operators):
-            # 1. Compute Gradients
-            gradients = self._compute_gradients()
+            try:
+                gradients = self._compute_gradients()
+            except EvaluationBudgetExhausted:
+                budget_limited = "gradient screening"
+                logger.info("Evaluation budget exhausted during gradient screening")
+                break
             max_grad_idx = np.argmax(gradients)
             max_grad = gradients[max_grad_idx]
             
             logger.debug(f"Iter {iteration}: Max grad {max_grad:.6f} for op {self.operator_pool[max_grad_idx]}")
             
-            # 2. Check Convergence
             if max_grad < self.gradient_threshold:
                 logger.info(f"Converged at iteration {iteration} (gradient {max_grad:.2e} < {self.gradient_threshold})")
+                grad_converged = True
+                break
+
+            operators_left = self.max_operators - len(self.selected_operators)
+            step_cap = inner_solve_iteration_cap(
+                self, operators_left, self.max_iterations,
+            )
+            if step_cap < 1:
+                budget_limited = "re-optimization"
+                logger.info(
+                    "Evaluation budget cannot give each of the %d remaining "
+                    "operators an iteration",
+                    operators_left,
+                )
                 break
             
-            # 3. Add Operator
             self.selected_operators.append(max_grad_idx)
             self.parameters = np.append(self.parameters, 0.0)
             self.n_parameters = len(self.parameters)
-            
-            # 4. Re-optimize all parameters
-            if len(self.parameters) > 0:
-                result = minimize(
-                    self.cost_function,
-                    self.parameters,
-                    method=self.optimizer_name,
-                    options={"maxiter": 100}
+
+            saved_max = self.max_iterations
+            self.max_iterations = step_cap
+            try:
+                self.parameters, current_energy = self.optimize(
+                    initial_parameters=self.parameters,
+                    update_history=False,
                 )
-                self.parameters = result.x
-                current_energy = result.fun
-            else:
-                current_energy = self.cost_function(self.parameters)
-            
-            self.convergence_history.append(current_energy)
+            except EvaluationBudgetExhausted:
+                self.selected_operators.pop()
+                self.parameters = np.asarray(self.parameters[:-1], dtype=float)
+                self.n_parameters = len(self.parameters)
+                budget_limited = "re-optimization"
+                logger.info("Evaluation budget exhausted during re-optimization")
+                break
+            finally:
+                self.max_iterations = saved_max
+            self.convergence_history.append(float(current_energy))
             logger.info(f"Iter {iteration}: Energy = {current_energy:.8f}, Added {self.operator_pool[max_grad_idx]}")
         
         runtime = time.time() - start_time
         
-        # Calculate final stats
-        optimal_energy = self.cost_function(self.parameters)
+        # The last completed inner solve already returned this energy.
+        # Calling the cost again would spend one evaluation past the budget.
+        if self.convergence_history:
+            optimal_energy = float(self.convergence_history[-1])
+        else:
+            try:
+                optimal_energy = float(self.cost_function(self.parameters))
+            except EvaluationBudgetExhausted:
+                optimal_energy = float("nan")
         ref_energy = self.hamiltonian.molecule.reference_energy
         error = optimal_energy - ref_energy
         
@@ -366,12 +467,15 @@ class QubitAdaptVQE(BaseVQE):
             n_parameters=self.n_parameters,
             runtime_seconds=runtime,
             convergence_history=self.convergence_history,
+            best_so_far_history=incumbent_history(self.convergence_history),
             optimal_parameters=self.parameters,
-            converged=True,
+            converged=grad_converged,
             metadata={
                 "optimizer": self.optimizer_name,
                 "n_operators_selected": len(self.selected_operators),
-                "selected_operators_str": [self.operator_pool[i] for i in self.selected_operators]
+                "selected_operators_str": [self.operator_pool[i] for i in self.selected_operators],
+                "max_gradient_candidates": self.max_gradient_candidates,
+                "evaluation_budget": budget_limited,
             },
             backend_type=self.backend_config.backend_type,
             noise_model=self.backend_config.noise_model,

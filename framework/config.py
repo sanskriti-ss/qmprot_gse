@@ -80,6 +80,7 @@ ENABLE_MULTIPROCESSING = os.getenv("ENABLE_MULTIPROCESSING", "false").lower() ==
 # Supported optimizers
 SUPPORTED_OPTIMIZERS = [
     "COBYLA",
+    "BAYESIAN",
     "L-BFGS-B", 
     "SLSQP",
     "SPSA",

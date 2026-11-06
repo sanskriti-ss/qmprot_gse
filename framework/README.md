@@ -42,6 +42,27 @@ All errors are **positive** (variational principle holds). Chemical accuracy thr
 
 ![Cost vs error](plots/20260318_200609/computation_vs_error.png)
 
+## Experiment campaigns (run from `framework/`)
+
+One campaign folder is one version of the comparison. It holds the inputs for every experiment run that day, and `run.sh` writes that campaign's results next to those inputs. After the code changes, copy the folder to a new id and run that id. Do not reuse yesterday's folder for today's code.
+
+```bash
+campaigns/run.sh 20261105
+campaigns/run.sh 20261105 --dry-run    # print the commands, do not run them
+```
+
+`campaigns/20261105/` contains `01_trainability.json` (qubit-ADAPT against hardware-efficient) and `02_noise_resilience.json` (hardware-efficient noise sweep on the same molecule, no contextual subspace). Results land in `campaigns/20261105/results/<experiment>/`. `manifest.json` records the git commit, whether the tree was dirty, and the exact command of each experiment. Each experiment also writes its own `run_config.json` in that results folder.
+
+`config.py` is not this record. It holds solver defaults such as the optimizer name and the shot count.
+
+## Key conventions
+* `target_n_params` is what was requested; `actual_n_params` + `param_match`
+  (`exact` | `rounded_up` | `stopped_early`) are in every CSV row and plot label.
+  Hardware-efficient VQE matches the target exactly by default (`--he-param-match exact`).
+* Both algorithms share `--eval-budget` (default 2000). Qubit-ADAPT gradient screening counts, and the remaining evaluations are divided across the operators still needed. Chemical accuracy is recorded from the trace and does not stop the run unless `--he-stop-at-accuracy` is passed.
+* Hardware-efficient VQE prepares the Hartree–Fock state and starts from `small_random` angles on `[-π/8, π/8]` with `RY` rotations. Qubit-ADAPT prepares Hartree–Fock and grows a real Pauli pool. Pass `--no-he-hf-init` to start hardware-efficient from `|0…0>`.
+* A large pool can spend the whole budget on the first gradient screen. The row then has `actual_n_params` below the target. That is the number the energy plot uses.
+
 ## 📁 Project Structure
 
 ```
@@ -49,7 +70,8 @@ framework/
 ├── README.md
 ├── requirements.txt
 ├── main.py                        # Main entry point
-├── config.py                      # Configuration settings
+├── config.py                      # Solver defaults (optimizer, shots), not experiment inputs
+├── campaigns/                     # One folder per code version; run.sh executes its JSON inputs
 ├── active_space_truncation/       # Pipeline: geometry → HF → CASCI → qubit Hamiltonian
 │   ├── geometry.py                # Molecule geometry dataclass
 │   ├── step1_orbitals.py          # HF + MP2 + orbital diagnostics

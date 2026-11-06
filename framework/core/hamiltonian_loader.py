@@ -127,6 +127,7 @@ class QubitHamiltonian:
                         if wire in wire_mapping:
                             remapped[wire_mapping[wire]] = pauli
                         else:
+                            # Non-identity op on a wire we dropped — term is invalid
                             remap_ok = False
                             break
                 if remap_ok:
@@ -559,11 +560,12 @@ class HamiltonianLoader:
         """Parse a hamiltonian string into coefficients and simple IXYZ Pauli strings.
 
         Handles OpenFermion format: 'coeff\\tZ(0) @ Z(1) @ X(5)'
-        Converts to simple Pauli strings: 'ZZIIIXI...'
+        and an already-simple string such as 'ZZIIIXI'.
 
         Args:
             hamiltonian_str: Raw hamiltonian string from H5 or txt file
-            n_qubits: Number of qubits. If 0, inferred from max qubit index.
+            n_qubits: Number of qubits. If 0, inferred from the highest
+                OpenFermion qubit index.
         """
         import re
         lines = hamiltonian_str.split("\n")
@@ -590,21 +592,21 @@ class HamiltonianLoader:
             coefficients.append(coeff)
             raw_ops.append(op_str)
 
-            # Track the highest qubit index
             for m in re.finditer(r'\((\d+)\)', op_str):
                 q = int(m.group(1))
                 if q > max_qubit:
                     max_qubit = q
 
-        # Use provided n_qubits or infer from max qubit index
         if n_qubits == 0:
             n_qubits = max_qubit + 1
 
-        # Convert OpenFermion strings to simple IXYZ format
         pauli_strings = []
         for op_str in raw_ops:
             if 'Identity' in op_str:
                 pauli_strings.append('I' * n_qubits)
+                continue
+            if '(' not in op_str:
+                pauli_strings.append(op_str)
                 continue
 
             chars = ['I'] * n_qubits
