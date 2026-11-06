@@ -1188,6 +1188,12 @@ def _build_argparser() -> argparse.ArgumentParser:
     p.add_argument("--molecules", nargs="+", default=None,
                    help="Optional molecule subset for batch mode (also enables batch mode).")
     p.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Single-molecule output directory. If omitted, a timestamped folder is created.",
+    )
+    p.add_argument(
         "--output-root",
         type=Path,
         default=None,
@@ -1343,6 +1349,7 @@ def main() -> None:
         convergence_threshold=args.convergence_threshold,
         he_rotation_gates=args.he_rotation_gates,
         random_seed=args.seed,
+        output_dir=args.output_dir,
         save_plots=not args.no_plots,
         **he_kwargs,
     )

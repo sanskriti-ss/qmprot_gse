@@ -1,0 +1,21 @@
+{
+  "description": "Qubit-ADAPT against hardware-efficient VQE at matched parameter targets. Hartree-Fock preparation, RY rotations, small_random on [-pi/8, pi/8], shared evaluation budget, no contextual subspace.",
+  "module": "experiments.trainability",
+  "args": {
+    "molecule": "hydrogen",
+    "basis": "sto-3g",
+    "cs-target-qubits": 0,
+    "algorithms": ["qubit_adapt_vqe", "hardware_efficient_vqe"],
+    "param-targets": [10, 50, 100],
+    "eval-budget": 2000,
+    "max-iter": 500,
+    "optimizer": "COBYLA",
+    "convergence-threshold": 1e-10,
+    "he-rotation-gates": "RY",
+    "he-param-match": "exact",
+    "he-init-strategy": "small_random",
+    "he-hf-init": true,
+    "he-stop-at-accuracy": false,
+    "seed": 42
+  }
+}

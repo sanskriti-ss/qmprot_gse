@@ -1118,6 +1118,12 @@ def _build_argparser() -> argparse.ArgumentParser:
                    default=list(DEFAULT_NOISE_MODELS))
     p.add_argument("--noise-strengths", nargs="+", type=float,
                    default=list(DEFAULT_NOISE_STRENGTHS))
+    p.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Single-molecule output directory. If omitted, a timestamped folder is created.",
+    )
     p.add_argument("--no-plots", action="store_true")
     p.add_argument("-v", "--verbose", action="store_true")
     # Multi-molecule batch (datasets2 amino acids or explicit list)
@@ -1230,6 +1236,7 @@ def main() -> None:
         prepare_hf=args.prepare_hf,
         noise_models=tuple(args.noise_models),
         noise_strengths=tuple(args.noise_strengths),
+        output_dir=args.output_dir,
         save_plots=not args.no_plots,
         rotation_gates=args.rotation_gates,
     )
