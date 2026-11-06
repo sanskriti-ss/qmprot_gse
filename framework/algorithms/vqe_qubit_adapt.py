@@ -15,7 +15,7 @@ from core.base_vqe import (
     EvaluationBudgetExhausted,
     VQEResult,
     incumbent_history,
-    remaining_evaluation_budget,
+    inner_solve_iteration_cap,
 )
 from core.hamiltonian_loader import QubitHamiltonian
 
@@ -404,10 +404,17 @@ class QubitAdaptVQE(BaseVQE):
                 grad_converged = True
                 break
 
-            remaining = remaining_evaluation_budget(self)
-            if remaining is not None and remaining <= 0:
-                budget_limited = "gradient screening"
-                logger.info("Evaluation budget exhausted before re-optimization")
+            operators_left = self.max_operators - len(self.selected_operators)
+            step_cap = inner_solve_iteration_cap(
+                self, operators_left, self.max_iterations,
+            )
+            if step_cap < 1:
+                budget_limited = "re-optimization"
+                logger.info(
+                    "Evaluation budget cannot give each of the %d remaining "
+                    "operators an iteration",
+                    operators_left,
+                )
                 break
             
             self.selected_operators.append(max_grad_idx)
@@ -415,8 +422,7 @@ class QubitAdaptVQE(BaseVQE):
             self.n_parameters = len(self.parameters)
 
             saved_max = self.max_iterations
-            if remaining is not None:
-                self.max_iterations = min(saved_max, remaining)
+            self.max_iterations = step_cap
             try:
                 self.parameters, current_energy = self.optimize(
                     initial_parameters=self.parameters,

@@ -272,8 +272,9 @@ def _run_adapt_at_target(
 
     Gradient screening counts toward the budget.  The run also stops early
     when the pool is exhausted or the largest gradient falls below
-    ``gradient_threshold``.  ``max_iterations`` is the cap on one inner
-    re-optimization, and it is lowered further when fewer evaluations remain.
+    ``gradient_threshold``.  The evaluations still left are divided across
+    the operators still needed.  ``max_iterations`` is only a ceiling on
+    one inner re-optimization, used when that share would be larger.
     """
     if algorithm not in ("adapt_vqe", "qubit_adapt_vqe"):
         raise ValueError(
@@ -1222,9 +1223,10 @@ def _build_argparser() -> argparse.ArgumentParser:
     )
     p.add_argument("--optimizer", default="COBYLA")
     p.add_argument("--max-iter", type=int, default=500,
-                   help="Cap on one ADAPT re-optimization. The shared "
-                        "--eval-budget still limits the whole run, including "
-                        "gradient screening.")
+                   help="Ceiling on one ADAPT re-optimization. The shared "
+                        "--eval-budget is divided across the operators still "
+                        "needed, and this ceiling only bites when that share "
+                        "would be larger.")
     p.add_argument("--convergence-threshold", type=float, default=1e-10)
     p.add_argument("--he-rotation-gates", default="RY",
                    choices=["RY", "RY_RZ", "full"])

@@ -65,6 +65,29 @@ def remaining_evaluation_budget(vqe: Any) -> Optional[int]:
     return max(0, int(counter.max_evals) - int(counter.count))
 
 
+def inner_solve_iteration_cap(
+    vqe: Any,
+    operators_still_needed: int,
+    per_step_cap: int,
+) -> int:
+    """Iterations this ADAPT re-optimization may use.
+
+    With no shared budget this is ``per_step_cap``. With a budget, the
+    evaluations still left are divided evenly across the operators that
+    still have to be added, and that share is also limited by
+    ``per_step_cap``. A return of 0 means the remainder cannot buy one
+    evaluation for this operator, so the growth step should not start.
+    """
+    remaining = remaining_evaluation_budget(vqe)
+    if remaining is None:
+        return int(per_step_cap)
+    needed = max(int(operators_still_needed), 1)
+    share = remaining // needed
+    if share < 1:
+        return 0
+    return min(int(per_step_cap), share)
+
+
 def incumbent_history(history: List[float]) -> List[float]:
     """Best energy at or before each sample. Empty input stays empty."""
     if not history:

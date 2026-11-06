@@ -116,7 +116,8 @@ METRIC_DEFINITIONS: Dict[str, str] = {
     "noisy_displacement_l2": "||theta_noisy* - theta_init||_2",
     "param_drift_cosine": "cos(theta_noisy*, theta_clean*)",
     "energy_clean_at_noisy_params": "noiseless E(theta_noisy*)",
-    "energy_noisy": "last energy seen by the noisy optimiser",
+    "energy_noisy": "energy returned by the optimiser at theta_noisy* "
+                    "(the noisy cost of that parameter vector, not the last trial)",
 }
 
 RESULT_COLUMNS: Tuple[str, ...] = (
@@ -224,10 +225,13 @@ def _optimize_one(
     initial_parameters: np.ndarray,
     prepare_hf: bool = True,
     rotation_gates: Optional[str] = None,
-) -> Tuple[np.ndarray, List[float], int]:
+) -> Tuple[np.ndarray, float, List[float], int]:
     """Run one optimisation under a chosen noise channel.
 
-    Returns ``(theta_star, convergence_history, n_iterations)``.
+    Returns ``(theta_star, energy_star, convergence_history, n_iterations)``.
+    ``energy_star`` is the energy ``optimize`` returns with ``theta_star``.
+    The history is every trial, and its last entry is not that energy when
+    the solver's last trial is not its best point.
     """
     bc = make_backend_config(
         n_qubits=loaded.hamiltonian.n_qubits,
@@ -245,8 +249,13 @@ def _optimize_one(
         random_seed=random_seed,
         **_algo_kwargs(algorithm, rotation_gates, prepare_hf),
     )
-    theta_star, _ = vqe.optimize(initial_parameters=initial_parameters.copy())
-    return np.asarray(theta_star), list(vqe.convergence_history), vqe.iteration_count
+    theta_star, energy_star = vqe.optimize(initial_parameters=initial_parameters.copy())
+    return (
+        np.asarray(theta_star),
+        float(energy_star),
+        list(vqe.convergence_history),
+        vqe.iteration_count,
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -355,7 +364,7 @@ def run_noise_resilience(
         "[baseline] noiseless | n_qubits=%d, n_params=%d, init=%s",
         loaded.hamiltonian.n_qubits, n_parameters, init_strategy,
     )
-    theta_clean, conv_clean, niter_clean = _optimize_one(
+    theta_clean, _energy_clean, conv_clean, niter_clean = _optimize_one(
         loaded,
         algorithm=algorithm,
         n_layers=n_layers,
@@ -417,7 +426,7 @@ def run_noise_resilience(
                 continue
 
             logger.info("[run] noise=%s p=%.4f", noise_model, p)
-            theta_noisy, conv_noisy, niter_noisy = _optimize_one(
+            theta_noisy, energy_noisy, conv_noisy, niter_noisy = _optimize_one(
                 loaded,
                 algorithm=algorithm,
                 n_layers=n_layers,
@@ -431,7 +440,7 @@ def run_noise_resilience(
                 prepare_hf=prepare_hf,
                 rotation_gates=rotation_gates,
             )
-            e_noisy = float(conv_noisy[-1]) if conv_noisy else float("nan")
+            e_noisy = float(energy_noisy)
             # Re-evaluate the noisy-optimum parameters on the *clean* simulator
             e_clean_at_noisy = float(clean_cost_fn(theta_noisy))
             drift = parameter_drift_metrics(theta_noisy, theta_clean, theta_init)
