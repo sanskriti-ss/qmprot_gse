@@ -21,6 +21,11 @@ Experiments
     optimisation to compare convergence speed/quality from each starting
     region.
 
+* :mod:`experiments.barren_plateau_batch`
+    Batch version of the barren-plateau study that runs across multiple
+    molecules from ``datasets2/`` and saves aggregated CSVs and multi-molecule
+    plots.
+
 * :mod:`experiments.trainability`
     Compares the trainability of an *adaptive* ansatz
     (``qubit_adapt_vqe``) against a *fixed* hardware-efficient ansatz at
@@ -35,6 +40,13 @@ Experiments
     ADAPT run with ``max_operators = max(k_list)`` is sufficient to
     recover the entire energy-vs-k curve, so the modular ``k_list`` is
     free.
+
+* :mod:`experiments.experiment5_term_count_sweep`
+    Experiment 5.  Sweeps the Hamiltonian itself by keeping the first
+    ``N`` terms from each prefix of the qubit Hamiltonian, runs every
+    implemented VQE algorithm across all amino acids in ``datasets2/``,
+    and saves both a long-form CSV and an aggregate plot of mean energy
+    error versus Hamiltonian term count.
 
 All experiments share a small helper (:mod:`experiments._common`) that loads
 a small qubit Hamiltonian for any molecule found in

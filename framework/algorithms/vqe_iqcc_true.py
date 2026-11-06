@@ -32,7 +32,7 @@ class iQCC_true_VQE(BaseVQE):
                  gradient_threshold: float= 1e-4,
                  bound: float=0.005,
                  **kwargs):
-        super().__init__(hamiltonian, kwargs)
+        super().__init__(hamiltonian, **kwargs)
         self.name = 'iqcc_vqe'
         self.description = 'Iterative Qubit Coupled Cluster'
         self.max_operators = max_operators
