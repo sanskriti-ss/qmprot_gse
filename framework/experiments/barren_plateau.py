@@ -14,16 +14,13 @@ B. the **convergence quality** of the optimisation that follows?
 
 The hypothesis we test is:
 
-    Sampling the initial parameters from a *narrow* distribution centred on
-    zero keeps every rotation near the identity, so the state stays close
-    to the circuit's reference.  That reference is Hartree--Fock only when
-    the ansatz prepares it (UCC, HVA, ADAPT, or hardware-efficient with
-    ``prepare_hf=True``).  Hardware-efficient runs built here do not:
-    ``build_vqe`` leaves ``prepare_hf`` off, so near-zero parameters sit
-    next to ``|0...0>``, not the HF determinant.  Sampling from a wide
-    distribution like ``[0, 2*pi]`` lands in the flat exponentially-
-    suppressed region of the loss surface, so optimisation stalls or
-    converges to a noticeably worse solution.
+    The hardware-efficient circuit here is the shared one: ``RY`` rotations
+    and Hartree--Fock preparation (the class defaults).  A narrow
+    distribution centred on zero therefore leaves the state close to the
+    Hartree--Fock determinant.  Sampling from ``[0, 2*pi]`` (McClean et al.,
+    2018) lands in the flat region of the loss surface.  This experiment
+    still compares those initializers.  It does not change the gate set or
+    the reference state.
 
 What we measure
 ---------------

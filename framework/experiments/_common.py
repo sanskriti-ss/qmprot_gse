@@ -276,21 +276,23 @@ def sample_initial_parameters(
         initialisation that suffers from barren plateaus at modest depth
         (McClean et al., 2018).
     ``small_random``
-        Uniform on ``[-pi/8, pi/8]`` -- moderate Grant et al. (2019) style
-        initialisation.
+        Uniform on ``[-pi/8, pi/8]``.  A moderate perturbation of the
+        identity rotations, and the default for the trainability ranking.
+        With Hartree--Fock preparation this starts near ``E_HF``.  This is
+        not the Grant et al. (2019) identity-block initializer: there, half
+        of the angles are still uniform on ``[0, 2*pi]`` and the other half
+        are set to the adjoint so each block is exactly the identity.
     ``near_identity``
         Uniform on ``[-0.05, 0.05]``.  Near-zero rotations leave the state
         close to whatever the circuit prepares before the variational
-        layers.  That is the Hartree--Fock reference only for ansatze that
-        call ``_prepare_initial_state`` (UCC, HVA, ADAPT) or for
-        hardware-efficient with ``prepare_hf=True``.  The hardware-efficient
-        default starts from ``|0...0>``, so this strategy stays near the
-        vacuum.
+        layers.  Hardware-efficient prepares Hartree--Fock by default, as
+        do UCC, HVA, and ADAPT, so this sits next to that reference.
+        ``prepare_hf=False`` leaves it next to ``|0...0>``.
     ``zeros``
-        Identically zero.  Exact HF reference when the gates are identity at
-        theta=0 *and* the circuit prepares HF first (HVA, UCC).  For
-        hardware-efficient ansatze it is a fixed point near ``|0...0>``
-        unless ``prepare_hf`` is set.
+        Identically zero.  Exact Hartree--Fock energy when the gates are
+        identity at theta=0 and the circuit prepares HF first, which is the
+        hardware-efficient default as well as HVA and UCC.
+        ``prepare_hf=False`` makes it a fixed point at ``|0...0>``.
     """
     rng = rng if rng is not None else np.random.default_rng()
 

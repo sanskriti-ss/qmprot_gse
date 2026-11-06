@@ -217,8 +217,8 @@ class TrainabilityConfig:
     hf_energy: Optional[float]
     he_param_match: str = "exact"
     he_eval_budget: int = DEFAULT_HE_EVAL_BUDGET
-    he_init_strategy: str = "random_uniform"
-    he_hf_init: bool = False
+    he_init_strategy: str = "small_random"
+    he_hf_init: bool = True
     accuracy_thresholds_ha: Tuple[float, ...] = ACCURACY_LADDER_HA
 
 
@@ -348,8 +348,8 @@ def _run_he_at_target(
     rotation_gates: str = "RY",
     param_match: str = "exact",
     eval_budget: int = DEFAULT_HE_EVAL_BUDGET,
-    init_strategy: str = "random_uniform",
-    hf_init: bool = False,
+    init_strategy: str = "small_random",
+    hf_init: bool = True,
     stop_at_accuracy: bool = True,
 ) -> TrainabilityRow:
     """Run HardwareEfficientVQE with ``target_n_params`` parameters.
@@ -481,8 +481,8 @@ def run_trainability(
     save_plots: bool = True,
     he_param_match: str = "exact",
     he_eval_budget: int = DEFAULT_HE_EVAL_BUDGET,
-    he_init_strategy: str = "random_uniform",
-    he_hf_init: bool = False,
+    he_init_strategy: str = "small_random",
+    he_hf_init: bool = True,
     he_stop_at_accuracy: bool = True,
 ) -> Dict[str, object]:
     """Run the full trainability comparison.
@@ -699,8 +699,8 @@ def run_trainability_all_molecules(
     save_plots: bool = True,
     he_param_match: str = "exact",
     he_eval_budget: int = DEFAULT_HE_EVAL_BUDGET,
-    he_init_strategy: str = "random_uniform",
-    he_hf_init: bool = False,
+    he_init_strategy: str = "small_random",
+    he_hf_init: bool = True,
     he_stop_at_accuracy: bool = True,
 ) -> Dict[str, object]:
     """Run trainability comparison for multiple molecules and aggregate outputs."""
@@ -1209,12 +1209,14 @@ def _build_argparser() -> argparse.ArgumentParser:
                    help="Cost-function evaluations HE may use (0 = same as ADAPT used "
                         "at that target). Raised automatically to "
                         f"{HE_MIN_EVALS_PER_PARAM}*(n_params+1) if smaller.")
-    p.add_argument("--he-init-strategy", default="random_uniform",
+    p.add_argument("--he-init-strategy", default="small_random",
                    choices=["random_uniform", "small_random", "near_identity", "zeros"],
-                   help="HE initial parameters (random_uniform = U[0,2pi], the "
-                        "original behaviour).")
-    p.add_argument("--he-hf-init", action="store_true",
-                   help="Start HE from the Hartree-Fock reference instead of |0...0>.")
+                   help="HE initial parameters. small_random is U[-pi/8, pi/8], "
+                        "near the Hartree-Fock state because HF preparation is on. "
+                        "random_uniform is U[0, 2pi], the McClean hard case.")
+    p.add_argument("--he-hf-init", action=argparse.BooleanOptionalAction, default=True,
+                   help="Prepare the Hartree-Fock reference before the HE rotations. "
+                        "On by default. Pass --no-he-hf-init to start from |0...0>.")
     p.add_argument("--no-he-stop-at-accuracy", action="store_true",
                    help="Do not end HE runs when chemical accuracy is reached; use "
                         "the full budget.")

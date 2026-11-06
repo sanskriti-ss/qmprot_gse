@@ -27,9 +27,9 @@ class HardwareEfficientVQE(BaseVQE):
                  hamiltonian: QubitHamiltonian,
                  n_layers: int = 4,
                  entangling_gate: str = "CNOT",
-                 rotation_gates: str = "RY_RZ",
+                 rotation_gates: str = "RY",
                  max_free_parameters: Optional[int] = None,
-                 prepare_hf: bool = False,
+                 prepare_hf: bool = True,
                  **kwargs):
         """
         Initialize Hardware-Efficient VQE.
@@ -38,15 +38,18 @@ class HardwareEfficientVQE(BaseVQE):
             hamiltonian: QubitHamiltonian object
             n_layers: Number of variational layers
             entangling_gate: Type of entangling gate (CNOT, CZ, etc.)
-            rotation_gates: Type of rotation gates (RY, RY_RZ, full)
+            rotation_gates: Type of rotation gates. ``RY`` is the default
+                (one angle per qubit per layer). ``RY_RZ`` is the Kandala
+                et al. (2017) pair. ``full`` is RX, RY, and RZ.
             max_free_parameters: If set, only the first K rotation slots are
                 variational; the remaining rotation gates are omitted (equal
                 to fixing them at 0).  Lets the ansatz hit an exact parameter
                 count (e.g. 10 / 50 / 100) instead of the next multiple of
                 ``n_qubits * rotations_per_qubit``.  ``None`` keeps every slot.
-            prepare_hf: If True, start from the Hartree-Fock (or CS-rotated)
-                reference state instead of |0...0>.  Default False keeps the
-                original behaviour.
+            prepare_hf: If True (the default), prepare the Hartree-Fock
+                determinant, or the contextual-subspace state when one is
+                attached, before the rotation layers.  False starts from
+                ``|0...0>``.
             **kwargs: Additional arguments passed to BaseVQE
         """
         super().__init__(hamiltonian, **kwargs)
@@ -162,5 +165,11 @@ class HardwareEfficientVQE(BaseVQE):
         return float(self.cost_fn(parameters))
     
     def get_initial_parameters(self) -> np.ndarray:
-        """Get initial parameters - uniform random on [0, 2π]"""
-        return np.random.uniform(0, 2 * np.pi, self.n_parameters)
+        """Small random angles on ``[-π/8, π/8]``.
+
+        With the default Hartree-Fock preparation this starts near the
+        reference.  Callers that pass ``initial_parameters`` to
+        ``optimize`` replace this draw; the barren-plateau sweep does that
+        so it can still compare ``random_uniform``.
+        """
+        return np.random.uniform(-np.pi / 8, np.pi / 8, self.n_parameters)

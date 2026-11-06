@@ -202,8 +202,11 @@ def _algo_kwargs(
         if rotation_gates:
             kwargs["rotation_gates"] = rotation_gates
         return kwargs
-    if prepare_hf:
-        raise ValueError("--prepare-hf is only supported by hardware_efficient_vqe")
+    if not prepare_hf:
+        raise ValueError(
+            "--no-prepare-hf is only supported by hardware_efficient_vqe; "
+            f"{algorithm} already prepares the Hartree-Fock state"
+        )
     return {}
 
 
@@ -219,7 +222,7 @@ def _optimize_one(
     noise_model: Optional[str],
     noise_strength: float,
     initial_parameters: np.ndarray,
-    prepare_hf: bool = False,
+    prepare_hf: bool = True,
     rotation_gates: Optional[str] = None,
 ) -> Tuple[np.ndarray, List[float], int]:
     """Run one optimisation under a chosen noise channel.
@@ -261,7 +264,7 @@ def run_noise_resilience(
     optimizer: str = "COBYLA",
     init_strategy: str = "small_random",
     random_seed: int = 42,
-    prepare_hf: bool = False,
+    prepare_hf: bool = True,
     noise_models: Tuple[str, ...] = DEFAULT_NOISE_MODELS,
     noise_strengths: Tuple[float, ...] = DEFAULT_NOISE_STRENGTHS,
     output_dir: Optional[Path] = None,
@@ -271,7 +274,7 @@ def run_noise_resilience(
     """Run the full noise-resilience sweep.
 
     ``rotation_gates`` (HE-VQE only; ``None`` = the ansatz default
-    ``RY_RZ``) selects the rotation set and therefore the parameter count:
+    ``RY``) selects the rotation set and therefore the parameter count:
     ``n_qubits * rotations_per_qubit * (n_layers + 1)``.  The realised
     count and gate set are recorded in ``run_config.json``.
 
@@ -930,7 +933,7 @@ def run_noise_resilience_batch(
     optimizer: str = "COBYLA",
     init_strategy: str = "small_random",
     random_seed: int = 42,
-    prepare_hf: bool = False,
+    prepare_hf: bool = True,
     noise_models: Tuple[str, ...] = DEFAULT_NOISE_MODELS,
     noise_strengths: Tuple[float, ...] = DEFAULT_NOISE_STRENGTHS,
     output_dir: Optional[Path] = None,
@@ -1085,8 +1088,8 @@ def _build_argparser() -> argparse.ArgumentParser:
                    help="CS reduction target qubits; <=0 to skip CS")
     p.add_argument("--n-layers", type=int, default=2)
     p.add_argument("--rotation-gates", default=None, choices=["RY", "RY_RZ", "full"],
-                   help="HE-VQE rotation set (default: the ansatz default RY_RZ => "
-                        "2 params/qubit/layer; 6 qubits x 2 layers = 36 params).")
+                   help="HE-VQE rotation set (default: the ansatz default RY => "
+                        "1 param/qubit/layer).")
     p.add_argument("--max-iter", type=int, default=150,
                    help="COBYLA max iterations per run")
     p.add_argument("--convergence-threshold", type=float, default=1e-10,
@@ -1096,9 +1099,10 @@ def _build_argparser() -> argparse.ArgumentParser:
     p.add_argument("--init-strategy", default="small_random",
                    choices=list(INIT_STRATEGIES))
     p.add_argument(
-        "--prepare-hf", action="store_true",
-        help="Prepare the Hartree-Fock reference state before HE-VQE rotations "
-             "(hardware_efficient_vqe only).",
+        "--prepare-hf", action=argparse.BooleanOptionalAction, default=True,
+        help="Prepare the Hartree-Fock reference before HE-VQE rotations. "
+             "On by default for hardware_efficient_vqe. Pass --no-prepare-hf "
+             "to start from |0...0>.",
     )
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--noise-models", nargs="+",
