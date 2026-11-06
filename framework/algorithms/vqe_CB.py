@@ -25,7 +25,7 @@ import time
 
 import sys
 sys.path.append('..')
-from core.base_vqe import BaseVQE, VQEResult
+from core.base_vqe import BaseVQE, VQEResult, incumbent_converged, incumbent_history
 from core.hamiltonian_loader import QubitHamiltonian
 from core.hf_verification import _build_hamiltonian_matrix, _parse_pauli_string
 
@@ -423,10 +423,8 @@ class ClassicallyBoostedVQE(BaseVQE):
         error = best_energy - ref_energy
         relative_error = abs(error / ref_energy) if ref_energy != 0 else 0.0
 
-        converged = (
-            len(self.convergence_history) > 1
-            and abs(self.convergence_history[-1] - self.convergence_history[-2])
-            < self.convergence_threshold
+        converged = incumbent_converged(
+            self.convergence_history, self.convergence_threshold
         )
 
         result = VQEResult(
@@ -442,6 +440,7 @@ class ClassicallyBoostedVQE(BaseVQE):
             n_parameters=self.n_parameters,
             runtime_seconds=runtime,
             convergence_history=self.convergence_history,
+            best_so_far_history=incumbent_history(self.convergence_history),
             optimal_parameters=optimal_params,
             converged=converged,
             metadata={

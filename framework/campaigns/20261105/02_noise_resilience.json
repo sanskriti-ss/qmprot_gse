@@ -1,0 +1,20 @@
+{
+  "description": "Hardware-efficient noise sweep on the same hydrogen Hamiltonian as 01_trainability, with no contextual subspace. This is one fixed ansatz. Qubit-ADAPT is not in this sweep because its circuit is empty until run() grows it.",
+  "module": "experiments.noise_resilience",
+  "args": {
+    "molecule": "hydrogen",
+    "algorithm": "hardware_efficient_vqe",
+    "basis": "sto-3g",
+    "cs-target-qubits": 0,
+    "n-layers": 2,
+    "rotation-gates": "RY",
+    "prepare-hf": true,
+    "init-strategy": "small_random",
+    "optimizer": "COBYLA",
+    "max-iter": 150,
+    "convergence-threshold": 1e-10,
+    "seed": 42,
+    "noise-models": ["depolarizing", "phaseflip", "amplitude_damping"],
+    "noise-strengths": [0.0, 0.001, 0.005, 0.01, 0.02, 0.05]
+  }
+}

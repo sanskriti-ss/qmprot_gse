@@ -218,20 +218,24 @@ class VQEFramework:
         }
         params.update(kwargs)
         
-        # Build backend config from params
+        # Build backend config from params.  n_shots stays in params so the
+        # algorithm records it, and is also set here so create_device samples.
         backend_type = params.pop("backend_type", BACKEND_TYPE)
         noise_model = params.pop("noise_model", None)
         noise_strength = params.pop("noise_strength", NOISE_STRENGTH)
+        n_shots = int(params.get("n_shots", N_SHOTS))
         
         if backend_type == "noisy" and noise_model:
             backend_config = BackendConfig.noisy(
                 n_qubits=hamiltonian.n_qubits,
                 noise_model=noise_model,
                 noise_strength=noise_strength,
+                n_shots=n_shots,
             )
         else:
             backend_config = BackendConfig.statevector(
                 n_qubits=hamiltonian.n_qubits,
+                n_shots=n_shots,
             )
         params["backend_config"] = backend_config
         
@@ -507,6 +511,10 @@ Examples:
                        help=f'Optimizer (default: {DEFAULT_OPTIMIZER})')
     parser.add_argument('--max-iterations', type=int, default=MAX_ITERATIONS,
                        help=f'Max iterations (default: {MAX_ITERATIONS})')
+    parser.add_argument('--n-shots', type=int, default=N_SHOTS,
+                       help=f'Measurement shots per expectation value '
+                            f'(0 = analytic statevector, default: {N_SHOTS}). '
+                            f'Also read from the N_SHOTS environment variable.')
     parser.add_argument('--n-layers', type=int, default=2,
                        help='Number of ansatz layers')
     parser.add_argument('--seed', type=int, default=RANDOM_SEED,
@@ -624,6 +632,7 @@ Examples:
     vqe_params = {
         "optimizer": args.optimizer,
         "max_iterations": args.max_iterations,
+        "n_shots": args.n_shots,
         "n_layers": args.n_layers,
         "random_seed": args.seed,
         "truncation_mode": args.truncation_mode,
@@ -707,14 +716,19 @@ Examples:
                 backend_type   = vqe_params.get("backend_type", BACKEND_TYPE)
                 noise_mdl      = vqe_params.get("noise_model", None)
                 noise_str      = vqe_params.get("noise_strength", NOISE_STRENGTH)
+                n_shots        = int(vqe_params.get("n_shots", N_SHOTS))
                 if backend_type == "noisy" and noise_mdl:
                     from core.backend_manager import BackendConfig
                     bc = BackendConfig.noisy(n_qubits=hamiltonian.n_qubits,
                                             noise_model=noise_mdl,
-                                            noise_strength=noise_str)
+                                            noise_strength=noise_str,
+                                            n_shots=n_shots)
                 else:
                     from core.backend_manager import BackendConfig
-                    bc = BackendConfig.statevector(n_qubits=hamiltonian.n_qubits)
+                    bc = BackendConfig.statevector(
+                        n_qubits=hamiltonian.n_qubits,
+                        n_shots=n_shots,
+                    )
 
                 import os
                 save_csv = str(

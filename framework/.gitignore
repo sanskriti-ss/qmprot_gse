@@ -27,6 +27,7 @@ wheels/
 # ============================================
 .env
 .venv
+.venv-lightning/
 env/
 venv/
 ENV/
@@ -75,7 +76,8 @@ results/
 # Plots (can be regenerated)
 
 !plots/.gitkeep
-
+.venv-wsl
+.venv-win
 # Logs
 logs/
 .log

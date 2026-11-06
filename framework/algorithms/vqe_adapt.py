@@ -10,7 +10,13 @@ import logging
 
 import sys
 sys.path.append('..')
-from core.base_vqe import BaseVQE, VQEResult
+from core.base_vqe import (
+    BaseVQE,
+    EvaluationBudgetExhausted,
+    VQEResult,
+    incumbent_history,
+    inner_solve_iteration_cap,
+)
 from core.hamiltonian_loader import QubitHamiltonian
 
 logger = logging.getLogger(__name__)
@@ -163,9 +169,7 @@ class AdaptVQE(BaseVQE):
     def run(self) -> VQEResult:
         """Run ADAPT-VQE with iterative operator selection"""
         import time
-        from scipy.optimize import minimize
-        # HF verification handled by parent class
-        
+
         logger.info(f"Running {self.name} on {self.hamiltonian.molecule.name}")
         logger.info(f"Backend: {self.backend_config.label}")
         start_time = time.time()
@@ -178,45 +182,73 @@ class AdaptVQE(BaseVQE):
         
         self.convergence_history = []
         
-        # ADAPT loop
+        # ADAPT loop.  The inner solve goes through BaseVQE.optimize so
+        # ``max_iterations``, the convergence tolerance, and the Bayesian
+        # path all apply.  ``update_history=False`` keeps this list as one
+        # energy per accepted operator.
+        grad_converged = False
+        budget_limited = None
         for iteration in range(self.max_operators):
-            # Compute gradients
-            gradients = self._compute_gradients()
+            try:
+                gradients = self._compute_gradients()
+            except EvaluationBudgetExhausted:
+                budget_limited = "gradient screening"
+                logger.info("Evaluation budget exhausted during gradient screening")
+                break
             max_grad_idx = np.argmax(gradients)
             max_grad = gradients[max_grad_idx]
             
             logger.debug(f"ADAPT iteration {iteration}: max gradient = {max_grad:.6f}")
             
-            # Check convergence
             if max_grad < self.gradient_threshold:
                 logger.info(f"Converged at iteration {iteration} (gradient below threshold)")
+                grad_converged = True
+                break
+
+            operators_left = self.max_operators - len(self.selected_operators)
+            step_cap = inner_solve_iteration_cap(
+                self, operators_left, self.max_iterations,
+            )
+            if step_cap < 1:
+                budget_limited = "re-optimization"
+                logger.info(
+                    "Evaluation budget cannot give each of the %d remaining "
+                    "operators an iteration",
+                    operators_left,
+                )
                 break
             
-            # Add best operator
             self.selected_operators.append(max_grad_idx)
             self.parameters = np.append(self.parameters, 0.0)
             self.n_parameters = len(self.parameters)
-            
-            # Optimize all parameters
-            if len(self.parameters) > 0:
-                #print(type(self.optimizer_name))
-                result = minimize(
-                    self.cost_function,
-                    self.parameters,
-                    method=self.optimizer_name,
-                    options={"maxiter": 100}
+
+            saved_max = self.max_iterations
+            self.max_iterations = step_cap
+            try:
+                self.parameters, current_energy = self.optimize(
+                    initial_parameters=self.parameters,
+                    update_history=False,
                 )
-                self.parameters = result.x
-                current_energy = result.fun
-            else:
-                current_energy = self.cost_function(self.parameters)
-            
-            self.convergence_history.append(current_energy)
+            except EvaluationBudgetExhausted:
+                self.selected_operators.pop()
+                self.parameters = np.asarray(self.parameters[:-1], dtype=float)
+                self.n_parameters = len(self.parameters)
+                budget_limited = "re-optimization"
+                logger.info("Evaluation budget exhausted during re-optimization")
+                break
+            finally:
+                self.max_iterations = saved_max
+            self.convergence_history.append(float(current_energy))
         
         runtime = time.time() - start_time
         
-        # Final results
-        optimal_energy = self.cost_function(self.parameters)
+        if self.convergence_history:
+            optimal_energy = float(self.convergence_history[-1])
+        else:
+            try:
+                optimal_energy = float(self.cost_function(self.parameters))
+            except EvaluationBudgetExhausted:
+                optimal_energy = float("nan")
         ref_energy = self.hamiltonian.molecule.reference_energy
         error = optimal_energy - ref_energy
         relative_error = abs(error / ref_energy) if ref_energy != 0 else 0.0
@@ -234,12 +266,14 @@ class AdaptVQE(BaseVQE):
             n_parameters=self.n_parameters,
             runtime_seconds=runtime,
             convergence_history=self.convergence_history,
+            best_so_far_history=incumbent_history(self.convergence_history),
             optimal_parameters=self.parameters,
-            converged=True,
+            converged=grad_converged,
             metadata={
                 "optimizer": self.optimizer_name,
                 "n_operators_selected": len(self.selected_operators),
                 "selected_operators": self.selected_operators,
+                "evaluation_budget": budget_limited,
             },
             backend_type=self.backend_config.backend_type,
             noise_model=self.backend_config.noise_model,
