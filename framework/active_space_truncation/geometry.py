@@ -5,9 +5,13 @@ and hardcoded fallbacks for testing.
 """
 
 from dataclasses import dataclass
+import gzip
+import shutil
 import sys
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
-from typing import List, Tuple
+from typing import Iterator, List, Tuple
 
 import numpy as np
 
@@ -52,6 +56,21 @@ class MoleculeGeometry:
         return self.to_pyscf_atom_list()
 
 
+@contextmanager
+def _materialized_h5_path(path: str) -> Iterator[Path]:
+    """Yield an HDF5 path, temporarily decompressing ``.h5.gz`` inputs."""
+    source = Path(path)
+    if source.suffix != ".gz":
+        yield source
+        return
+
+    with tempfile.TemporaryDirectory(prefix="qmprot_h5_") as temp_dir:
+        materialized = Path(temp_dir) / source.name[:-3]
+        with gzip.open(source, "rb") as compressed, materialized.open("wb") as output:
+            shutil.copyfileobj(compressed, output)
+        yield materialized
+
+
 def load_geometry_from_h5(path: str) -> MoleculeGeometry:
     """Load molecular geometry from a QMProt-format H5 file.
 
@@ -62,23 +81,25 @@ def load_geometry_from_h5(path: str) -> MoleculeGeometry:
     """
     import h5py
 
-    with h5py.File(path, "r") as f:
-        n_atoms = int(f["n_atoms"][()])
-        name = f["name"][()].decode() if "name" in f else Path(path).stem
-        formula = f["mf"][()].decode() if "mf" in f else ""
-        charge = int(f["charge"][()]) if "charge" in f else 0
-        spin = int(f["spin"][()]) if "spin" in f else 0
+    with _materialized_h5_path(path) as h5_path:
+        with h5py.File(h5_path, "r") as f:
+            n_atoms = int(f["n_atoms"][()])
+            fallback_name = h5_path.stem
+            name = f["name"][()].decode() if "name" in f else fallback_name
+            formula = f["mf"][()].decode() if "mf" in f else ""
+            charge = int(f["charge"][()]) if "charge" in f else 0
+            spin = int(f["spin"][()]) if "spin" in f else 0
 
-        atoms = []
-        coords = []
-        for i in range(n_atoms):
-            sym = f["symbols"][str(i)][()]
-            atoms.append(sym.decode() if isinstance(sym, bytes) else str(sym))
+            atoms = []
+            coords = []
+            for i in range(n_atoms):
+                sym = f["symbols"][str(i)][()]
+                atoms.append(sym.decode() if isinstance(sym, bytes) else str(sym))
 
-            x = float(f["coordinates"][str(i)]["0"][()])
-            y = float(f["coordinates"][str(i)]["1"][()])
-            z = float(f["coordinates"][str(i)]["2"][()])
-            coords.append([x, y, z])
+                x = float(f["coordinates"][str(i)]["0"][()])
+                y = float(f["coordinates"][str(i)]["1"][()])
+                z = float(f["coordinates"][str(i)]["2"][()])
+                coords.append([x, y, z])
 
     return MoleculeGeometry(
         atoms=atoms,
