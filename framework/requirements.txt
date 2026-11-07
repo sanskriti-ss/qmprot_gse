@@ -20,6 +20,10 @@ python-dotenv>=1.0.0
 tqdm>=4.65.0
 scikit-optimize>=0.10.2
 
+# Remote HDF5 streaming (download_qmprot_hamiltonians.py; fsspec HTTP backend)
+aiohttp>=3.9.0
+requests>=2.28.0
+
 # Optional: Qiskit (comment if needed)
 qiskit>=1.0.0
 qiskit-aer>=0.13.0

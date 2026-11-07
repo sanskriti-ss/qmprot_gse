@@ -749,9 +749,9 @@ def plot_noise_resilience_multi_molecule(
         center=None,
     ) -> None:
         nmodels = max(1, len(models))
-        # Enough vertical space per molecule row so y-labels do not overlap.
-        row_h = max(0.38, min(0.55, 14.0 / max(len(mol_order), 1)))
-        fig_h = 2.35 * nmodels + row_h * len(mol_order)
+        # Paper-friendly: keep the plot less tall while preserving readability.
+        row_h = max(0.22, min(0.34, 9.0 / max(len(mol_order), 1)))
+        fig_h = 1.35 * nmodels + row_h * len(mol_order)
         # Extra horizontal space for full molecule names on the left; slightly
         # narrower colour bar (`shrink`) buys a bit more room for the grid.
         fig_w = 11.5 + 0.06 * max((len(str(m)) for m in mol_order), default=3)
@@ -793,10 +793,11 @@ def plot_noise_resilience_multi_molecule(
                     "aspect": 22,
                 },
             )
-            ax.set_title(f"{title} — {model}")
-            ax.set_xlabel("Noise strength p")
+            ax.set_title(f"{title} — {model}", fontsize=12)
+            ax.set_xlabel("Noise strength p", fontsize=12)
             ax.set_ylabel("Molecule")
-            ax.tick_params(axis="y", which="major", labelsize=7.5, length=0)
+            ax.tick_params(axis="x", which="major", labelsize=11)
+            ax.tick_params(axis="y", which="major", labelsize=8.0, length=0)
             # Right-align so names sit flush to the grid (readable at ~20 rows).
             plt.setp(
                 ax.get_yticklabels(),
@@ -806,11 +807,11 @@ def plot_noise_resilience_multi_molecule(
             )
         fig.suptitle(
             f"{title} (all molecules)",
-            fontsize=12, y=1.01,
+            fontsize=14, y=1.01,
         )
         fig.tight_layout()
         # Reserve left margin for long abbreviations (trp, phe, ...).
-        fig.subplots_adjust(left=0.20)
+        fig.subplots_adjust(left=0.18)
         fig.savefig(out_dir / filename, dpi=dpi, bbox_inches="tight")
         plt.close(fig)
 
@@ -833,11 +834,13 @@ def plot_noise_resilience_multi_molecule(
         "param_drift_cosine",
         r"$\cos(\theta_{\mathrm{noisy}}^*, \theta_{\mathrm{clean}}^*)$",
         "cosine similarity",
-        "vlag",
+        "viridis",
         "heatmap_param_drift_cosine.png",
-        vmin=-1.0,
-        vmax=1.0,
-        center=0.0,
+        vmin=max(-1.0, float(np.nanpercentile(df["param_drift_cosine"].dropna(), 5)))
+        if df["param_drift_cosine"].notna().any() else -1.0,
+        vmax=min(1.0, float(np.nanpercentile(df["param_drift_cosine"].dropna(), 95)))
+        if df["param_drift_cosine"].notna().any() else 1.0,
+        center=None,
     )
     if df["delta_e_clean_eval"].notna().any():
         _one_heatmap_panel(

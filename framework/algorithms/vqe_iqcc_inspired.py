@@ -29,7 +29,7 @@ class iQCC_inspired_VQE(BaseVQE):
                  max_operators: int=20, 
                  gradient_threshold: float= 1e-4,
                  **kwargs):
-        super().__init__(hamiltonian, kwargs)
+        super().__init__(hamiltonian, **kwargs)
         self.name = 'iqcc_inspired_vqe'
         self.description = 'Iterative Qubit Coupled Cluster-inspired adaptive VQE.'
         self.max_operators = max_operators
@@ -155,9 +155,9 @@ class iQCC_inspired_VQE(BaseVQE):
                 #print(grad)
                 gradients[op] = abs(float(grad))
             print("Number of gradients", len(gradients))
-            print("max gradient:", max(gradients.values() if gradients else None))
             if not gradients:
                 break
+            print("max gradient:", max(gradients.values()))
 
             best_op, best_grad = max(gradients.items(), key=lambda x: x[1])
             
