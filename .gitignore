@@ -2,3 +2,6 @@
 __pycache__/
 *.py[cod]
 framework\.venv-wsl
+
+# macOS Finder metadata
+.DS_Store
