@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1120" viewBox="0 0 1600 1120">
+<defs>
+  <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#54237d"/></marker>
+  <style>
+    .title{font:700 31px Arial,sans-serif;fill:#32124c}.subtitle{font:16px Arial,sans-serif;fill:#593d68}
+    .head{font:700 21px Arial,sans-serif;fill:#32124c}.body{font:16px Arial,sans-serif;fill:#32124c}.small{font:14px Arial,sans-serif;fill:#453052}
+    .tiny{font:13px Arial,sans-serif;fill:#453052}.label{font:700 15px Arial,sans-serif;fill:#fff}
+    .box{stroke:#54237d;stroke-width:2}.arrow{fill:none;stroke:#54237d;stroke-width:2.2;marker-end:url(#arrow)}
+  </style>
+</defs>
+<rect width="1600" height="1120" fill="#fbf8fc"/>
+<g transform="translate(0,-85)">
+
+<!-- inputs -->
+<rect x="55" y="140" width="260" height="350" rx="4" fill="#fff" class="box"/>
+<text x="78" y="178" class="head">Molecular inputs</text>
+<text x="78" y="214" class="body">Amino-acid Hamiltonians</text>
+<text x="78" y="241" class="small">Prebuilt .h5 / .txt / .json</text>
+<text x="78" y="281" class="body">Molecule selection</text>
+<text x="78" y="307" class="small">ala · arg · asp · cys · gly</text>
+<text x="78" y="347" class="body">Hamiltonian preparation</text>
+<text x="78" y="373" class="small">Geometry → RHF / MP2 → CASCI</text>
+<text x="78" y="396" class="small">→ qubit Hamiltonian → optional</text>
+<text x="78" y="419" class="small">contextual-subspace reduction</text>
+<text x="78" y="459" class="small">Common selectors: basis, CS target</text>
+
+<!-- experiment frame -->
+<rect x="365" y="120" width="690" height="690" rx="5" fill="#f5edf8" stroke="#54237d" stroke-width="2"/>
+<text x="390" y="158" class="head">Experiment pipelines</text>
+<text x="390" y="184" class="small">Each exposes a subset of the controls at right; defaults are CLI-specific.</text>
+
+<rect x="395" y="215" width="300" height="112" rx="4" fill="#f7d889" class="box"/>
+<text x="415" y="247" class="head">Exp 1 · Noise resilience</text>
+<text x="415" y="275" class="small">Fixed ansatz; compare noise channels</text>
+<text x="415" y="300" class="small">and strengths; measure parameter drift</text>
+<rect x="720" y="215" width="305" height="112" rx="4" fill="#f3a35b" class="box"/>
+<text x="740" y="247" class="head">Exp 2 · Barren plateaus</text>
+<text x="740" y="275" class="small">Gradient statistics vs depth, init</text>
+<text x="740" y="300" class="small">strategy, molecule and sampling</text>
+
+<rect x="395" y="357" width="300" height="112" rx="4" fill="#e9d8f0" class="box"/>
+<text x="415" y="389" class="head">Exp 3 · Matched trainability</text>
+<text x="415" y="417" class="small">Compare algorithms at target parameter</text>
+<text x="415" y="442" class="small">counts; optimizer/evaluation budgets</text>
+<rect x="720" y="357" width="305" height="112" rx="4" fill="#df8067" class="box"/>
+<text x="740" y="389" class="head">Exp 4 · ADAPT accuracy</text>
+<text x="740" y="417" class="small">Energy vs selected operator count k;</text>
+<text x="740" y="442" class="small">ADAPT or Qubit-ADAPT pool mode</text>
+
+<rect x="395" y="499" width="300" height="112" rx="4" fill="#cf4f7b" class="box"/>
+<text x="415" y="531" class="head" fill="#fff">Exp 5 · Term-count sweep</text>
+<text x="415" y="559" class="small">Energy error vs Hamiltonian prefix</text>
+<text x="415" y="584" class="small">size; choose term counts and ansatz</text>
+<rect x="720" y="499" width="305" height="112" rx="4" fill="#d9c7e7" class="box"/>
+<text x="740" y="531" class="head">Cost → accuracy</text>
+<text x="740" y="559" class="small">Summarize evaluations needed to reach</text>
+<text x="740" y="584" class="small">an energy-error threshold (post-run)</text>
+
+<rect x="395" y="645" width="630" height="120" rx="4" fill="#54237d"/>
+<text x="420" y="680" class="label">Outputs</text>
+<text x="420" y="710" class="label">Energy / gradient traces · parameter counts · evaluation cost</text>
+<text x="420" y="738" class="label">CSV + JSON run configs · experiment-specific plots</text>
+
+<!-- algorithm and controls right -->
+<rect x="1100" y="140" width="445" height="284" rx="4" fill="#fff" class="box"/>
+<text x="1125" y="178" class="head">VQE implementations · 11</text>
+<text x="1125" y="215" class="small">Pennylane · Hardware-Efficient · HVA</text>
+<text x="1125" y="242" class="small">ADAPT · Qubit-ADAPT · UCC</text>
+<text x="1125" y="269" class="small">QAOA-Inspired · iQCC · iQCC-Inspired</text>
+<text x="1125" y="296" class="small">CB VQE · NN-AE VQE</text>
+<line x1="1125" y1="319" x2="1518" y2="319" stroke="#d6c5e0"/>
+<text x="1125" y="349" class="small">Experiment scripts choose supported subsets;</text>
+<text x="1125" y="376" class="small">not every algorithm is valid in every sweep.</text>
+
+<rect x="1100" y="455" width="445" height="355" rx="4" fill="#fff" class="box"/>
+<text x="1125" y="493" class="head">Exposed run controls</text>
+<rect x="1120" y="510" width="405" height="82" rx="4" fill="#f7d889" class="box"/>
+<text x="1138" y="537" class="body">Ansatz / search</text>
+<text x="1138" y="560" class="small">layers · operator count · parameter targets · gates</text>
+<text x="1138" y="580" class="small">ADAPT pool and gradient thresholds</text>
+<rect x="1120" y="602" width="405" height="82" rx="4" fill="#f3a35b" class="box"/>
+<text x="1138" y="629" class="body">Optimization</text>
+<text x="1138" y="652" class="small">optimizer · max iterations · convergence</text>
+<text x="1138" y="672" class="small">evaluation budget · learning rate · trials</text>
+<rect x="1120" y="694" width="405" height="82" rx="4" fill="#e9d8f0" class="box"/>
+<text x="1138" y="721" class="body">Initialization / noise / reproducibility</text>
+<text x="1138" y="744" class="small">init strategy · HF prep · noise model / strength</text>
+<text x="1138" y="764" class="small">random seed · output directory</text>
+<text x="1125" y="796" class="tiny">Controls vary by script and algorithm.</text>
+
+<!-- connected flow arrows -->
+<path d="M315 315 H365" class="arrow"/>
+<path d="M1100 280 H1055" class="arrow"/>
+<path d="M1100 600 H1055" class="arrow"/>
+<path d="M710 810 V855" class="arrow"/>
+
+<rect x="365" y="855" width="1180" height="190" rx="5" fill="#fff" stroke="#54237d" stroke-width="2"/>
+<text x="395" y="894" class="head">Reproducible execution</text>
+<rect x="395" y="920" width="350" height="84" rx="4" fill="#f7d889" class="box"/>
+<text x="415" y="953" class="body">Campaign JSON</text>
+<text x="415" y="980" class="small">Inputs and sweep choices</text>
+<rect x="780" y="920" width="350" height="84" rx="4" fill="#f3a35b" class="box"/>
+<text x="800" y="953" class="body">Campaign runner</text>
+<text x="800" y="980" class="small">One command · records commit + config</text>
+<rect x="1165" y="920" width="350" height="84" rx="4" fill="#e9d8f0" class="box"/>
+<text x="1185" y="953" class="body">Per-run artifacts</text>
+<text x="1185" y="980" class="small">Results, plots, run_config.json</text>
+<path d="M745 962 H770" class="arrow"/><path d="M1130 962 H1155" class="arrow"/>
+
+
+</g>
+</svg>
