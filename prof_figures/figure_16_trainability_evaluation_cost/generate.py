@@ -7,7 +7,7 @@ sys.path.insert(0, str(HERE.parent))
 from figure_style import parser, trainability
 
 sample = HERE / 'data/results_all.csv'
-p = parser(sample, 'Trainability evaluation cost', 'Historical May 2026 data | target 10 only')
+p = parser(sample, 'Trainability evaluation cost', 'Historical May 2026 | verify molecule IDs')
 p.set_defaults(output=HERE / "figure.png")
 args = p.parse_args()
 trainability(args, sample)

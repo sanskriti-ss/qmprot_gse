@@ -147,31 +147,74 @@ def finals(args, default_input):
 
 
 def trainability(args, default_input):
+    from scipy.stats import t
+
     style(); df = pd.read_csv(args.input)
     needed = {"molecule", "algorithm", "target_n_params", "n_cost_evals"}
     if not needed.issubset(df.columns): raise ValueError(f"Missing columns: {sorted(needed - set(df.columns))}")
     df = df[df.algorithm.isin(ALGORITHMS)].copy()
-    if df.duplicated(["molecule", "algorithm", "target_n_params"]).any():
-        raise ValueError("Multiple observations per molecule, algorithm and target; select one seed or aggregate explicitly")
     if df.empty: raise ValueError("No ADAPT or hardware-efficient rows")
-    molecules = sorted(df.molecule.unique()); fig, axes = grid(len(molecules))
-    for ax, mol in zip(axes, molecules):
-        targets = sorted(pd.to_numeric(df.loc[df.molecule == mol, "target_n_params"], errors="raise").unique())
-        for algo, (color, _) in ALGORITHMS.items():
-            group = df[(df.molecule == mol) & (df.algorithm == algo)].sort_values("target_n_params")
-            group = group[pd.to_numeric(group.n_cost_evals, errors="coerce") > 0]
-            if not group.empty: ax.plot(group.target_n_params, group.n_cost_evals, marker="o", markersize=4, lw=1.6, color=color)
-        ax.set_yscale("log"); ax.grid(axis="y", which="both", alpha=.16)
-        ax.set_xticks(targets)
-        if len(targets) == 1:
-            ax.set_xlim(targets[0] - 1, targets[0] + 1)
-        ax.set_title(str(mol).upper(), loc="left", fontsize=10, fontweight="bold")
-        ax.set_xlabel("Target parameters"); ax.set_ylabel("Cost evaluations")
-    for ax in axes[len(molecules):]: ax.remove()
-    fig.legend([Line2D([0], [0], color=v[0], marker="o", lw=1.5) for v in ALGORITHMS.values()],
-               [v[1] for v in ALGORITHMS.values()], loc="lower center", ncol=2, frameon=False)
-    title(fig, "Trainability across molecules", label(args, default_input))
-    fig.tight_layout(rect=(0, .05, 1, .955), h_pad=1.5, w_pad=1.4); finish(fig, args.output)
+    df["target_n_params"] = pd.to_numeric(df.target_n_params, errors="raise")
+    df["n_cost_evals"] = pd.to_numeric(df.n_cost_evals, errors="coerce")
+    excluded = int((~np.isfinite(df.n_cost_evals) | (df.n_cost_evals <= 0)).sum())
+    df = df[np.isfinite(df.n_cost_evals) & (df.n_cost_evals > 0)].copy()
+    if df.empty: raise ValueError("No positive evaluation counts to display on a log axis")
+    keys = ["molecule", "algorithm", "target_n_params"]
+    seed = next((name for name in ("seed", "trial_seed", "random_seed") if name in df), None)
+    if df.duplicated(keys).any():
+        if seed is None or df[seed].isna().any() or df.duplicated(keys + [seed]).any():
+            raise ValueError("Repeated runs require a distinct seed, trial_seed or random_seed per condition")
+
+    has_counts = "actual_n_params" in df.columns
+    if has_counts:
+        df["actual_n_params"] = pd.to_numeric(df.actual_n_params, errors="coerce")
+    molecules = sorted(df.molecule.astype(str).unique())
+    targets = sorted(df.target_n_params.unique())
+    fig, axes = plt.subplots(1, len(targets), sharey=True, squeeze=False,
+                             figsize=(max(7, 4.7 * len(targets)), max(5.5, .28 * len(molecules) + 2.5)))
+    counts = []
+    any_mismatch = False
+    any_unknown = False
+    for ax, target in zip(axes.ravel(), targets):
+        for index, (algorithm, (color, _)) in enumerate(ALGORITHMS.items()):
+            for y, molecule in enumerate(molecules):
+                part = df[(df.molecule == molecule) & (df.algorithm == algorithm) & (df.target_n_params == target)]
+                if part.empty: continue
+                values = np.log(part.n_cost_evals.to_numpy(dtype=float))
+                n = len(values); counts.append(n)
+                mean = float(np.mean(values))
+                half = float(t.ppf(.975, n - 1) * np.std(values, ddof=1) / np.sqrt(n)) if n >= 2 else 0.
+                point, low, high = np.exp([mean, mean - half, mean + half])
+                actual = part.actual_n_params if has_counts else pd.Series(dtype=float)
+                known = len(actual) == n and actual.notna().all()
+                mismatch = bool(known and (actual != target).any())
+                any_mismatch |= mismatch
+                any_unknown |= not known
+                ax.errorbar(point, y + (-.14 if index == 0 else .14),
+                            xerr=np.array([[point - low], [high - point]]),
+                            fmt="o" if index == 0 else "s", color=color,
+                            markerfacecolor="none" if mismatch else color,
+                            markeredgewidth=1.4, markersize=5, capsize=3 if n >= 2 else 0,
+                            elinewidth=1.2, linestyle="none")
+        ax.set_xscale("log"); ax.grid(axis="x", which="major", alpha=.17)
+        ax.set_title(f"Requested target: {target:g}", fontsize=10, fontweight="bold")
+        ax.set_xlabel("Cost-function evaluations (log scale)")
+    axes[0, 0].set_yticks(range(len(molecules)), [m.upper() for m in molecules])
+    axes[0, 0].set_ylim(len(molecules) - .5, -.5)
+    handles = [Line2D([0], [0], color=color, marker="o" if i == 0 else "s", lw=0,
+                      label=name) for i, (color, name) in enumerate(ALGORITHMS.values())]
+    if any_mismatch:
+        handles.append(Line2D([0], [0], marker="o", color=PURPLE, markerfacecolor="none",
+                              lw=0, label="Attained count differs from target"))
+    fig.legend(handles=handles, loc="lower center", ncol=min(3, len(handles)), frameon=False)
+    uncertainty = ("One run per condition; uncertainty unavailable" if max(counts) == 1
+                   else "95% t intervals across seeds where n ≥ 2; geometric means")
+    notes = [label(args, default_input), uncertainty]
+    if any_unknown: notes.append("Some attained counts unavailable")
+    if excluded: notes.append(f"{excluded} zero or unavailable counts omitted")
+    title(fig, "Evaluation cost by molecule", " | ".join(notes))
+    fig.tight_layout(rect=(0, .08, 1, .92), w_pad=1.8)
+    finish(fig, args.output)
 
 
 def noise(args, default_input):
