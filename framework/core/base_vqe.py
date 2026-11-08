@@ -6,6 +6,7 @@ Provides common functionality for running VQE simulations.
 """
 import numpy as np
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from typing import Dict, List, Optional, Callable, Tuple, Any
 from dataclasses import dataclass, field
 import time
@@ -86,6 +87,26 @@ def inner_solve_iteration_cap(
     if share < 1:
         return 0
     return min(int(per_step_cap), share)
+
+
+def recent_state_energies(n_qubits):
+    """Reuse native energies of identical analytic states within a single observable and device."""
+    capacity = min(8, (4 * 1024 ** 2) // (16 * (1 << n_qubits)))
+    if capacity < 2:
+        return None
+    recent = OrderedDict()
+
+    def measure(state, expectation, observable):
+        key = state.tobytes()
+        if key in recent:
+            recent.move_to_end(key)
+        else:
+            recent[key] = expectation(observable)
+            if len(recent) > capacity:
+                recent.popitem(last=False)
+        return recent[key]
+
+    return measure
 
 
 def incumbent_history(history: List[float]) -> List[float]:
