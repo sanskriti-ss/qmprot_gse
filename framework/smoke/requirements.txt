@@ -1,0 +1,14 @@
+pennylane==0.38.0
+pennylane-lightning==0.38.0
+autoray==0.6.12
+numpy==1.26.4
+scipy==1.16.3
+scikit-optimize==0.10.2
+scikit-learn==1.9.1
+pandas==2.3.3
+h5py==3.16.0
+pyscf==2.15.0
+openfermion==1.8.1
+python-dotenv==1.2.4
+matplotlib==3.11.2
+seaborn==0.13.2

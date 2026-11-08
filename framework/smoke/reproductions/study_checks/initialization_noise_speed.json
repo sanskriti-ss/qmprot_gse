@@ -1,0 +1,348 @@
+{
+  "baseline": "cb1c6a2",
+  "environment": "Local Apple Silicon CPU, Python 3.12, pinned smoke requirements, single-thread OMP/OpenBLAS/Accelerate, warmed Matplotlib cache.",
+  "native_scope": "Fresh unprojected four-qubit hydrogen, seed 42, real native CLI with plots; timing includes chemistry, import, optimizer, plotting and file writes. Three pairs per study in control/candidate, candidate/control, control/candidate order. Shared host; timings are estimates, not a Modal billing measurement.",
+  "native": {
+    "initialization": {
+      "module": "experiments.barren_plateau",
+      "args": "--molecule hydrogen --cs-target-qubits 0 --seed 42 --layers 1 3 --bp-strategies random_uniform small_random --n-samples 20 --max-gradient-probes 8 --optimizer GradientDescent --opt-layers 2 --opt-strategies small_random near_identity --n-trials 2 --max-iter 12",
+      "process_seconds": {
+        "control": [
+          2.930454583838582,
+          3.035332249943167,
+          3.097612875048071
+        ],
+        "candidate": [
+          2.6124040419235826,
+          2.562801542226225,
+          2.624948041047901
+        ]
+      },
+      "median_speedup": 1.1618923417788662,
+      "byte_identical_files": {
+        "three_pairs": [
+          "convergence_by_init.png",
+          "convergence_traces.csv",
+          "final_energy_by_init.png",
+          "gradient_variance.csv",
+          "gradient_variance_by_parameter.csv",
+          "gradient_variance_vs_layers.png",
+          "inputs/hydrogen.npz",
+          "optimization_results.csv",
+          "run_config.json"
+        ],
+        "acceptance_json": [
+          "convergence_by_init.png",
+          "convergence_traces.csv",
+          "final_energy_by_init.png",
+          "gradient_variance.csv",
+          "gradient_variance_by_parameter.csv",
+          "gradient_variance_vs_layers.png",
+          "inputs/hydrogen.npz",
+          "optimization_results.csv",
+          "run_config.json"
+        ]
+      }
+    },
+    "noise": {
+      "module": "experiments.noise_resilience",
+      "args": "--molecule hydrogen --cs-target-qubits 0 --seed 42 --n-layers 2 --optimizer COBYLA --max-iter 72 --noise-models depolarizing phaseflip amplitude_damping --noise-strengths 0 0.01 0.05 --rotation-gates RY --prepare-hf",
+      "process_seconds": {
+        "control": [
+          12.631726709194481,
+          13.007428874727339,
+          13.150378666818142
+        ],
+        "candidate": [
+          8.824450416024774,
+          8.680459457915276,
+          8.856572416145355
+        ]
+      },
+      "median_speedup": 1.4740214134022984,
+      "byte_identical_files": {
+        "three_pairs": [
+          "convergence.png",
+          "convergence_traces.csv",
+          "energy_vs_noise.png",
+          "inputs/hydrogen.npz",
+          "optimum_parameters.json",
+          "param_drift_vs_noise.png",
+          "results.csv",
+          "run_config.json"
+        ],
+        "acceptance_json": [
+          "convergence.png",
+          "convergence_traces.csv",
+          "energy_vs_noise.png",
+          "inputs/hydrogen.npz",
+          "optimum_parameters.json",
+          "param_drift_vs_noise.png",
+          "results.csv",
+          "run_config.json"
+        ]
+      }
+    }
+  },
+  "components": [
+    {
+      "molecule": "hydrogen",
+      "algorithm": "hardware_efficient_vqe",
+      "part": "A",
+      "seconds": {
+        "control": [
+          0.5763820419088006,
+          0.5676016672514379
+        ],
+        "candidate": [
+          0.362831125035882,
+          0.36453595804050565
+        ]
+      },
+      "median_speedup": 1.572773549665978,
+      "full_precision_digest": "e4c3b01c132b5a4273843633801173429c7a000e5f0f313f6c5ce6b57d49cd98"
+    },
+    {
+      "molecule": "hydrogen",
+      "algorithm": "hardware_efficient_vqe",
+      "part": "B",
+      "seconds": {
+        "control": [
+          0.4490337083116174,
+          0.4419442918151617
+        ],
+        "candidate": [
+          0.2777633750811219,
+          0.2789267082698643
+        ]
+      },
+      "median_speedup": 1.60049195553036,
+      "full_precision_digest": "9c3af62e3958785bf3e14ef1449fad7e8d0eb1325c44a7e13d26539ea4660227"
+    },
+    {
+      "molecule": "hydrogen",
+      "algorithm": "pennylane_vqe",
+      "part": "A",
+      "seconds": {
+        "control": [
+          0.6563969999551773,
+          0.6431447919458151
+        ],
+        "candidate": [
+          0.403545165900141,
+          0.40326366666704416
+        ]
+      },
+      "median_speedup": 1.6107183504250693,
+      "full_precision_digest": "786193c8a9e317e347aadffe1f483c7d704e03ce30cbc14271e2c6f7ce728018"
+    },
+    {
+      "molecule": "hydrogen",
+      "algorithm": "pennylane_vqe",
+      "part": "B",
+      "seconds": {
+        "control": [
+          1.0123529583215714,
+          1.0126960412599146
+        ],
+        "candidate": [
+          0.6207774160429835,
+          0.6234924583695829
+        ]
+      },
+      "median_speedup": 1.627499822365734,
+      "full_precision_digest": "4fd7c7df643ddddcafcdc153d40300fc9a0d697c03102d3fc8671d551438d59f"
+    },
+    {
+      "molecule": "gly",
+      "algorithm": "hardware_efficient_vqe",
+      "part": "A",
+      "seconds": {
+        "control": [
+          0.7185111669823527,
+          0.7259573331102729
+        ],
+        "candidate": [
+          0.4515864998102188,
+          0.45906208269298077
+        ]
+      },
+      "median_speedup": 1.5861974946713877,
+      "full_precision_digest": "ace70d776aa46758164509cce018b52f58213450c7a257012ab0b499b88b89e4"
+    },
+    {
+      "molecule": "gly",
+      "algorithm": "hardware_efficient_vqe",
+      "part": "B",
+      "seconds": {
+        "control": [
+          0.5553474579937756,
+          0.5677754171192646
+        ],
+        "candidate": [
+          0.366562332957983,
+          0.35875725001096725
+        ]
+      },
+      "median_speedup": 1.5484524359810636,
+      "full_precision_digest": "91f4bdc8afd58fcc63ff78abcceb54d197292e40a8000763261e988dffb817a2"
+    },
+    {
+      "molecule": "gly",
+      "algorithm": "pennylane_vqe",
+      "part": "A",
+      "seconds": {
+        "control": [
+          0.7856841250322759,
+          0.8050170410424471
+        ],
+        "candidate": [
+          0.5244838753715158,
+          0.49942637514322996
+        ]
+      },
+      "median_speedup": 1.5535552703716338,
+      "full_precision_digest": "1fbe79fcfccb3f4c5210e2da6dc3c8833edec60f1c54040d97e9c4478ae56fde"
+    },
+    {
+      "molecule": "gly",
+      "algorithm": "pennylane_vqe",
+      "part": "B",
+      "seconds": {
+        "control": [
+          1.2317684162408113,
+          1.234689291100949
+        ],
+        "candidate": [
+          0.779274458065629,
+          0.7772360411472619
+        ]
+      },
+      "median_speedup": 1.5846071764944851,
+      "full_precision_digest": "6886a6248f7256d4efe8021e052d8f32f504df7a4abcf5c996a15af731b92f01"
+    }
+  ],
+  "input_validation": {
+    "hardware_efficient_vqe": {
+      "molecule": "Unprojected glycine",
+      "n_qubits": 12,
+      "n_terms": 1819,
+      "n_layers": 16,
+      "n_parameters": 204,
+      "n_sampled_energies": 12,
+      "all_energy_hex_equal": true,
+      "seconds": {
+        "control": [
+          0.6226568752899766,
+          0.607339832931757
+        ],
+        "candidate": [
+          0.47226279228925705,
+          0.45918016601353884
+        ]
+      },
+      "median_speedup": 1.3205282162022456
+    },
+    "pennylane_vqe": {
+      "molecule": "Unprojected glycine",
+      "n_qubits": 12,
+      "n_terms": 1819,
+      "n_layers": 16,
+      "n_parameters": 576,
+      "n_sampled_energies": 12,
+      "all_energy_hex_equal": true,
+      "seconds": {
+        "control": [
+          0.7028294168412685,
+          0.6941466247662902
+        ],
+        "candidate": [
+          0.4921794170513749,
+          0.45024725003167987
+        ]
+      },
+      "median_speedup": 1.482318031100923
+    }
+  },
+  "additional_checks": {
+    "incorrect_two_point_QAOA_maximum_absolute_gradient_error_Ha_per_rad": {
+      "hydrogen": 0.25725213424823695,
+      "glycine_projected": 0.7382348201191177
+    },
+    "batch_exit_before": "Both auxiliary batch launchers exited zero with one valid hydrogen molecule and a second missing molecule, despite recording the failure.",
+    "noise_case_collision_before": [
+      "0.01234561",
+      "0.01234562",
+      "two distinct strengths both serialized as 0.0123456"
+    ],
+    "excluded_from_projection": "No estimate of the full 20-molecule Bayesian campaign. GP fitting, acquisition, projected chemistry, noise channel/depth, physical shots and plots have different costs. The forward-only change applies to gradient measurement and gradient descent. Derivative-free fits retain their own optimizer path."
+  },
+  "gradient_component_scope": "Frozen four-qubit H2 (unprojected, 15 terms) and glycine (contextually reduced, 27 terms). Part A: depths 1/3, two strategies, 16 draws, eight probes. Part B: two layers, two strategies, two trials, eight gradient steps. SHA-256 covers the full-precision in-memory row objects including per-coordinate statistics and complete energy histories.",
+  "noise_component_scope": "Frozen 4q input/seed 42, HE two layers, COBYLA 80, convergence 1e-10, depolarizing p=0.02. Logical request hashes include all binary parameter vectors and energies, final angles and complete callbacks. Device executions count the PennyLane measurement groups and may exceed physical objective evaluations.",
+  "noise_components": [
+    {
+      "molecule": "hydrogen",
+      "where": "raw",
+      "elapsed": 2.2736851666122675,
+      "digest": "86732c9021968ff8651788b9c041d1f91f6dc0a5f11d8c0b964f826bf7ebde8b",
+      "logical": 131,
+      "executions": 1048
+    },
+    {
+      "molecule": "hydrogen",
+      "where": "objective",
+      "elapsed": 1.4330477500334382,
+      "digest": "86732c9021968ff8651788b9c041d1f91f6dc0a5f11d8c0b964f826bf7ebde8b",
+      "logical": 131,
+      "executions": 640
+    },
+    {
+      "molecule": "hydrogen",
+      "where": "objective",
+      "elapsed": 1.3899839576333761,
+      "digest": "86732c9021968ff8651788b9c041d1f91f6dc0a5f11d8c0b964f826bf7ebde8b",
+      "logical": 131,
+      "executions": 640
+    },
+    {
+      "molecule": "hydrogen",
+      "where": "raw",
+      "elapsed": 2.272793374955654,
+      "digest": "86732c9021968ff8651788b9c041d1f91f6dc0a5f11d8c0b964f826bf7ebde8b",
+      "logical": 131,
+      "executions": 1048
+    },
+    {
+      "molecule": "gly",
+      "where": "raw",
+      "elapsed": 5.006626874674112,
+      "digest": "81222b7c77ee1ce111257a85918f7690bbae3ad86a290a7c25186a75a1d704f4",
+      "logical": 131,
+      "executions": 2358
+    },
+    {
+      "molecule": "gly",
+      "where": "objective",
+      "elapsed": 3.0947176669724286,
+      "digest": "81222b7c77ee1ce111257a85918f7690bbae3ad86a290a7c25186a75a1d704f4",
+      "logical": 131,
+      "executions": 1440
+    },
+    {
+      "molecule": "gly",
+      "where": "objective",
+      "elapsed": 3.09006041707471,
+      "digest": "81222b7c77ee1ce111257a85918f7690bbae3ad86a290a7c25186a75a1d704f4",
+      "logical": 131,
+      "executions": 1440
+    },
+    {
+      "molecule": "gly",
+      "where": "raw",
+      "elapsed": 5.216530124656856,
+      "digest": "81222b7c77ee1ce111257a85918f7690bbae3ad86a290a7c25186a75a1d704f4",
+      "logical": 131,
+      "executions": 2358
+    }
+  ]
+}

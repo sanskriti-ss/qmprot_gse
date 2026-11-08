@@ -1,0 +1,169 @@
+{
+  "tests": 146,
+  "test_seconds": 164.197,
+  "hosts": {
+    "local": {
+      "directory": "results/profiling/semantic-acceptance/five-final",
+      "native_source_receipts": 55,
+      "initialization_fits": 78,
+      "distinct_noise_fits": 48,
+      "max_solver_matrix_replay_difference_including_csv_rounding": 4.977929179972307e-11,
+      "checks": {
+        "trainability_replay": {
+          "endpoints": 4,
+          "crossing_witnesses": 3,
+          "endpoints_with_wrong_electron_probability_above_1e_8": 2,
+          "operator_ground_energy": -1.1368465754720543,
+          "casci_energy": -1.1368465754720538,
+          "operator_ground_minus_casci": -4.440892098500626e-16,
+          "minimum_possible_abs_error_to_casci": 0.0
+        },
+        "trainability": {
+          "molecule": "hydrogen",
+          "qubits": 4,
+          "plots": 5,
+          "source_sha256": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8"
+        },
+        "noise": {
+          "molecule": "hydrogen",
+          "qubits": 4,
+          "plots": 3,
+          "source_sha256": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8"
+        },
+        "attained_k": 4,
+        "accuracy": {
+          "molecule": "hydrogen",
+          "qubits": 4,
+          "plots": 3,
+          "source_sha256": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8"
+        },
+        "initialization": {
+          "molecule": "hydrogen",
+          "qubits": 4,
+          "plots": 3,
+          "source_sha256": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8"
+        },
+        "max_iqcc_rotations": 3,
+        "prefix": {
+          "molecule": "gly",
+          "qubits": 4,
+          "plots": 2,
+          "source_sha256": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8"
+        },
+        "fermionic_error_mha": {
+          "hydrogen": 8.43769498715119e-12,
+          "gly": 2.5579538487363607e-09
+        },
+        "fixed_iqcc": {
+          "rotations": 2,
+          "energy": -279.1115147391168,
+          "prefix_reference": -279.11151473911696,
+          "largest_rescore_difference_ha": 1.1368683772161603e-13
+        },
+        "solver_studies": {
+          "initialization_configurations": 30,
+          "noise_configurations": 12,
+          "frozen_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3"
+        },
+        "paired_studies": {
+          "prefix": 44,
+          "prefix_wrong_electron_above_1pct": 12,
+          "accuracy": 8,
+          "trainability": 6,
+          "source_sha256": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8",
+          "frozen_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3"
+        }
+      }
+    },
+    "modal": {
+      "directory": "results/smoke/study-campaign-661201d8db074f10993da1e58c090f8c",
+      "native_source_receipts": 55,
+      "initialization_fits": 78,
+      "distinct_noise_fits": 48,
+      "max_solver_matrix_replay_difference_including_csv_rounding": 4.977929179972307e-11,
+      "checks": {
+        "trainability_replay": {
+          "endpoints": 4,
+          "crossing_witnesses": 3,
+          "endpoints_with_wrong_electron_probability_above_1e_8": 2,
+          "operator_ground_energy": -1.1368465754720545,
+          "casci_energy": -1.1368465754720547,
+          "operator_ground_minus_casci": 2.220446049250313e-16,
+          "minimum_possible_abs_error_to_casci": 2.220446049250313e-16
+        },
+        "trainability": {
+          "molecule": "hydrogen",
+          "qubits": 4,
+          "plots": 5,
+          "source_sha256": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8"
+        },
+        "noise": {
+          "molecule": "hydrogen",
+          "qubits": 4,
+          "plots": 3,
+          "source_sha256": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8"
+        },
+        "attained_k": 1,
+        "accuracy": {
+          "molecule": "hydrogen",
+          "qubits": 4,
+          "plots": 3,
+          "source_sha256": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8"
+        },
+        "initialization": {
+          "molecule": "hydrogen",
+          "qubits": 4,
+          "plots": 3,
+          "source_sha256": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8"
+        },
+        "max_iqcc_rotations": 3,
+        "prefix": {
+          "molecule": "gly",
+          "qubits": 4,
+          "plots": 2,
+          "source_sha256": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8"
+        },
+        "fermionic_error_mha": {
+          "hydrogen": 5.551115123125783e-12,
+          "gly": 2.0463630789890885e-09
+        },
+        "fixed_iqcc": {
+          "rotations": 2,
+          "energy": -279.11151473911684,
+          "prefix_reference": -279.11151473911696,
+          "largest_rescore_difference_ha": 5.684341886080802e-14
+        },
+        "solver_studies": {
+          "initialization_configurations": 30,
+          "noise_configurations": 12,
+          "frozen_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3"
+        },
+        "paired_studies": {
+          "prefix": 44,
+          "prefix_wrong_electron_above_1pct": 12,
+          "accuracy": 8,
+          "trainability": 6,
+          "source_sha256": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8",
+          "frozen_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3"
+        }
+      }
+    }
+  },
+  "source_sha256": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8",
+  "physics": {
+    "hydrogen": {
+      "endpoints": 11,
+      "warnings": 0,
+      "violations": {
+        "adapt_vqe": [
+          "zero-angle excitation changes the state"
+        ]
+      }
+    },
+    "gly": {
+      "endpoints": 11,
+      "warnings": 0,
+      "violations": {}
+    }
+  }
+}

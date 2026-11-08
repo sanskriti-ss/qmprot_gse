@@ -1,0 +1,239 @@
+{
+  "solver_settings": {
+    "max_operators": 3,
+    "max_iterations": 100,
+    "convergence_threshold": 1e-09,
+    "gradient_threshold": 1e-08,
+    "random_seed": 42
+  },
+  "energy_evaluation_limit": 300,
+  "molecules": {
+    "hydrogen": {
+      "geometry_sha256": "44b816528c2cd1296765d5497e6d7040e63a6eae377c98da63c3079982cf9357",
+      "hamiltonian_sha256": "1564458c3f4bc5b1e10c66bb2cb527145bf42e53e5bf6762972af383cf3807c4",
+      "active_orbitals": [
+        0,
+        1
+      ],
+      "n_active_electrons": 2,
+      "n_terms": 15,
+      "hf": -1.117505884204331,
+      "casci": -1.1368465754720538,
+      "sector_energy": -1.1368465754720543,
+      "solvers": {
+        "registered": {
+          "selected": [],
+          "angles": [],
+          "energy": -1.117505884204331,
+          "error_mha": 19.340691267722754,
+          "off_particle_sector": 0.0,
+          "spin_squared": 0.0,
+          "cost_evals": 26
+        },
+        "approximate_matched_pool": {
+          "selected": [],
+          "angles": [],
+          "energy": -1.117505884204331,
+          "error_mha": 19.340691267722754,
+          "off_particle_sector": 0.0,
+          "spin_squared": 0.0,
+          "cost_evals": 8
+        },
+        "fermionic_matched_pool": {
+          "selected": [
+            [
+              "double",
+              0,
+              1,
+              2,
+              3
+            ]
+          ],
+          "angles": [
+            0.21446702499999998
+          ],
+          "energy": -1.1368465754720454,
+          "error_mha": 8.43769498715119e-12,
+          "off_particle_sector": 5.169561263064702e-32,
+          "spin_squared": 3.82738055413266e-32,
+          "cost_evals": 55
+        }
+      }
+    },
+    "gly": {
+      "geometry_sha256": "d6c06b5e1faec00a1d5d3ea6ff47232a9b5f049ffc375ac502f404179704cb8f",
+      "hamiltonian_sha256": "f3279219997939a6167236da12a341f7a1f6cd2ce513a64ae1ba4a11f0648357",
+      "active_orbitals": [
+        19,
+        20
+      ],
+      "n_active_electrons": 2,
+      "n_terms": 27,
+      "hf": -279.1115147283362,
+      "casci": -279.1115600159873,
+      "sector_energy": -279.1115600159874,
+      "solvers": {
+        "registered": {
+          "selected": [],
+          "angles": [],
+          "energy": -279.1115147283362,
+          "error_mha": 0.04528765111899702,
+          "off_particle_sector": 0.0,
+          "spin_squared": 0.0,
+          "cost_evals": 26
+        },
+        "approximate_matched_pool": {
+          "selected": [],
+          "angles": [],
+          "energy": -279.1115147283362,
+          "error_mha": 0.04528765111899702,
+          "off_particle_sector": 0.0,
+          "spin_squared": 0.0,
+          "cost_evals": 8
+        },
+        "fermionic_matched_pool": {
+          "selected": [
+            [
+              "double",
+              0,
+              1,
+              2,
+              3
+            ],
+            [
+              "single",
+              0,
+              2
+            ],
+            [
+              "single",
+              1,
+              3
+            ]
+          ],
+          "angles": [
+            0.01269937182475131,
+            9.193760994814697e-05,
+            9.306437045664464e-05
+          ],
+          "energy": -279.11156001598476,
+          "error_mha": 2.5579538487363607e-09,
+          "off_particle_sector": 5.724337650766933e-32,
+          "spin_squared": 3.1336667269220083e-13,
+          "cost_evals": 190
+        }
+      }
+    }
+  },
+  "pool_counts": {
+    "registered": 12,
+    "approximate_matched_pool": 3,
+    "fermionic_matched_pool": 3
+  },
+  "hydrogen_matched_rotations": [
+    {
+      "circuit": "approximate_matched_pool",
+      "operator": [
+        "single",
+        0,
+        2
+      ],
+      "angle": 0.0,
+      "fidelity_to_jw": 1.0,
+      "off_particle_sector": 0.0,
+      "energy": -1.117505884204331
+    },
+    {
+      "circuit": "approximate_matched_pool",
+      "operator": [
+        "single",
+        0,
+        2
+      ],
+      "angle": 0.4,
+      "fidelity_to_jw": 0.905907002470047,
+      "off_particle_sector": 0.048649451812270025,
+      "energy": -1.087418632245221
+    },
+    {
+      "circuit": "approximate_matched_pool",
+      "operator": [
+        "double",
+        0,
+        1,
+        2,
+        3
+      ],
+      "angle": 0.0,
+      "fidelity_to_jw": 0.0,
+      "off_particle_sector": 1.0,
+      "energy": -0.5272750173980204
+    },
+    {
+      "circuit": "approximate_matched_pool",
+      "operator": [
+        "double",
+        0,
+        1,
+        2,
+        3
+      ],
+      "angle": 0.4,
+      "fidelity_to_jw": 0.009477915332901082,
+      "off_particle_sector": 0.9802652485007215,
+      "energy": -0.5309984623461094
+    },
+    {
+      "circuit": "fermionic_matched_pool",
+      "operator": [
+        "single",
+        0,
+        2
+      ],
+      "angle": 0.0,
+      "fidelity_to_jw": 0.9999999999999993,
+      "off_particle_sector": 9.427354126342621e-34,
+      "energy": -1.1175058842043302
+    },
+    {
+      "circuit": "fermionic_matched_pool",
+      "operator": [
+        "single",
+        0,
+        2
+      ],
+      "angle": 0.4,
+      "fidelity_to_jw": 0.9999999999999996,
+      "off_particle_sector": 9.078801977612262e-34,
+      "energy": -1.0858513114800268
+    },
+    {
+      "circuit": "fermionic_matched_pool",
+      "operator": [
+        "double",
+        0,
+        1,
+        2,
+        3
+      ],
+      "angle": 0.0,
+      "fidelity_to_jw": 0.999999999999994,
+      "off_particle_sector": 4.0888595361102784e-32,
+      "energy": -1.1175058842043244
+    },
+    {
+      "circuit": "fermionic_matched_pool",
+      "operator": [
+        "double",
+        0,
+        1,
+        2,
+        3
+      ],
+      "angle": 0.4,
+      "fidelity_to_jw": 0.9999999999999938,
+      "off_particle_sector": 5.160904926103149e-32,
+      "energy": -1.1223584394094364
+    }
+  ]
+}

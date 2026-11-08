@@ -1,0 +1,78 @@
+{
+  "study": "Native plotted H\u2082 + glycine adaptive-size campaign; unreduced inputs, one requested addition in Qubit-ADAPT, seed 42, COBYLA and inner cap 24. One local pair with complete batch I/O.",
+  "baseline": "116b39e",
+  "scientific_candidate": "4d94bde",
+  "runs": {
+    "baseline": {
+      "seconds": 13.02,
+      "events": 2016,
+      "fits": {
+        "hydrogen": {
+          "qubits": 4,
+          "attained": 1,
+          "cost_evals": 48,
+          "solver_seconds": 0.020562333054840565,
+          "source_sha256": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad",
+          "pool_size": 12
+        },
+        "gly": {
+          "qubits": 12,
+          "attained": 1,
+          "cost_evals": 1968,
+          "solver_seconds": 10.208791333250701,
+          "source_sha256": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad",
+          "pool_size": 972
+        }
+      }
+    },
+    "candidate": {
+      "seconds": 13.29,
+      "events": 2016,
+      "fits": {
+        "hydrogen": {
+          "qubits": 4,
+          "attained": 1,
+          "cost_evals": 48,
+          "solver_seconds": 0.02181887486949563,
+          "source_sha256": "04a95642d7a9591deb2cdfe966f7f8ba2af95ae836e5281ea18deeca3fd88ca9",
+          "pool_size": 12
+        },
+        "gly": {
+          "qubits": 12,
+          "attained": 1,
+          "cost_evals": 1968,
+          "solver_seconds": 10.249206915963441,
+          "source_sha256": "04a95642d7a9591deb2cdfe966f7f8ba2af95ae836e5281ea18deeca3fd88ca9",
+          "pool_size": 972
+        }
+      }
+    }
+  },
+  "speedup": 0.979683972911964,
+  "scientific_files": 21,
+  "plots": 9,
+  "scientific_sha256": {
+    "batch_all_results.csv": "c34a308848ae2d7d26f7c38fa1d852e680593e86225d329b9fbc9a02a8ee3426",
+    "batch_failures.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "gly_qubit_adapt_vqe/cost_evals_vs_k.png": "2a21589c9c35ae1f5ca2b7dd3f25d8369522180409dc1d3bb4f097478d853238",
+    "gly_qubit_adapt_vqe/energy_vs_n_params.png": "9721900f1556c25c5a7df938be0b8e397dcc0dc7fa792c85e8e694704beb3f95",
+    "gly_qubit_adapt_vqe/energy_vs_n_params_linear.png": "e74c09ed3acf02d01b91030f2c8474131f6dccb16307699c5ccd9f49ccb265a3",
+    "gly_qubit_adapt_vqe/full_convergence.csv": "639e654c581a2b1a15454fd3764cf4e7fd9d103e1f55caa6cc90bf9c2f1bef13",
+    "gly_qubit_adapt_vqe/inputs/gly.npz": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec",
+    "gly_qubit_adapt_vqe/results.csv": "90171e63811e50f446248b5d4f467929ecb0b988240ef5c8dee903a7dd4b06a7",
+    "gly_qubit_adapt_vqe/run_config.json": "3b613554c8656660c39f3a1e7dc019c883b5b4a21aec49511e3c43076bd3c158",
+    "hydrogen_qubit_adapt_vqe/cost_evals_vs_k.png": "26c22d66fb2c768219f188fdcf5c4cb20f9f1ccc41fc22b55c571e0f4b067fed",
+    "hydrogen_qubit_adapt_vqe/energy_vs_n_params.png": "6788b03f8fe6747c7b91d8197c4b5525e82edf6bfe1518628db285e2959bdb6c",
+    "hydrogen_qubit_adapt_vqe/energy_vs_n_params_linear.png": "0c9cdca240c2cc4f5d11dc0b22464be6ec27d71e7d6d48d00c5a67b025339501",
+    "hydrogen_qubit_adapt_vqe/full_convergence.csv": "970a323de0847104f945e3dae710befeadbddcecb30fe26026418dcc5612942b",
+    "hydrogen_qubit_adapt_vqe/inputs/hydrogen.npz": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+    "hydrogen_qubit_adapt_vqe/results.csv": "8d050546ae3e295976d6212a4d334d7c92301a44966795377f1cd962aea444a5",
+    "hydrogen_qubit_adapt_vqe/run_config.json": "c9a67399c7a2b9207558024b630b1d886ee3331450256defe4060b8ef89ba6f9",
+    "mean_abs_error_vs_k.png": "e207e41c1f5a2abd3d808b5114ac61aa0eeeb1b4c41884304887ae108ccd5257",
+    "mean_cost_evals_vs_k.png": "a162bf7b0ed0fbe380563e236055e8313bfccf6fdb44fa64fd35d64374e1dc68",
+    "overview_all_molecules.png": "44614877d6c876be487385714eab15b1327842a0c788e418635e4cdb59f613ec",
+    "run_config.json": "83c7b2067ca96a4590d5bd2ad33913cb5d18eb595b9198cce486a4bc5e16154b",
+    "summary_by_k.csv": "724a721a5448f1e90bb21a733b2165625e8488ce3317208b59313dc1e13a2d07",
+    "objective_events": "b4ea102f1553728180f28deb431175ca288384e4c14826687478de7f0ba6ab35"
+  }
+}

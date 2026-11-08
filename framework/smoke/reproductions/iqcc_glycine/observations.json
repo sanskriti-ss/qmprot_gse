@@ -1,0 +1,71 @@
+{
+  "input_sha256": "6de2adcfdd7926b5406ab1730e26b776489757b076fe837bbf5fce54a0cfa042",
+  "used_terms": 26,
+  "exact_prefix_energy": -279.11151473911696,
+  "endpoint": -279.12260807171936,
+  "undershoot_mHa": 11.093332602399641,
+  "trace_hex": [
+    "-0x1.171c8e0a71497p+8",
+    "-0x1.171c9379bd64dp+8",
+    "-0x1.171c9c88b71b7p+8",
+    "-0x1.171ca93799b26p+8",
+    "-0x1.171cb986b8264p+8",
+    "-0x1.171ccd767d2cbp+8",
+    "-0x1.171ce5076b37bp+8",
+    "-0x1.171d003a1c789p+8",
+    "-0x1.171d1f0f42e40p+8",
+    "-0x1.171d4187a836fp+8",
+    "-0x1.171d67a42dfb1p+8",
+    "-0x1.171d9165cd8d1p+8",
+    "-0x1.171dbecd9822dp+8",
+    "-0x1.171defdcb6d2ap+8",
+    "-0x1.171e24946a9a8p+8",
+    "-0x1.171e5cf60c684p+8",
+    "-0x1.171e99030d22dp+8",
+    "-0x1.171ed8bcf5b35p+8",
+    "-0x1.171f1c25670f3p+8",
+    "-0x1.171f633e1a42ap+8"
+  ],
+  "default_angle_bound": 0.005,
+  "requested_params": {
+    "n_layers": 2,
+    "max_operators": 20,
+    "gradient_threshold": 1e-08,
+    "optimizer": "COBYLA",
+    "max_iterations": 200,
+    "convergence_threshold": 1e-10,
+    "random_seed": 2770
+  },
+  "warnings": {
+    "ComplexWarning _serialize.py:283: Casting complex values to real discards the imaginary part": 3240
+  },
+  "versions": {
+    "numpy": "1.26.4",
+    "scipy": "1.16.3",
+    "openfermion": "1.8.1",
+    "pennylane": "0.38.0",
+    "pennylane-lightning": "0.38.0"
+  },
+  "snapshots": [
+    {
+      "label": "sweep",
+      "commit": "2a304f2f72f8af2607d161356fdf0ed7c09c0449",
+      "solver_sha256": "066ce5121a747091c4c7574e43a0ccb1408dd622b2413256d5b6132347a62c18"
+    },
+    {
+      "label": "paper",
+      "commit": "4a23de80b29e4778f93fc754b198e3ffafb6b245",
+      "solver_sha256": "066ce5121a747091c4c7574e43a0ccb1408dd622b2413256d5b6132347a62c18"
+    },
+    {
+      "label": "main",
+      "commit": "15e300abc82730e2aa57cf7e74b4200e1f02359d",
+      "solver_sha256": "066ce5121a747091c4c7574e43a0ccb1408dd622b2413256d5b6132347a62c18"
+    },
+    {
+      "label": "experiments",
+      "commit": "6e4bea130ee81f2a1ffde8fe394e41670f69e715",
+      "solver_sha256": "9afdc103212e5fcbf91d16bd63b8c256784a6b8001f8ef6d8d47799d258fd745"
+    }
+  ]
+}

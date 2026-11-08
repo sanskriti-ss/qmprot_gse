@@ -1,0 +1,240 @@
+{
+  "run": "noise-trial-bee200f1919149248fc4cf1e28520860",
+  "input_sha256": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85",
+  "source_sha256": "1d680189899cd170d88fa35c9407740f7b6d7d2c82e92bb0c5155aa38a021d1a",
+  "runtime_platform": "Linux-4.19.0-gvisor-x86_64-with-glibc2.36",
+  "ordered_trace_sha256": "679d30a75f91a9763690c01be6aaf1131f3baad91de9a03036e52be1a5b0c2e7",
+  "native_cli_seconds": 523.559085342,
+  "ansatz": {
+    "rotation_gates": 24,
+    "cnot_gates": 16,
+    "depolarizing_channels": 16,
+    "layers": 2,
+    "strength": 0.01
+  },
+  "fits": {
+    "clean": {
+      "objective_calls": 150,
+      "callback_calls": 90,
+      "distinct_angles": 150,
+      "maximum_oracle_error": 4.547473508864641e-13,
+      "initial_energy": -276.985065828783,
+      "best_energy": -278.713505595552,
+      "device": "lightning.qubit",
+      "optimizer": {
+        "optimizer_success": false,
+        "optimizer_status": 3,
+        "optimizer_message": "Return from COBYLA because the objective function has been evaluated MAXFUN times.",
+        "optimizer_evaluations": 150
+      },
+      "seconds": 0.5331698490000001
+    },
+    "depolarizing": {
+      "objective_calls": 150,
+      "callback_calls": 86,
+      "distinct_angles": 150,
+      "maximum_oracle_error": 6.821210263296962e-13,
+      "initial_energy": -277.0437556239317,
+      "best_energy": -278.84465000416833,
+      "device": "default.mixed",
+      "optimizer": {
+        "optimizer_success": false,
+        "optimizer_status": 3,
+        "optimizer_message": "Return from COBYLA because the objective function has been evaluated MAXFUN times.",
+        "optimizer_evaluations": 150
+      },
+      "seconds": 520.587640828
+    }
+  },
+  "endpoints": {
+    "none@0": {
+      "endpoints": {
+        "noisy": {
+          "physical": {
+            "state_kind": "statevector",
+            "expected_electron_count": 6,
+            "electron_count_probabilities": {
+              "0": 4.477262132931446e-23,
+              "1": 1.0284669864451987e-07,
+              "2": 4.68669919550515e-07,
+              "3": 0.000485604184507523,
+              "4": 0.03402925880431966,
+              "5": 0.22772291703534167,
+              "6": 0.45565850779218975,
+              "7": 0.2722037349098587,
+              "8": 0.009737716889531758,
+              "9": 0.00016168886763222355,
+              "10": 0.0,
+              "11": 0.0,
+              "12": 0.0
+            },
+            "wrong_electron_probability": 0.5443414922078103,
+            "mean_electron_count": 5.994923599181141,
+            "mean_spin_z": -0.15106417442433706,
+            "mean_spin_squared": 1.001234772160275,
+            "target_spin_z_probability": 0.4406112392814223,
+            "rescored_energy": -278.713505595552,
+            "sector_status": "measured"
+          },
+          "maximum_energy_difference": 1.7053025658242404e-13,
+          "maximum_sector_difference": 2.6645352591003757e-15
+        },
+        "clean_at_noisy_params": {
+          "physical": {
+            "state_kind": "statevector",
+            "expected_electron_count": 6,
+            "electron_count_probabilities": {
+              "0": 4.477262132931446e-23,
+              "1": 1.0284669864451987e-07,
+              "2": 4.68669919550515e-07,
+              "3": 0.000485604184507523,
+              "4": 0.03402925880431966,
+              "5": 0.22772291703534167,
+              "6": 0.45565850779218975,
+              "7": 0.2722037349098587,
+              "8": 0.009737716889531758,
+              "9": 0.00016168886763222355,
+              "10": 0.0,
+              "11": 0.0,
+              "12": 0.0
+            },
+            "wrong_electron_probability": 0.5443414922078103,
+            "mean_electron_count": 5.994923599181141,
+            "mean_spin_z": -0.15106417442433706,
+            "mean_spin_squared": 1.001234772160275,
+            "target_spin_z_probability": 0.4406112392814223,
+            "rescored_energy": -278.713505595552,
+            "sector_status": "measured"
+          },
+          "maximum_energy_difference": 1.7053025658242404e-13,
+          "maximum_sector_difference": 2.6645352591003757e-15
+        }
+      },
+      "drift": {
+        "param_drift_l2": 0.0,
+        "param_drift_rms": 0.0,
+        "param_drift_l2_wrapped": 0.0,
+        "param_drift_cosine": 1.0000000000000002,
+        "clean_displacement_l2": 5.122361338954065,
+        "noisy_displacement_l2": 5.122361338954065
+      }
+    },
+    "depolarizing@0.01": {
+      "endpoints": {
+        "noisy": {
+          "physical": {
+            "state_kind": "density_matrix",
+            "expected_electron_count": 6,
+            "electron_count_probabilities": {
+              "0": 4.03081704761789e-21,
+              "1": 1.9795086338396467e-07,
+              "2": 1.6693586173152136e-05,
+              "3": 0.0007685683636793418,
+              "4": 0.013359625200437764,
+              "5": 0.1322310712844108,
+              "6": 0.7192102337763451,
+              "7": 0.12698015926600964,
+              "8": 0.007298607563503485,
+              "9": 0.00013484300857567752,
+              "10": 0.0,
+              "11": 0.0,
+              "12": 0.0
+            },
+            "wrong_electron_probability": 0.2807897662236549,
+            "mean_electron_count": 5.9806581125433995,
+            "mean_spin_z": 0.22332513875235632,
+            "mean_spin_squared": 0.8967346831869172,
+            "target_spin_z_probability": 0.5393852660498587,
+            "rescored_energy": -278.84465000416833,
+            "sector_status": "measured"
+          },
+          "maximum_energy_difference": 1.780335878720507e-10,
+          "maximum_sector_difference": 3.8258285428582894e-13
+        },
+        "clean_at_noisy_params": {
+          "physical": {
+            "state_kind": "statevector",
+            "expected_electron_count": 6,
+            "electron_count_probabilities": {
+              "0": 3.4455039209498235e-23,
+              "1": 3.3866787104499614e-09,
+              "2": 6.274096212397854e-07,
+              "3": 6.38136201296044e-05,
+              "4": 0.0011469924698626786,
+              "5": 0.10088313274913563,
+              "6": 0.7797059237329582,
+              "7": 0.11775530031777204,
+              "8": 0.00044102853592739734,
+              "9": 3.1777779139247043e-06,
+              "10": 0.0,
+              "11": 0.0,
+              "12": 0.0
+            },
+            "wrong_electron_probability": 0.22029407626704178,
+            "mean_electron_count": 6.015275805602237,
+            "mean_spin_z": 0.2089107614448804,
+            "mean_spin_squared": 0.844062883077977,
+            "target_spin_z_probability": 0.5745906563649849,
+            "rescored_energy": -278.894569825049,
+            "sector_status": "measured"
+          },
+          "maximum_energy_difference": 5.684341886080802e-14,
+          "maximum_sector_difference": 8.881784197001252e-16
+        }
+      },
+      "drift": {
+        "param_drift_l2": 2.7683078215584644,
+        "param_drift_rms": 0.5650784678144919,
+        "param_drift_l2_wrapped": 2.7683078215584644,
+        "param_drift_cosine": 0.8663874479839135,
+        "clean_displacement_l2": 5.122361338954065,
+        "noisy_displacement_l2": 5.014040777935345
+      }
+    }
+  },
+  "operator_bounds": [
+    -279.1128905680738,
+    -273.9685131396589
+  ],
+  "parent_hf": -279.11151472833757,
+  "parent_casci": -279.1376629146243,
+  "operator_ground_minus_casci": 0.024772346550491875,
+  "mixed_endpoint_tolerance": "PennyLane 0.38.0 adds its 1e-14 epsilon to each squared Kraus weight. The ideal trace-preserving NumPy map omits it; the native raw density energy can differ by roughly abs(energy) \u00d7 4 \u00d7 1e-14 \u00d7 16 channels.",
+  "corruption_checks": [
+    {
+      "file": "results/run_config.json",
+      "field": [
+        "noise_strengths",
+        1
+      ],
+      "rejected": "Incorrect run_config.noise_strengths"
+    },
+    {
+      "file": "results/state_endpoints.json",
+      "field": [
+        "depolarizing@0.01",
+        "noisy",
+        "mean_spin_squared"
+      ],
+      "rejected": "mean_spin_squared differs by 1.8967346831869172"
+    },
+    {
+      "file": "results/optimum_parameters.json",
+      "field": [
+        "theta_noisy_star",
+        "depolarizing@0.01",
+        0
+      ],
+      "rejected": "depolarizing saved winner absent from queries"
+    },
+    {
+      "file": "events.jsonl",
+      "field": [
+        "depolarizing",
+        "first objective",
+        "energy"
+      ],
+      "rejected": "depolarizing recorded energy differs by 0.001000000000374257"
+    }
+  ]
+}

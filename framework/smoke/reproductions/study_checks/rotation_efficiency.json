@@ -1,0 +1,109 @@
+{
+  "baseline": "116b39e",
+  "rotation_candidate": "340bbe8",
+  "integrated_candidate": "d3e97df",
+  "platform": "macOS arm64, single-threaded analytic Lightning",
+  "input_sha256": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec",
+  "protocol": "Real 12-qubit, 1,819-term glycine. 32 distinct warmed vectors per target. Every scalar and state byte compared against original QNode at identical parameters. Setup interleaves full native construction/device preprocessing and binding its verified identity tape. Fitting uses a separate single paired full 100-angle COBYLA trainability process, seed 42 and cap 2,000, with figures and native I/O.",
+  "stages": [
+    {
+      "angles": 10,
+      "layers": 1,
+      "warmed_vectors": 32,
+      "energy_sha256": "e1a66b8f2b8a8384844f5113c9f295edecc65d8f37814207ca7ef2608a2de602",
+      "state_sha256": "64fc2c0a5fcee7ced87cb6a05d297d24cade07f6a2ef1170bc5e6a258e043c15",
+      "medians_seconds": {
+        "baseline": 0.024652082938700914,
+        "candidate": 0.019912104588001966,
+        "combined": 0.005080249859020114
+      },
+      "setup_seconds": {
+        "construct_and_transform": 0.004716749535873532,
+        "bind": 4.8708170652389526e-05
+      }
+    },
+    {
+      "angles": 50,
+      "layers": 4,
+      "warmed_vectors": 32,
+      "energy_sha256": "99e7fa0d2e2807100566d255f1d9e07c534b178ad532868dcdb7bdf3aa966d78",
+      "state_sha256": "2595c634c0b3e5c939fe3472e441c01306bf92e281d9d975b77fd9c13b8c9aaa",
+      "medians_seconds": {
+        "baseline": 0.02543889614753425,
+        "candidate": 0.020240749698132277,
+        "combined": 0.005899250041693449
+      },
+      "setup_seconds": {
+        "construct_and_transform": 0.0052585836965590715,
+        "bind": 0.00014400016516447067
+      }
+    },
+    {
+      "angles": 100,
+      "layers": 8,
+      "warmed_vectors": 32,
+      "energy_sha256": "a499345463ef66783e14135e9a206f23ec157437cf9fbbce647eb0c279c5f875",
+      "state_sha256": "1374e042b25238531f7976296f5812409608286b289b1b2eca40bb724ab80692",
+      "medians_seconds": {
+        "baseline": 0.02637249999679625,
+        "candidate": 0.02061047893948853,
+        "combined": 0.0063857086934149265
+      },
+      "setup_seconds": {
+        "construct_and_transform": 0.00614102091640234,
+        "bind": 0.0002610837109386921
+      }
+    }
+  ],
+  "isolated_trainability": {
+    "seconds": {
+      "baseline": 61.07,
+      "candidate": 49.3
+    },
+    "source_sha256": {
+      "baseline": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad",
+      "candidate": "6d2eb91ff2ca74711b446cd0625bafd0a1876a529ca5404e19d3f2e075f4184a"
+    },
+    "cases": [
+      {
+        "algorithm": "hardware_efficient_vqe",
+        "target": 100,
+        "evaluations": 2000,
+        "baseline_seconds": 58.0274,
+        "candidate_seconds": 45.9692,
+        "reused_reference_probes": 0
+      }
+    ],
+    "events": 3185,
+    "events_sha256": "70b3916dad206f924266913772579a57108c4ff6ac734cf94120072ec7c04e8d",
+    "artifact_sha256": {
+      "inputs/gly.npz": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec",
+      "run_config.json": "4fe28413d76233244e7f1e4a2aec262d953ac88cfd47604eecf41add58dfe5f8",
+      "endpoints.jsonl": "198f1d546cb2039499bf41bf81dec865c302cf85d2622945761071f92c61d660",
+      "eval_traces.csv": "898406a1bb3c97804003b9a29150a42fdcee49f8c1e34413d70d490e5b0c79c3",
+      "convergence_traces.csv": "f2c3dc0e6b5718bc960ae7a6498c7ba973790520e24a9062f090771e5cd37afb",
+      "model_reference.json": "abd0c1c42a389f7fb4eb286ed9a20befb2be1ad0065da010936384d21e42cf78",
+      "batch_manifest.json": "2d9f2e803dd5748f8fc98556fb565fdee85dd02f55110409ca86e42ff68317ac",
+      "all_molecules_convergence_traces.csv": "e39c81a036938e7abad628c27d92625bc1b8678227da46157919572240e4d2cf",
+      "all_molecules_eval_traces.csv": "898406a1bb3c97804003b9a29150a42fdcee49f8c1e34413d70d490e5b0c79c3",
+      "all_molecules_cost_to_accuracy_summary.csv": "eeb3ea8623c826492228078e3a79d16461406184988e29b0d49bf69a5fece664"
+    }
+  },
+  "cb_variational_core": {
+    "8": {
+      "terms": 361,
+      "raw_median_seconds": 0.0021911868825554848,
+      "bound_median_seconds": 0.0009561667684465647,
+      "energies_states_sha256": "ce69449f798accaed3a343fa50b475350d82b7d0031ab243f4a83f601eb32261",
+      "warmed_vectors": 24
+    },
+    "12": {
+      "terms": 1819,
+      "raw_median_seconds": 0.024896791437640786,
+      "bound_median_seconds": 0.02027762494981289,
+      "energies_states_sha256": "096d03ea61de99c8d2a998ca9b8bd62760e2b8086112eebdc4cb25709f31a6c0",
+      "warmed_vectors": 24
+    }
+  },
+  "cb_protocol": "At 63ef35b, 24 warmed independent vectors per input, real Lightning QNode vs bound variational objective, alternating evaluation order; every energy and state byte equaled. Excludes terminal boost."
+}

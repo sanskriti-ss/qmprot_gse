@@ -1,0 +1,180 @@
+{
+  "fits": {
+    "clean": {
+      "objective_calls": 150,
+      "callbacks": 90,
+      "distinct_vectors": 150,
+      "repeated_calls": 90,
+      "objective_seconds": 0.1344887739999887,
+      "callback_seconds": 0.000778877000009004,
+      "seconds": 0.5331698490000001,
+      "optimizer": {
+        "optimizer_success": false,
+        "optimizer_status": 3,
+        "optimizer_message": "Return from COBYLA because the objective function has been evaluated MAXFUN times.",
+        "optimizer_evaluations": 150
+      },
+      "device": "lightning.qubit",
+      "optimal_energy": "-0x1.16b6a84d7e690p+8",
+      "first_visit_seconds_median": 0.0007711170000002099,
+      "repeat_visit_seconds_median": 8.455999999767982e-06,
+      "same_vector_energy_bits_reproduced": true,
+      "initial_energy": -276.9850658287828,
+      "final_energy": -278.7135055955523
+    },
+    "depolarizing": {
+      "objective_calls": 150,
+      "callbacks": 86,
+      "distinct_vectors": 150,
+      "repeated_calls": 86,
+      "objective_seconds": 520.0109001660005,
+      "callback_seconds": 0.0013705229998777213,
+      "seconds": 520.587640828,
+      "optimizer": {
+        "optimizer_success": false,
+        "optimizer_status": 3,
+        "optimizer_message": "Return from COBYLA because the objective function has been evaluated MAXFUN times.",
+        "optimizer_evaluations": 150
+      },
+      "device": "default.mixed",
+      "optimal_energy": "-0x1.16d83afb9078dp+8",
+      "first_visit_seconds_median": 3.403127654000002,
+      "repeat_visit_seconds_median": 1.225399995519183e-05,
+      "same_vector_energy_bits_reproduced": true,
+      "initial_energy": -277.0437556239313,
+      "final_energy": -278.84465000416895
+    }
+  },
+  "native_cli_seconds": 523.559085342,
+  "input_sha256": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85",
+  "source_sha256": "1d680189899cd170d88fa35c9407740f7b6d7d2c82e92bb0c5155aa38a021d1a",
+  "trace_sha256": "679d30a75f91a9763690c01be6aaf1131f3baad91de9a03036e52be1a5b0c2e7",
+  "scientific_commit": "b718e5d9f6a45fb5336dbd689f5bd1b46550c807",
+  "input": "smoke/reproductions/layered_vqe/contextual_gly.npz",
+  "matching_prior_input": "results/profiling/semantic-acceptance/verified-gly-roster-A/inputs/gly.npz",
+  "input_properties": {
+    "active_qubits": 12,
+    "final_qubits": 8,
+    "terms": 361,
+    "parent_transform": true
+  },
+  "native_runtime": {
+    "git_commit": null,
+    "source_sha256": "1d680189899cd170d88fa35c9407740f7b6d7d2c82e92bb0c5155aa38a021d1a",
+    "packages": {
+      "numpy": "1.26.4",
+      "scipy": "1.16.3",
+      "pyscf": "2.15.0",
+      "openfermion": "1.8.1",
+      "pennylane": "0.38.0",
+      "pennylane-lightning": "0.38.0",
+      "autoray": "0.6.12",
+      "h5py": "3.16.0",
+      "scikit-optimize": "0.10.2",
+      "scikit-learn": "1.9.1",
+      "matplotlib": "3.11.2",
+      "pandas": "2.3.3",
+      "seaborn": "0.13.2"
+    },
+    "python": "3.12.10 (main, May 21 2025, 23:34:56) [GCC 12.2.0]",
+    "platform": "Linux-4.19.0-gvisor-x86_64-with-glibc2.36",
+    "argv": [
+      "experiments.noise_resilience",
+      "--molecule",
+      "gly",
+      "--basis",
+      "sto-3g",
+      "--cs-target-qubits",
+      "8",
+      "--input-snapshot",
+      "/root/smoke/reproductions/layered_vqe/contextual_gly.npz",
+      "--algorithm",
+      "hardware_efficient_vqe",
+      "--n-layers",
+      "2",
+      "--rotation-gates",
+      "RY",
+      "--prepare-hf",
+      "--optimizer",
+      "COBYLA",
+      "--max-iter",
+      "150",
+      "--convergence-threshold",
+      "1e-10",
+      "--init-strategy",
+      "small_random",
+      "--seed",
+      "42",
+      "--noise-models",
+      "depolarizing",
+      "--noise-strengths",
+      "0",
+      "0.01",
+      "--output-dir",
+      "/outputs/noise-trial-bee200f1919149248fc4cf1e28520860/results"
+    ]
+  },
+  "retrieval_validation": {
+    "original_client": "Worker and artifact download completed. The original client then compared the worker archive with the concurrently advanced local checkout and rejected that comparison.",
+    "pinned_recheck": "The same downloaded results, runtime and scientific archive passed validation against the submitted Git revision and its independently rebuilt source fingerprint.",
+    "command": "python -m smoke.noise_trial results/smoke/noise-trial-bee200f1919149248fc4cf1e28520860 --validate --source-sha 1d680189899cd170d88fa35c9407740f7b6d7d2c82e92bb0c5155aa38a021d1a"
+  },
+  "worker": {
+    "app": "ap-gh8uG0W5QbHWVDPFPRYM1y",
+    "volume": "qmprot-smoke-results",
+    "directory": "results/smoke/noise-trial-bee200f1919149248fc4cf1e28520860",
+    "requested_cpu": 2,
+    "requested_memory_mib": 4096,
+    "native_thread_pools": [
+      {
+        "user_api": "blas",
+        "internal_api": "openblas",
+        "num_threads": 1,
+        "prefix": "libscipy_openblas",
+        "filepath": "/usr/local/lib/python3.12/site-packages/scipy.libs/libscipy_openblas-b75cc656.so",
+        "version": "0.3.29.dev",
+        "threading_layer": "pthreads",
+        "architecture": "Haswell"
+      },
+      {
+        "user_api": "openmp",
+        "internal_api": "openmp",
+        "num_threads": 1,
+        "prefix": "libgomp",
+        "filepath": "/usr/local/lib/python3.12/site-packages/PennyLane_Lightning.libs/libgomp-a97153a2.so.1.0.0",
+        "version": null
+      },
+      {
+        "user_api": "blas",
+        "internal_api": "openblas",
+        "num_threads": 1,
+        "prefix": "libopenblas",
+        "filepath": "/usr/local/lib/python3.12/site-packages/numpy.libs/libopenblas64_p-r0-0cf96a72.3.23.dev.so",
+        "version": "0.3.23.dev",
+        "threading_layer": "pthreads",
+        "architecture": "Zen"
+      }
+    ],
+    "remote_process_seconds": 530.6998467850001
+  },
+  "scope": "One frozen eight-qubit glycine HE fit at p=0.01 and one independently optimized clean reference. The native p=0 anchor copies the clean fit. The remote process includes startup, study setup, fits, endpoint diagnostics, native files, plots and the in-process verifier. Chemistry preparation, Modal provisioning and transfer are outside this timer.",
+  "raw_sha256": {
+    "client.log": "edf11a9c2a566c96c1be958badf11f1e355d82176ed09502c1347e90d3932f05",
+    "events.jsonl": "679d30a75f91a9763690c01be6aaf1131f3baad91de9a03036e52be1a5b0c2e7",
+    "native.log": "5f3dd4ba80a9ebd8fa84b8793edde1acf0b717ed57e7f592267a40b38255c3a7",
+    "pinned-validation.json": "8a44cb46353dcfa02140ba0ee8e884c3e7682f7c9346f39fd981dd1c390e83d3",
+    "process.json": "d8bd6adbc2a19de02d8cf2f7c3e80f530e7f98cc794abf783691bcedbb25744e",
+    "results/convergence.png": "1fcd3d680d4afbd6d6c25c6b25fd80fc197a8035c5894257468d00c65afd89b9",
+    "results/convergence_traces.csv": "4d28c971dec255332b0533457bf65698af6a5b7bc2c57d024042e99f808c20b5",
+    "results/energy_vs_noise.png": "9dd7a4bb217755ee19c5d6a5d860f1e7662ef73f22475c2eae5b9cfd562dd7f8",
+    "results/framework-source.zip": "1d680189899cd170d88fa35c9407740f7b6d7d2c82e92bb0c5155aa38a021d1a",
+    "results/inputs/gly.npz": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85",
+    "results/optimum_parameters.json": "c9d53ac7ff264e3592d615371527101d3934bb56302d89f5c9f61868c1ed0028",
+    "results/param_drift_vs_noise.png": "19257519731913cf1520c854d5e8eb71056ff2a5d8d8b56a5aacf0437dd2e90f",
+    "results/results.csv": "d499af1a985b7b99b2eacd5cd6c2b86c149830529e88e2d80ec396fcb04c7e3b",
+    "results/run_config.json": "dbccc3743719dad6ec62de947a4fced25895608f06c8dc7440ed836a2452faa9",
+    "results/runtime.json": "2e2c677c11de1ae37ab852fbc752753092300440c594d06a43f46d84d0293fbc",
+    "results/state_endpoints.json": "cd68871b2d6750b5e0388b1ff6a799195eb45ddc39b6eea09c5d6cdfcb263419",
+    "timings.json": "685c95572f90948b76726a9cb4acf93dac4ecd9410b2bc84671d21ad2f99a3d9"
+  }
+}

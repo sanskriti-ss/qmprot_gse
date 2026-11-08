@@ -1,0 +1,1620 @@
+{
+  "frozen_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+  "geometry_sha256": "44b816528c2cd1296765d5497e6d7040e63a6eae377c98da63c3079982cf9357",
+  "budgets": {
+    "COBYLA": 40,
+    "BAYESIAN": 6,
+    "GradientDescent": 3
+  },
+  "seed": 42,
+  "initialization": [
+    {
+      "algorithm": "hardware_efficient_vqe",
+      "optimizer": "COBYLA",
+      "channel": null,
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": null,
+      "trials": {
+        "random_uniform": {
+          "energy": -0.7559307409,
+          "wrong_electron_probability": 0.07574607308569928,
+          "maximum_replay_difference": 7.188361017540501e-12,
+          "initial_energy": -0.2257010127,
+          "variational_energy": null
+        },
+        "small_random": {
+          "energy": -0.8489905806,
+          "wrong_electron_probability": 0.08906826986298932,
+          "maximum_replay_difference": 2.5054291974413445e-11,
+          "initial_energy": 0.3560000589,
+          "variational_energy": null
+        },
+        "near_identity": {
+          "energy": -0.9012918212,
+          "wrong_electron_probability": 0.11383494088756203,
+          "maximum_replay_difference": 9.511169629661254e-12,
+          "initial_energy": 0.4182029303,
+          "variational_energy": null
+        },
+        "zeros": {
+          "energy": -1.0029411823,
+          "wrong_electron_probability": 0.09407458921140836,
+          "maximum_replay_difference": 4.3875125754766486e-11,
+          "initial_energy": 0.4194096897,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "hardware_efficient_vqe",
+      "optimizer": "COBYLA",
+      "channel": "phaseflip",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": null,
+      "trials": {
+        "random_uniform": {
+          "energy": -0.7314077624,
+          "wrong_electron_probability": 0.09206112788443027,
+          "maximum_replay_difference": 1.3702039503016294e-11,
+          "initial_energy": -0.2168241642,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "hardware_efficient_vqe",
+      "optimizer": "BAYESIAN",
+      "channel": null,
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "trials": {
+        "random_uniform": {
+          "energy": -0.2257010127,
+          "wrong_electron_probability": 0.4780696173549098,
+          "maximum_replay_difference": 3.369945988929146e-11,
+          "initial_energy": -0.2257010127,
+          "variational_energy": null
+        },
+        "small_random": {
+          "energy": -0.2227815885,
+          "wrong_electron_probability": 0.5396810123959201,
+          "maximum_replay_difference": 6.623063208976987e-12,
+          "initial_energy": 0.3560000589,
+          "variational_energy": null
+        },
+        "near_identity": {
+          "energy": -0.2227815885,
+          "wrong_electron_probability": 0.5396810123959201,
+          "maximum_replay_difference": 6.623063208976987e-12,
+          "initial_energy": 0.4182029303,
+          "variational_energy": null
+        },
+        "zeros": {
+          "energy": -0.2227815885,
+          "wrong_electron_probability": 0.5396810123959201,
+          "maximum_replay_difference": 6.623063208976987e-12,
+          "initial_energy": 0.4194096897,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "hardware_efficient_vqe",
+      "optimizer": "BAYESIAN",
+      "channel": "phaseflip",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "trials": {
+        "random_uniform": {
+          "energy": -0.2255373395,
+          "wrong_electron_probability": 0.5431848243503247,
+          "maximum_replay_difference": 2.3276658378534876e-11,
+          "initial_energy": -0.2168241642,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "hardware_efficient_vqe",
+      "optimizer": "GradientDescent",
+      "channel": null,
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": null,
+      "trials": {
+        "random_uniform": {
+          "energy": -0.2598920783,
+          "wrong_electron_probability": 0.4623656592950906,
+          "maximum_replay_difference": 2.2356339002271852e-11,
+          "initial_energy": -0.2257010127,
+          "variational_energy": null
+        },
+        "small_random": {
+          "energy": 0.332801263,
+          "wrong_electron_probability": 0.9232364518308954,
+          "maximum_replay_difference": 1.6813994641040608e-11,
+          "initial_energy": 0.3560000589,
+          "variational_energy": null
+        },
+        "near_identity": {
+          "energy": 0.4176639804,
+          "wrong_electron_probability": 0.9987500337714142,
+          "maximum_replay_difference": 3.858596775430101e-11,
+          "initial_energy": 0.4182029303,
+          "variational_energy": null
+        },
+        "zeros": {
+          "energy": 0.4194096897,
+          "wrong_electron_probability": 1.0,
+          "maximum_replay_difference": 2.3402002558015056e-11,
+          "initial_energy": 0.4194096897,
+          "variational_energy": null
+        }
+      },
+      "gradient_rows": 6
+    },
+    {
+      "algorithm": "hardware_efficient_vqe",
+      "optimizer": "GradientDescent",
+      "channel": "phaseflip",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": null,
+      "trials": {
+        "random_uniform": {
+          "energy": -0.2485018141,
+          "wrong_electron_probability": 0.4655003814400577,
+          "maximum_replay_difference": 1.4341638987502847e-11,
+          "initial_energy": -0.2168241642,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "pennylane_vqe",
+      "optimizer": "COBYLA",
+      "channel": null,
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": null,
+      "trials": {
+        "random_uniform": {
+          "energy": -0.6488598755,
+          "wrong_electron_probability": 0.4005844757994526,
+          "maximum_replay_difference": 5.719202889054031e-12,
+          "initial_energy": -0.0384538664,
+          "variational_energy": null
+        },
+        "small_random": {
+          "energy": -0.6068979752,
+          "wrong_electron_probability": 0.5004454578812372,
+          "maximum_replay_difference": 4.595834823817313e-11,
+          "initial_energy": -0.3634912915,
+          "variational_energy": null
+        },
+        "near_identity": {
+          "energy": -0.592148309,
+          "wrong_electron_probability": 0.4894145884297282,
+          "maximum_replay_difference": 3.928057878965774e-11,
+          "initial_energy": -0.4158197757,
+          "variational_energy": null
+        },
+        "zeros": {
+          "energy": -0.5003117313,
+          "wrong_electron_probability": 0.5189138369657298,
+          "maximum_replay_difference": 3.5058622671613193e-12,
+          "initial_energy": -0.41682736,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "pennylane_vqe",
+      "optimizer": "COBYLA",
+      "channel": "phaseflip",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": null,
+      "trials": {
+        "random_uniform": {
+          "energy": -0.6305821359,
+          "wrong_electron_probability": 0.4072741293954182,
+          "maximum_replay_difference": 2.319300307362937e-11,
+          "initial_energy": -0.0394462795,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "pennylane_vqe",
+      "optimizer": "BAYESIAN",
+      "channel": null,
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "trials": {
+        "random_uniform": {
+          "energy": -0.3660640303,
+          "wrong_electron_probability": 0.49730571779216204,
+          "maximum_replay_difference": 2.4707069723461927e-11,
+          "initial_energy": -0.0384538664,
+          "variational_energy": null
+        },
+        "small_random": {
+          "energy": -0.3660640303,
+          "wrong_electron_probability": 0.49730571779216204,
+          "maximum_replay_difference": 2.4707069723461927e-11,
+          "initial_energy": -0.3634912915,
+          "variational_energy": null
+        },
+        "near_identity": {
+          "energy": -0.4158197757,
+          "wrong_electron_probability": 0.999418384175722,
+          "maximum_replay_difference": 1.904365554139531e-11,
+          "initial_energy": -0.4158197757,
+          "variational_energy": null
+        },
+        "zeros": {
+          "energy": -0.41682736,
+          "wrong_electron_probability": 1.0,
+          "maximum_replay_difference": 4.977929179972307e-11,
+          "initial_energy": -0.41682736,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "pennylane_vqe",
+      "optimizer": "BAYESIAN",
+      "channel": "phaseflip",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "trials": {
+        "random_uniform": {
+          "energy": -0.3648595631,
+          "wrong_electron_probability": 0.49812026292688044,
+          "maximum_replay_difference": 3.7610414782562884e-11,
+          "initial_energy": -0.0394462795,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "pennylane_vqe",
+      "optimizer": "GradientDescent",
+      "channel": null,
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": null,
+      "trials": {
+        "random_uniform": {
+          "energy": -0.0850949556,
+          "wrong_electron_probability": 0.6377525582406458,
+          "maximum_replay_difference": 4.808191345073709e-11,
+          "initial_energy": -0.0384538664,
+          "variational_energy": null
+        },
+        "small_random": {
+          "energy": -0.3907258135,
+          "wrong_electron_probability": 0.9598846714820329,
+          "maximum_replay_difference": 3.279282401180694e-11,
+          "initial_energy": -0.3634912915,
+          "variational_energy": null
+        },
+        "near_identity": {
+          "energy": -0.4163957057,
+          "wrong_electron_probability": 0.9993283899672409,
+          "maximum_replay_difference": 4.342692871972531e-11,
+          "initial_energy": -0.4158197757,
+          "variational_energy": null
+        },
+        "zeros": {
+          "energy": -0.41682736,
+          "wrong_electron_probability": 1.0,
+          "maximum_replay_difference": 4.977929179972307e-11,
+          "initial_energy": -0.41682736,
+          "variational_energy": null
+        }
+      },
+      "gradient_rows": 6
+    },
+    {
+      "algorithm": "pennylane_vqe",
+      "optimizer": "GradientDescent",
+      "channel": "phaseflip",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": null,
+      "trials": {
+        "random_uniform": {
+          "energy": -0.0830983236,
+          "wrong_electron_probability": 0.6388957352597701,
+          "maximum_replay_difference": 2.4725194114338933e-11,
+          "initial_energy": -0.0394462795,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "qaoa_inspired_vqe",
+      "optimizer": "COBYLA",
+      "channel": null,
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": null,
+      "trials": {
+        "random_uniform": {
+          "energy": -0.6977391912,
+          "wrong_electron_probability": 0.3867276612022442,
+          "maximum_replay_difference": 4.678790688217305e-11,
+          "initial_energy": -0.0028020878,
+          "variational_energy": null
+        },
+        "small_random": {
+          "energy": -0.7289978872,
+          "wrong_electron_probability": 0.43229356261254503,
+          "maximum_replay_difference": 3.184152941315688e-11,
+          "initial_energy": -0.0246380059,
+          "variational_energy": null
+        },
+        "near_identity": {
+          "energy": -0.9394887975,
+          "wrong_electron_probability": 0.2013899953678542,
+          "maximum_replay_difference": 2.8546498498371875e-11,
+          "initial_energy": -0.0649953837,
+          "variational_energy": null
+        },
+        "zeros": {
+          "energy": -0.4681869226,
+          "wrong_electron_probability": 0.5369189265981534,
+          "maximum_replay_difference": 2.7781721367858836e-11,
+          "initial_energy": -0.0596205828,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "qaoa_inspired_vqe",
+      "optimizer": "COBYLA",
+      "channel": "phaseflip",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": null,
+      "trials": {
+        "random_uniform": {
+          "energy": -0.6779690036,
+          "wrong_electron_probability": 0.3093383904125051,
+          "maximum_replay_difference": 2.7972735239245594e-11,
+          "initial_energy": -0.0029634217,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "qaoa_inspired_vqe",
+      "optimizer": "BAYESIAN",
+      "channel": null,
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "trials": {
+        "random_uniform": {
+          "energy": -0.2998520644,
+          "wrong_electron_probability": 0.5847006027316617,
+          "maximum_replay_difference": 1.3196832515660617e-11,
+          "initial_energy": -0.0028020878,
+          "variational_energy": null
+        },
+        "small_random": {
+          "energy": -0.2998520644,
+          "wrong_electron_probability": 0.5847006027316617,
+          "maximum_replay_difference": 1.3196832515660617e-11,
+          "initial_energy": -0.0246380059,
+          "variational_energy": null
+        },
+        "near_identity": {
+          "energy": -0.2998520644,
+          "wrong_electron_probability": 0.5847006027316617,
+          "maximum_replay_difference": 1.3196832515660617e-11,
+          "initial_energy": -0.0649953837,
+          "variational_energy": null
+        },
+        "zeros": {
+          "energy": -0.2998520644,
+          "wrong_electron_probability": 0.5847006027316617,
+          "maximum_replay_difference": 1.3196832515660617e-11,
+          "initial_energy": -0.0596205828,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "qaoa_inspired_vqe",
+      "optimizer": "BAYESIAN",
+      "channel": "phaseflip",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "trials": {
+        "random_uniform": {
+          "energy": -0.2936629034,
+          "wrong_electron_probability": 0.5859782491137703,
+          "maximum_replay_difference": 2.5907387346535415e-11,
+          "initial_energy": -0.0029634217,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "hva_vqe",
+      "optimizer": "COBYLA",
+      "channel": null,
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": null,
+      "bayes_bounds": null,
+      "trials": {
+        "random_uniform": {
+          "energy": -1.1367614345,
+          "wrong_electron_probability": 4.709244403608198e-32,
+          "maximum_replay_difference": 1.1637357744120891e-11,
+          "initial_energy": -0.963381598,
+          "variational_energy": null
+        },
+        "small_random": {
+          "energy": -1.1368462982,
+          "wrong_electron_probability": 3.164872313136008e-32,
+          "maximum_replay_difference": 2.770605966873063e-11,
+          "initial_energy": -1.1154234943,
+          "variational_energy": null
+        },
+        "near_identity": {
+          "energy": -1.1300043072,
+          "wrong_electron_probability": 3.3754341099369274e-32,
+          "maximum_replay_difference": 4.157341138011361e-11,
+          "initial_energy": -1.117472645,
+          "variational_energy": null
+        },
+        "zeros": {
+          "energy": -1.1367484403,
+          "wrong_electron_probability": 5.089606891427653e-32,
+          "maximum_replay_difference": 4.772182649048773e-11,
+          "initial_energy": -1.1175058842,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "hva_vqe",
+      "optimizer": "COBYLA",
+      "channel": "phaseflip",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": null,
+      "bayes_bounds": null,
+      "trials": {
+        "random_uniform": {
+          "energy": -1.0680838413,
+          "wrong_electron_probability": 2.1684043449708494e-16,
+          "maximum_replay_difference": 4.0746073182162945e-11,
+          "initial_energy": -0.9057871438,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "hva_vqe",
+      "optimizer": "BAYESIAN",
+      "channel": null,
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": null,
+      "bayes_bounds": [
+        -6.283185307179586,
+        6.283185307179586
+      ],
+      "trials": {
+        "random_uniform": {
+          "energy": -1.0382816838,
+          "wrong_electron_probability": 6.729299507528462e-32,
+          "maximum_replay_difference": 7.784439759461748e-12,
+          "initial_energy": -0.963381598,
+          "variational_energy": null
+        },
+        "small_random": {
+          "energy": -1.1154234943,
+          "wrong_electron_probability": 3.7126861864994866e-32,
+          "maximum_replay_difference": 3.265543391250958e-11,
+          "initial_energy": -1.1154234943,
+          "variational_energy": null
+        },
+        "near_identity": {
+          "energy": -1.117472645,
+          "wrong_electron_probability": 5.272679302091701e-32,
+          "maximum_replay_difference": 3.522138136702324e-11,
+          "initial_energy": -1.117472645,
+          "variational_energy": null
+        },
+        "zeros": {
+          "energy": -1.1175058842,
+          "wrong_electron_probability": 4.6222318665293715e-32,
+          "maximum_replay_difference": 4.326095037754385e-12,
+          "initial_energy": -1.1175058842,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "hva_vqe",
+      "optimizer": "BAYESIAN",
+      "channel": "phaseflip",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": null,
+      "bayes_bounds": [
+        -6.283185307179586,
+        6.283185307179586
+      ],
+      "trials": {
+        "random_uniform": {
+          "energy": -1.009004755,
+          "wrong_electron_probability": 9.042246118528432e-17,
+          "maximum_replay_difference": 4.357469940430292e-11,
+          "initial_energy": -0.9057871438,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "ucc_vqe",
+      "optimizer": "COBYLA",
+      "channel": null,
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 12.566370614359172,
+      "bayes_bounds": null,
+      "trials": {
+        "random_uniform": {
+          "energy": -1.1368465747,
+          "wrong_electron_probability": 0.0,
+          "maximum_replay_difference": 7.618350394977824e-12,
+          "initial_energy": -0.5195136554,
+          "variational_energy": null
+        },
+        "small_random": {
+          "energy": -1.1368465749,
+          "wrong_electron_probability": 0.0,
+          "maximum_replay_difference": 9.552358903874847e-12,
+          "initial_energy": -1.0887580442,
+          "variational_energy": null
+        },
+        "near_identity": {
+          "energy": -1.1368465754,
+          "wrong_electron_probability": 0.0,
+          "maximum_replay_difference": 1.287125961368929e-11,
+          "initial_energy": -1.1160899067,
+          "variational_energy": null
+        },
+        "zeros": {
+          "energy": -1.1368465755,
+          "wrong_electron_probability": 0.0,
+          "maximum_replay_difference": 3.498423772896331e-11,
+          "initial_energy": -1.1175058842,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "ucc_vqe",
+      "optimizer": "COBYLA",
+      "channel": "phaseflip",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 12.566370614359172,
+      "bayes_bounds": null,
+      "trials": {
+        "random_uniform": {
+          "energy": -1.1339884531,
+          "wrong_electron_probability": 0.0,
+          "maximum_replay_difference": 3.009748006377322e-11,
+          "initial_energy": -0.5055922142,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "ucc_vqe",
+      "optimizer": "BAYESIAN",
+      "channel": null,
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 12.566370614359172,
+      "bayes_bounds": [
+        -6.283185307179586,
+        6.283185307179586
+      ],
+      "trials": {
+        "random_uniform": {
+          "energy": -0.8083984866,
+          "wrong_electron_probability": 0.0,
+          "maximum_replay_difference": 1.377553626724648e-11,
+          "initial_energy": -0.5195136554,
+          "variational_energy": null
+        },
+        "small_random": {
+          "energy": -1.0887580442,
+          "wrong_electron_probability": 0.0,
+          "maximum_replay_difference": 1.1998402271728992e-11,
+          "initial_energy": -1.0887580442,
+          "variational_energy": null
+        },
+        "near_identity": {
+          "energy": -1.1160899067,
+          "wrong_electron_probability": 0.0,
+          "maximum_replay_difference": 3.5136338283336954e-12,
+          "initial_energy": -1.1160899067,
+          "variational_energy": null
+        },
+        "zeros": {
+          "energy": -1.1175058842,
+          "wrong_electron_probability": 0.0,
+          "maximum_replay_difference": 4.330980019062736e-12,
+          "initial_energy": -1.1175058842,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "ucc_vqe",
+      "optimizer": "BAYESIAN",
+      "channel": "phaseflip",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 12.566370614359172,
+      "bayes_bounds": [
+        -6.283185307179586,
+        6.283185307179586
+      ],
+      "trials": {
+        "random_uniform": {
+          "energy": -0.8025941477,
+          "wrong_electron_probability": 0.0,
+          "maximum_replay_difference": 4.2397974020502716e-11,
+          "initial_energy": -0.5055922142,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "nn_ae_vqe",
+      "optimizer": "COBYLA",
+      "channel": null,
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": null,
+      "trials": {
+        "random_uniform": {
+          "energy": -0.9494954746,
+          "wrong_electron_probability": 0.20017049277380922,
+          "maximum_replay_difference": 2.523803388498891e-11,
+          "initial_energy": 0.05183433,
+          "variational_energy": null
+        },
+        "small_random": {
+          "energy": -1.1124571477,
+          "wrong_electron_probability": 0.00491848982128123,
+          "maximum_replay_difference": 3.543321192012172e-11,
+          "initial_energy": -1.0350441542,
+          "variational_energy": null
+        },
+        "near_identity": {
+          "energy": -1.1168728129,
+          "wrong_electron_probability": 0.0005296048851289769,
+          "maximum_replay_difference": 2.8170576982233797e-11,
+          "initial_energy": -1.1162081884,
+          "variational_energy": null
+        },
+        "zeros": {
+          "energy": -1.1175058842,
+          "wrong_electron_probability": 0.0,
+          "maximum_replay_difference": 4.330980019062736e-12,
+          "initial_energy": -1.1175058842,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "nn_ae_vqe",
+      "optimizer": "COBYLA",
+      "channel": "phaseflip",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": null,
+      "trials": {
+        "random_uniform": {
+          "energy": -0.9506633012,
+          "wrong_electron_probability": 0.1973968624488769,
+          "maximum_replay_difference": 4.4660164455478935e-11,
+          "initial_energy": 0.0495977536,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "nn_ae_vqe",
+      "optimizer": "BAYESIAN",
+      "channel": null,
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "trials": {
+        "random_uniform": {
+          "energy": -0.3718267667,
+          "wrong_electron_probability": 0.6113235465336885,
+          "maximum_replay_difference": 1.5746681736317214e-11,
+          "initial_energy": 0.05183433,
+          "variational_energy": null
+        },
+        "small_random": {
+          "energy": -1.0350441542,
+          "wrong_electron_probability": 0.07994181402749058,
+          "maximum_replay_difference": 2.2021495738044905e-11,
+          "initial_energy": -1.0350441542,
+          "variational_energy": null
+        },
+        "near_identity": {
+          "energy": -1.1162081884,
+          "wrong_electron_probability": 0.0013065307727245549,
+          "maximum_replay_difference": 9.49684775264359e-13,
+          "initial_energy": -1.1162081884,
+          "variational_energy": null
+        },
+        "zeros": {
+          "energy": -1.1175058842,
+          "wrong_electron_probability": 0.0,
+          "maximum_replay_difference": 4.330980019062736e-12,
+          "initial_energy": -1.1175058842,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "nn_ae_vqe",
+      "optimizer": "BAYESIAN",
+      "channel": "phaseflip",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "trials": {
+        "random_uniform": {
+          "energy": -0.3695965483,
+          "wrong_electron_probability": 0.6113235465336887,
+          "maximum_replay_difference": 3.1479152617919226e-11,
+          "initial_energy": 0.0495977536,
+          "variational_energy": null
+        }
+      }
+    },
+    {
+      "algorithm": "cb_vqe",
+      "optimizer": "COBYLA",
+      "channel": null,
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": null,
+      "trials": {
+        "random_uniform": {
+          "energy": -1.1175220878,
+          "wrong_electron_probability": 1.3945371010430394e-05,
+          "maximum_replay_difference": 1.8885115693478838e-11,
+          "initial_energy": -1.1181005165,
+          "variational_energy": -0.6488598755057193
+        },
+        "small_random": {
+          "energy": -1.1176327924,
+          "wrong_electron_probability": 0.000121803727141476,
+          "maximum_replay_difference": 3.5649261320713777e-12,
+          "initial_energy": -1.117509289,
+          "variational_energy": -0.6068979752459579
+        },
+        "near_identity": {
+          "energy": -1.1175541601,
+          "wrong_electron_probability": 4.468383724745839e-05,
+          "maximum_replay_difference": 4.747313653297169e-12,
+          "initial_energy": -1.1175058878,
+          "variational_energy": -0.5921483090392807
+        },
+        "zeros": {
+          "energy": -1.1175058842,
+          "wrong_electron_probability": 0.0,
+          "maximum_replay_difference": 4.330980019062736e-12,
+          "initial_energy": -1.1175058842,
+          "variational_energy": -0.5003117312964941
+        }
+      }
+    },
+    {
+      "algorithm": "cb_vqe",
+      "optimizer": "BAYESIAN",
+      "channel": null,
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "trials": {
+        "random_uniform": {
+          "energy": -1.1179348441,
+          "wrong_electron_probability": 0.00029021197215256224,
+          "maximum_replay_difference": 4.7975401429312114e-11,
+          "initial_energy": -1.1181005165,
+          "variational_energy": -0.36606403027529316
+        },
+        "small_random": {
+          "energy": -1.1179348441,
+          "wrong_electron_probability": 0.00029021197215256224,
+          "maximum_replay_difference": 4.7975401429312114e-11,
+          "initial_energy": -1.117509289,
+          "variational_energy": -0.36606403027529316
+        },
+        "near_identity": {
+          "energy": -1.1175058878,
+          "wrong_electron_probability": 5.123224341640397e-09,
+          "maximum_replay_difference": 1.326494469822137e-12,
+          "initial_energy": -1.1175058878,
+          "variational_energy": -0.41581977568095635
+        },
+        "zeros": {
+          "energy": -1.1175058842,
+          "wrong_electron_probability": 0.0,
+          "maximum_replay_difference": 4.330980019062736e-12,
+          "initial_energy": -1.1175058842,
+          "variational_energy": -0.41682736004977927
+        }
+      }
+    }
+  ],
+  "noise": [
+    {
+      "algorithm": "hardware_efficient_vqe",
+      "optimizer": "COBYLA",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": null,
+      "endpoints": {
+        "none@0": {
+          "noisy": {
+            "energy": -0.7559307409,
+            "wrong_electron_probability": 0.07574607308569928,
+            "maximum_replay_difference": 7.188361017540501e-12
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.7559307409,
+            "wrong_electron_probability": 0.07574607308569928,
+            "maximum_replay_difference": 7.188361017540501e-12
+          }
+        },
+        "depolarizing@0.01": {
+          "noisy": {
+            "energy": -0.7227114161,
+            "wrong_electron_probability": 0.09451684898681532,
+            "maximum_replay_difference": 4.329536729130723e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.7558049088,
+            "wrong_electron_probability": 0.05044913583868427,
+            "maximum_replay_difference": 3.8636094323862835e-11
+          }
+        },
+        "phaseflip@0.01": {
+          "noisy": {
+            "energy": -0.7314077624,
+            "wrong_electron_probability": 0.09206112788443027,
+            "maximum_replay_difference": 1.3702039503016294e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.7462774199,
+            "wrong_electron_probability": 0.07515290473459259,
+            "maximum_replay_difference": 3.938693815541683e-11
+          }
+        },
+        "amplitude_damping@0.01": {
+          "noisy": {
+            "energy": -0.7428510515,
+            "wrong_electron_probability": 0.08700960705060704,
+            "maximum_replay_difference": 2.0963231150972206e-12
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.7729497916,
+            "wrong_electron_probability": 0.0507249080199916,
+            "maximum_replay_difference": 1.898314838655324e-11
+          }
+        }
+      }
+    },
+    {
+      "algorithm": "hardware_efficient_vqe",
+      "optimizer": "BAYESIAN",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "endpoints": {
+        "none@0": {
+          "noisy": {
+            "energy": -0.2257010127,
+            "wrong_electron_probability": 0.4780696173549098,
+            "maximum_replay_difference": 3.369945988929146e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.2257010127,
+            "wrong_electron_probability": 0.4780696173549098,
+            "maximum_replay_difference": 3.369945988929146e-11
+          }
+        },
+        "depolarizing@0.01": {
+          "noisy": {
+            "energy": -0.2147848621,
+            "wrong_electron_probability": 0.5465206079595947,
+            "maximum_replay_difference": 4.6350284721441426e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.2227815885,
+            "wrong_electron_probability": 0.5396810123959201,
+            "maximum_replay_difference": 6.623063208976987e-12
+          }
+        },
+        "phaseflip@0.01": {
+          "noisy": {
+            "energy": -0.2255373395,
+            "wrong_electron_probability": 0.5431848243503247,
+            "maximum_replay_difference": 2.3276658378534876e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.2227815885,
+            "wrong_electron_probability": 0.5396810123959201,
+            "maximum_replay_difference": 6.623063208976987e-12
+          }
+        },
+        "amplitude_damping@0.01": {
+          "noisy": {
+            "energy": -0.2203400667,
+            "wrong_electron_probability": 0.5418973238551152,
+            "maximum_replay_difference": 4.9483306341358e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.2227815885,
+            "wrong_electron_probability": 0.5396810123959201,
+            "maximum_replay_difference": 6.623063208976987e-12
+          }
+        }
+      }
+    },
+    {
+      "algorithm": "pennylane_vqe",
+      "optimizer": "COBYLA",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": null,
+      "endpoints": {
+        "none@0": {
+          "noisy": {
+            "energy": -0.6488598755,
+            "wrong_electron_probability": 0.4005844757994526,
+            "maximum_replay_difference": 5.719202889054031e-12
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.6488598755,
+            "wrong_electron_probability": 0.4005844757994526,
+            "maximum_replay_difference": 5.719202889054031e-12
+          }
+        },
+        "depolarizing@0.01": {
+          "noisy": {
+            "energy": -0.6236921158,
+            "wrong_electron_probability": 0.41407729749881844,
+            "maximum_replay_difference": 1.3090972750262608e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.6498585756,
+            "wrong_electron_probability": 0.3991691477665708,
+            "maximum_replay_difference": 1.0465073252419188e-11
+          }
+        },
+        "phaseflip@0.01": {
+          "noisy": {
+            "energy": -0.6305821359,
+            "wrong_electron_probability": 0.4072741293954182,
+            "maximum_replay_difference": 2.319300307362937e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.6504972664,
+            "wrong_electron_probability": 0.39818302646801307,
+            "maximum_replay_difference": 7.151612635425408e-12
+          }
+        },
+        "amplitude_damping@0.01": {
+          "noisy": {
+            "energy": -0.6344553938,
+            "wrong_electron_probability": 0.40868398099205666,
+            "maximum_replay_difference": 4.1995851240983484e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.6510431836,
+            "wrong_electron_probability": 0.3961320057917192,
+            "maximum_replay_difference": 4.254829821803696e-11
+          }
+        }
+      }
+    },
+    {
+      "algorithm": "pennylane_vqe",
+      "optimizer": "BAYESIAN",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "endpoints": {
+        "none@0": {
+          "noisy": {
+            "energy": -0.3660640303,
+            "wrong_electron_probability": 0.49730571779216204,
+            "maximum_replay_difference": 2.4707069723461927e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.3660640303,
+            "wrong_electron_probability": 0.49730571779216204,
+            "maximum_replay_difference": 2.4707069723461927e-11
+          }
+        },
+        "depolarizing@0.01": {
+          "noisy": {
+            "energy": -0.351692892,
+            "wrong_electron_probability": 0.5050342037865553,
+            "maximum_replay_difference": 4.6588344293496675e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.3660640303,
+            "wrong_electron_probability": 0.49730571779216204,
+            "maximum_replay_difference": 2.4707069723461927e-11
+          }
+        },
+        "phaseflip@0.01": {
+          "noisy": {
+            "energy": -0.3648595631,
+            "wrong_electron_probability": 0.49812026292688044,
+            "maximum_replay_difference": 3.7610414782562884e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.3660640303,
+            "wrong_electron_probability": 0.49730571779216204,
+            "maximum_replay_difference": 2.4707069723461927e-11
+          }
+        },
+        "amplitude_damping@0.01": {
+          "noisy": {
+            "energy": -0.3605895131,
+            "wrong_electron_probability": 0.5003451398252358,
+            "maximum_replay_difference": 2.5430435535156448e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.3660640303,
+            "wrong_electron_probability": 0.49730571779216204,
+            "maximum_replay_difference": 2.4707069723461927e-11
+          }
+        }
+      }
+    },
+    {
+      "algorithm": "qaoa_inspired_vqe",
+      "optimizer": "COBYLA",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": null,
+      "endpoints": {
+        "none@0": {
+          "noisy": {
+            "energy": -0.6977391912,
+            "wrong_electron_probability": 0.3867276612022442,
+            "maximum_replay_difference": 4.678790688217305e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.6977391912,
+            "wrong_electron_probability": 0.3867276612022442,
+            "maximum_replay_difference": 4.678790688217305e-11
+          }
+        },
+        "depolarizing@0.01": {
+          "noisy": {
+            "energy": -0.5943946266,
+            "wrong_electron_probability": 0.46994705526768,
+            "maximum_replay_difference": 5.976108496952293e-12
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.6232946764,
+            "wrong_electron_probability": 0.45555235083365286,
+            "maximum_replay_difference": 2.0370927167334685e-11
+          }
+        },
+        "phaseflip@0.01": {
+          "noisy": {
+            "energy": -0.6779690036,
+            "wrong_electron_probability": 0.3093383904125051,
+            "maximum_replay_difference": 2.7972735239245594e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.6891262756,
+            "wrong_electron_probability": 0.2948195719896141,
+            "maximum_replay_difference": 2.365896367706455e-11
+          }
+        },
+        "amplitude_damping@0.01": {
+          "noisy": {
+            "energy": -0.5459079208,
+            "wrong_electron_probability": 0.565185403781426,
+            "maximum_replay_difference": 7.672307233974607e-12
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.5635995743,
+            "wrong_electron_probability": 0.5575791520980261,
+            "maximum_replay_difference": 2.6040058997978122e-11
+          }
+        }
+      }
+    },
+    {
+      "algorithm": "qaoa_inspired_vqe",
+      "optimizer": "BAYESIAN",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "endpoints": {
+        "none@0": {
+          "noisy": {
+            "energy": -0.2998520644,
+            "wrong_electron_probability": 0.5847006027316617,
+            "maximum_replay_difference": 1.3196832515660617e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.2998520644,
+            "wrong_electron_probability": 0.5847006027316617,
+            "maximum_replay_difference": 1.3196832515660617e-11
+          }
+        },
+        "depolarizing@0.01": {
+          "noisy": {
+            "energy": -0.2905647826,
+            "wrong_electron_probability": 0.5872461221796499,
+            "maximum_replay_difference": 4.148331678166528e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.2998520644,
+            "wrong_electron_probability": 0.5847006027316617,
+            "maximum_replay_difference": 1.3196832515660617e-11
+          }
+        },
+        "phaseflip@0.01": {
+          "noisy": {
+            "energy": -0.2936629034,
+            "wrong_electron_probability": 0.5859782491137703,
+            "maximum_replay_difference": 2.5907387346535415e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.2998520644,
+            "wrong_electron_probability": 0.5847006027316617,
+            "maximum_replay_difference": 1.3196832515660617e-11
+          }
+        },
+        "amplitude_damping@0.01": {
+          "noisy": {
+            "energy": -0.2978673739,
+            "wrong_electron_probability": 0.5844496441183844,
+            "maximum_replay_difference": 3.136590986940746e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.2998520644,
+            "wrong_electron_probability": 0.5847006027316617,
+            "maximum_replay_difference": 1.3196832515660617e-11
+          }
+        }
+      }
+    },
+    {
+      "algorithm": "hva_vqe",
+      "optimizer": "COBYLA",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": null,
+      "bayes_bounds": null,
+      "endpoints": {
+        "none@0": {
+          "noisy": {
+            "energy": -1.1367614345,
+            "wrong_electron_probability": 4.709244403608198e-32,
+            "maximum_replay_difference": 1.1637357744120891e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -1.1367614345,
+            "wrong_electron_probability": 4.709244403608198e-32,
+            "maximum_replay_difference": 1.1637357744120891e-11
+          }
+        },
+        "depolarizing@0.01": {
+          "noisy": {
+            "energy": -1.0699908771,
+            "wrong_electron_probability": 0.05125131940804073,
+            "maximum_replay_difference": 1.9651169580470196e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -1.1362200173,
+            "wrong_electron_probability": 6.03981277592293e-32,
+            "maximum_replay_difference": 1.265632043612186e-11
+          }
+        },
+        "phaseflip@0.01": {
+          "noisy": {
+            "energy": -1.0680838413,
+            "wrong_electron_probability": 2.1684043449708494e-16,
+            "maximum_replay_difference": 4.0746073182162945e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -1.1344835087,
+            "wrong_electron_probability": 1.084303790992159e-31,
+            "maximum_replay_difference": 2.463962367471595e-11
+          }
+        },
+        "amplitude_damping@0.01": {
+          "noisy": {
+            "energy": -1.1047380314,
+            "wrong_electron_probability": 0.03940399000003764,
+            "maximum_replay_difference": 2.794742215428414e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -1.136114741,
+            "wrong_electron_probability": 4.538942536752498e-32,
+            "maximum_replay_difference": 1.971534047129353e-11
+          }
+        }
+      }
+    },
+    {
+      "algorithm": "hva_vqe",
+      "optimizer": "BAYESIAN",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": null,
+      "bayes_bounds": [
+        -6.283185307179586,
+        6.283185307179586
+      ],
+      "endpoints": {
+        "none@0": {
+          "noisy": {
+            "energy": -1.0382816838,
+            "wrong_electron_probability": 6.729299507528462e-32,
+            "maximum_replay_difference": 7.784439759461748e-12
+          },
+          "clean_at_noisy_params": {
+            "energy": -1.0382816838,
+            "wrong_electron_probability": 6.729299507528462e-32,
+            "maximum_replay_difference": 7.784439759461748e-12
+          }
+        },
+        "depolarizing@0.01": {
+          "noisy": {
+            "energy": -0.9957106512,
+            "wrong_electron_probability": 0.05125131940804116,
+            "maximum_replay_difference": 5.129341396070686e-12
+          },
+          "clean_at_noisy_params": {
+            "energy": -1.0382816838,
+            "wrong_electron_probability": 6.729299507528462e-32,
+            "maximum_replay_difference": 7.784439759461748e-12
+          }
+        },
+        "phaseflip@0.01": {
+          "noisy": {
+            "energy": -1.009004755,
+            "wrong_electron_probability": 9.042246118528432e-17,
+            "maximum_replay_difference": 4.357469940430292e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -1.0382816838,
+            "wrong_electron_probability": 6.729299507528462e-32,
+            "maximum_replay_difference": 7.784439759461748e-12
+          }
+        },
+        "amplitude_damping@0.01": {
+          "noisy": {
+            "energy": -1.0153501967,
+            "wrong_electron_probability": 0.039403990000037685,
+            "maximum_replay_difference": 4.6340709047854034e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -1.0382816838,
+            "wrong_electron_probability": 6.729299507528462e-32,
+            "maximum_replay_difference": 7.784439759461748e-12
+          }
+        }
+      }
+    },
+    {
+      "algorithm": "ucc_vqe",
+      "optimizer": "COBYLA",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 12.566370614359172,
+      "bayes_bounds": null,
+      "endpoints": {
+        "none@0": {
+          "noisy": {
+            "energy": -1.1368465747,
+            "wrong_electron_probability": 0.0,
+            "maximum_replay_difference": 7.618350394977824e-12
+          },
+          "clean_at_noisy_params": {
+            "energy": -1.1368465747,
+            "wrong_electron_probability": 0.0,
+            "maximum_replay_difference": 7.618350394977824e-12
+          }
+        },
+        "depolarizing@0.01": {
+          "noisy": {
+            "energy": -1.117956997,
+            "wrong_electron_probability": 0.026225765926002263,
+            "maximum_replay_difference": 1.0434098030032146e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -1.1368177038,
+            "wrong_electron_probability": 0.0,
+            "maximum_replay_difference": 3.565636674807138e-11
+          }
+        },
+        "phaseflip@0.01": {
+          "noisy": {
+            "energy": -1.1339884531,
+            "wrong_electron_probability": 0.0,
+            "maximum_replay_difference": 3.009748006377322e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -1.1367364666,
+            "wrong_electron_probability": 0.0,
+            "maximum_replay_difference": 4.656031116212489e-11
+          }
+        },
+        "amplitude_damping@0.01": {
+          "noisy": {
+            "energy": -1.1244063243,
+            "wrong_electron_probability": 0.019900000000019406,
+            "maximum_replay_difference": 4.6981085688457824e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -1.1368447687,
+            "wrong_electron_probability": 0.0,
+            "maximum_replay_difference": 1.2571277352435573e-11
+          }
+        }
+      }
+    },
+    {
+      "algorithm": "ucc_vqe",
+      "optimizer": "BAYESIAN",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 12.566370614359172,
+      "bayes_bounds": [
+        -6.283185307179586,
+        6.283185307179586
+      ],
+      "endpoints": {
+        "none@0": {
+          "noisy": {
+            "energy": -0.8083984866,
+            "wrong_electron_probability": 0.0,
+            "maximum_replay_difference": 1.377553626724648e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.8083984866,
+            "wrong_electron_probability": 0.0,
+            "maximum_replay_difference": 1.377553626724648e-11
+          }
+        },
+        "depolarizing@0.01": {
+          "noisy": {
+            "energy": -0.7922946481,
+            "wrong_electron_probability": 0.026225765926002263,
+            "maximum_replay_difference": 3.254985170286773e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.8083984866,
+            "wrong_electron_probability": 0.0,
+            "maximum_replay_difference": 1.377553626724648e-11
+          }
+        },
+        "phaseflip@0.01": {
+          "noisy": {
+            "energy": -0.8025941477,
+            "wrong_electron_probability": 0.0,
+            "maximum_replay_difference": 4.2397974020502716e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.8083984866,
+            "wrong_electron_probability": 0.0,
+            "maximum_replay_difference": 1.377553626724648e-11
+          }
+        },
+        "amplitude_damping@0.01": {
+          "noisy": {
+            "energy": -0.7988230837,
+            "wrong_electron_probability": 0.01990000000001941,
+            "maximum_replay_difference": 3.675493243093797e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.8083984866,
+            "wrong_electron_probability": 0.0,
+            "maximum_replay_difference": 1.377553626724648e-11
+          }
+        }
+      }
+    },
+    {
+      "algorithm": "nn_ae_vqe",
+      "optimizer": "COBYLA",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": null,
+      "endpoints": {
+        "none@0": {
+          "noisy": {
+            "energy": -0.9494954746,
+            "wrong_electron_probability": 0.20017049277380922,
+            "maximum_replay_difference": 2.523803388498891e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.9494954746,
+            "wrong_electron_probability": 0.20017049277380922,
+            "maximum_replay_difference": 2.523803388498891e-11
+          }
+        },
+        "depolarizing@0.01": {
+          "noisy": {
+            "energy": -0.9369067292,
+            "wrong_electron_probability": 0.2152571626752517,
+            "maximum_replay_difference": 4.8098525162743044e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.9511624011,
+            "wrong_electron_probability": 0.19799400729761607,
+            "maximum_replay_difference": 2.4556134903264137e-11
+          }
+        },
+        "phaseflip@0.01": {
+          "noisy": {
+            "energy": -0.9506633012,
+            "wrong_electron_probability": 0.1973968624488769,
+            "maximum_replay_difference": 4.4660164455478935e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.9504802068,
+            "wrong_electron_probability": 0.1973968624488768,
+            "maximum_replay_difference": 1.6967760529951192e-11
+          }
+        },
+        "amplitude_damping@0.01": {
+          "noisy": {
+            "energy": -0.9398119335,
+            "wrong_electron_probability": 0.21140628514175058,
+            "maximum_replay_difference": 2.8367308502197375e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.9491550173,
+            "wrong_electron_probability": 0.1990124397816957,
+            "maximum_replay_difference": 3.444633467353242e-11
+          }
+        }
+      }
+    },
+    {
+      "algorithm": "nn_ae_vqe",
+      "optimizer": "BAYESIAN",
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "parameter_period": 6.283185307179586,
+      "bayes_bounds": [
+        -3.141592653589793,
+        3.141592653589793
+      ],
+      "endpoints": {
+        "none@0": {
+          "noisy": {
+            "energy": -0.3718267667,
+            "wrong_electron_probability": 0.6113235465336885,
+            "maximum_replay_difference": 1.5746681736317214e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.3718267667,
+            "wrong_electron_probability": 0.6113235465336885,
+            "maximum_replay_difference": 1.5746681736317214e-11
+          }
+        },
+        "depolarizing@0.01": {
+          "noisy": {
+            "energy": -0.3659657911,
+            "wrong_electron_probability": 0.6108885597436092,
+            "maximum_replay_difference": 6.901701432582286e-13
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.3718267667,
+            "wrong_electron_probability": 0.6113235465336885,
+            "maximum_replay_difference": 1.5746681736317214e-11
+          }
+        },
+        "phaseflip@0.01": {
+          "noisy": {
+            "energy": -0.3695965483,
+            "wrong_electron_probability": 0.6113235465336887,
+            "maximum_replay_difference": 3.1479152617919226e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.3718267667,
+            "wrong_electron_probability": 0.6113235465336885,
+            "maximum_replay_difference": 1.5746681736317214e-11
+          }
+        },
+        "amplitude_damping@0.01": {
+          "noisy": {
+            "energy": -0.37146069,
+            "wrong_electron_probability": 0.607602135982082,
+            "maximum_replay_difference": 2.404260124322377e-11
+          },
+          "clean_at_noisy_params": {
+            "energy": -0.3718267667,
+            "wrong_electron_probability": 0.6113235465336885,
+            "maximum_replay_difference": 1.5746681736317214e-11
+          }
+        }
+      }
+    }
+  ],
+  "restrictions": {
+    "growing_algorithms": [
+      "adapt_vqe",
+      "iqcc_inspired_vqe",
+      "iqcc_true_vqe",
+      "qubit_adapt_vqe"
+    ],
+    "gradient_shift_algorithms": [
+      "hardware_efficient_vqe",
+      "pennylane_vqe"
+    ],
+    "pure_ritz_only": "cb_vqe",
+    "noise_optimizers": [
+      "COBYLA",
+      "BAYESIAN"
+    ]
+  }
+}

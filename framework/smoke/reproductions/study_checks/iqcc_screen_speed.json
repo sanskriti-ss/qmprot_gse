@@ -1,0 +1,325 @@
+{
+  "source_before": "ab1954f",
+  "source_after": "c738446",
+  "host": "macOS-27.0-arm64-arm-64bit",
+  "versions": {
+    "numpy": "1.26.4",
+    "pennylane": "0.38.0",
+    "pennylane-lightning": "0.38.0",
+    "openfermion": "1.8.1",
+    "scipy": "1.16.3"
+  },
+  "threads": 1,
+  "seed": 42,
+  "threshold": 1e-08,
+  "scope": "Real glycine, analytic Lightning statevector, complete solver.run including HF verification. Two steps for the 4q, 8q and 12q prefixes. Each objective argument and result is hashed as binary64. Stopping, all prior metadata, every angle and history are also compared. Raw receipts under framework/results/profiling/efficiency-sweep/iqcc/.",
+  "fits": {
+    "true_4q_26": {
+      "before_seconds": [
+        0.022489000111818314,
+        0.020027332939207554,
+        0.05185749987140298
+      ],
+      "after_seconds": [
+        0.020469333045184612,
+        0.018181665800511837,
+        0.05317525006830692
+      ],
+      "median_speedup": 1.0986679469319018,
+      "physical_work": {
+        "n_materialized_commutators": 8
+      },
+      "original_scientific_sha256": "68b3f938e7933b38bee80fe60b0cab4780c3a53618d4b37cbe26614bf4aa407f",
+      "original_objective_trace_sha256": "1dedd45f710311ed7a98e04eb5dc11fbc6e84aca32a64367a1e8e06d615dbb88",
+      "energy_hex": "-0x1.171c8c3add875p+8",
+      "selected_generators": [
+        "X1 Y3",
+        "X0 Y2"
+      ],
+      "angles_hex": [
+        "-0x1.9dc71f94a1959p-13",
+        "0x1.9e549cbd51cbcp-18"
+      ],
+      "logical_molecular_evaluations": 3,
+      "logical_screen_expectations": 128,
+      "logical_commutator_builds": 132,
+      "input": "smoke/reproductions/iqcc_glycine/glycine.json",
+      "input_sha256": "6de2adcfdd7926b5406ab1730e26b776489757b076fe837bbf5fce54a0cfa042"
+    },
+    "inspired_4q_26": {
+      "before_seconds": [
+        0.12098899995908141,
+        0.11820166697725654,
+        0.15071704192087054
+      ],
+      "after_seconds": [
+        0.07816524989902973,
+        0.07505625020712614,
+        0.07917008409276605
+      ],
+      "median_speedup": 1.5478617431066801,
+      "physical_work": {
+        "n_materialized_commutators": 30,
+        "n_screen_support_zeros": 94
+      },
+      "original_scientific_sha256": "d5f74787f01156f5c0a3bcfad041ccdbb285f736446fcb259481b94d6686acd1",
+      "original_objective_trace_sha256": "b91d36367ded4f729f42e72c655577c2aacf6c8f4f49725abf2c972cbf635a1e",
+      "energy_hex": "-0x1.171c8c3add824p+8",
+      "selected_generators": [
+        "X1 Y3",
+        "X1 Y3"
+      ],
+      "angles_hex": [
+        "-0x1.a36e2eb1c432dp-14",
+        "0x0.0p+0"
+      ],
+      "logical_molecular_evaluations": 45,
+      "logical_screen_expectations": 128,
+      "logical_commutator_builds": 66,
+      "input": "smoke/reproductions/iqcc_glycine/glycine.json",
+      "input_sha256": "6de2adcfdd7926b5406ab1730e26b776489757b076fe837bbf5fce54a0cfa042"
+    },
+    "true_8q_200": {
+      "before_seconds": [
+        0.5523864580318332,
+        0.5469981669448316,
+        0.5603447919711471
+      ],
+      "after_seconds": [
+        0.4038575002923608,
+        0.35959829203784466,
+        0.36959695909172297
+      ],
+      "median_speedup": 1.4945644016912685,
+      "physical_work": {
+        "n_materialized_commutators": 36
+      },
+      "original_scientific_sha256": "8a3f51a657d373030f627b584319f427592aebe8dbc0838fa953b1208ef4e7ad",
+      "original_objective_trace_sha256": "34d53f9b3db6f482a4a9ea29357c8bee930f8556d5e02bd7ab93deaec385a71b",
+      "energy_hex": "-0x1.171cbd9b5f2bbp+8",
+      "selected_generators": [
+        "X3 Y6",
+        "X3 Y6"
+      ],
+      "angles_hex": [
+        "-0x1.47ae147ae147bp-8",
+        "-0x1.47ae147ae147bp-8"
+      ],
+      "logical_molecular_evaluations": 3,
+      "logical_screen_expectations": 552,
+      "logical_commutator_builds": 552,
+      "input": "smoke/reproductions/layered_vqe/contextual_gly.npz",
+      "input_sha256": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85"
+    },
+    "inspired_8q_200": {
+      "before_seconds": [
+        3.6665297499857843,
+        3.7096784999594092,
+        3.6941208341158926
+      ],
+      "after_seconds": [
+        1.1413574167527258,
+        1.1194664998911321,
+        1.1058077500201762
+      ],
+      "median_speedup": 3.2998940428098074,
+      "physical_work": {
+        "n_materialized_commutators": 114,
+        "n_screen_support_zeros": 438
+      },
+      "original_scientific_sha256": "9d96bd0e941708d4a94b7a52ffd6db5063784d31febc70da5352e011197e5b0d",
+      "original_objective_trace_sha256": "5e18fef3f91e56abce53b4454ca92d38a8502e4aeea5975d204df9943e0b081f",
+      "energy_hex": "-0x1.1720e70d1c082p+8",
+      "selected_generators": [
+        "X3 Y6",
+        "X4 Y7"
+      ],
+      "angles_hex": [
+        "-0x1.acfd06d56b64dp-3",
+        "-0x1.f7dfd15341169p-6"
+      ],
+      "logical_molecular_evaluations": 58,
+      "logical_screen_expectations": 552,
+      "logical_commutator_builds": 552,
+      "input": "smoke/reproductions/layered_vqe/contextual_gly.npz",
+      "input_sha256": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85"
+    },
+    "true_12q_100": {
+      "before_seconds": [
+        7.589623957872391,
+        7.544359750114381,
+        7.280291332863271
+      ],
+      "after_seconds": [
+        7.652728165965527,
+        7.249764166306704,
+        7.34463920770213
+      ],
+      "median_speedup": 1.0271926961644091,
+      "physical_work": {
+        "n_materialized_commutators": 88
+      },
+      "original_scientific_sha256": "d110e594588963875d1f1bb679b86871597bfdaff99c191f986c99b1debcad3a",
+      "original_objective_trace_sha256": "1e5d8783486c5b41a72c98bff851bd9c20e7ecab2695e4036c017da0ccb9bbed",
+      "energy_hex": "-0x1.17dfb9417d621p+8",
+      "selected_generators": [
+        "X2 Y6",
+        "X3 Y7"
+      ],
+      "angles_hex": [
+        "-0x1.47ae147ae147bp-8",
+        "0x1.47ae147ae147bp-8"
+      ],
+      "logical_molecular_evaluations": 3,
+      "logical_screen_expectations": 1260,
+      "logical_commutator_builds": 1260,
+      "input": "results/profiling/semantic-acceptance/full-budget-gly/gly/inputs/gly.npz",
+      "input_sha256": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec"
+    },
+    "inspired_12q_100": {
+      "before_seconds": [
+        9.99171020789072,
+        10.487018917221576,
+        10.62528849998489
+      ],
+      "after_seconds": [
+        7.819283958058804,
+        7.642432083375752,
+        7.535303625278175
+      ],
+      "median_speedup": 1.372209632066411,
+      "physical_work": {
+        "n_materialized_commutators": 268,
+        "n_screen_support_zeros": 992
+      },
+      "original_scientific_sha256": "edb3f96c790a4294c7104d9c5b4deed6eccc67880bb156cd3ecf7c0346440ffa",
+      "original_objective_trace_sha256": "182fe60ae53cd8d1370a122c54dbe94b17c6e3b441c82070ebe4c95b7d30341f",
+      "energy_hex": "-0x1.17ed54a90c1cbp+8",
+      "selected_generators": [
+        "X2 Y6",
+        "X3 Y7"
+      ],
+      "angles_hex": [
+        "-0x1.2ada6c74d5209p-3",
+        "0x1.29ecf1cb89c49p-3"
+      ],
+      "logical_molecular_evaluations": 64,
+      "logical_screen_expectations": 1260,
+      "logical_commutator_builds": 1260,
+      "input": "results/profiling/semantic-acceptance/full-budget-gly/gly/inputs/gly.npz",
+      "input_sha256": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec"
+    }
+  },
+  "original_device_zero_checks": {
+    "8q_200terms": {
+      "steps": 2,
+      "measured_disjoint": 438,
+      "largest_magnitude": 0.0
+    },
+    "12q_1819terms": {
+      "steps": 1,
+      "measured_disjoint": 570,
+      "largest_magnitude": 0.0
+    }
+  },
+  "full_register_first_step": {
+    "true_12q_1819": {
+      "before_seconds": [
+        6.593198332935572
+      ],
+      "after_seconds": [
+        4.790059916675091
+      ],
+      "median_speedup": 1.3764333740343038,
+      "physical_work": {
+        "n_materialized_commutators": 60
+      },
+      "original_scientific_sha256": "5c0b7b3d36452f3227e06170a01a939f8b695c915109e7aaa71f3ce222fdc811",
+      "original_objective_trace_sha256": "4f6670d5285b1c07c86fdaff3aebcb7b73918f4c648003492b81d4eea21bd700",
+      "energy_hex": "-0x1.171c8c3aaf3c4p+8",
+      "selected_generators": [
+        "X0 Y6"
+      ],
+      "angles_hex": [
+        "-0x1.9e84e7b6c56a0p-18"
+      ],
+      "logical_molecular_evaluations": 2,
+      "logical_screen_expectations": 630,
+      "logical_commutator_builds": 630,
+      "input": "results/profiling/semantic-acceptance/full-budget-gly/gly/inputs/gly.npz",
+      "input_sha256": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec"
+    },
+    "inspired_12q_1819": {
+      "before_seconds": [
+        52.17161583341658
+      ],
+      "after_seconds": [
+        6.510559583082795
+      ],
+      "median_speedup": 8.013384282509394,
+      "physical_work": {
+        "n_materialized_commutators": 60,
+        "n_screen_support_zeros": 570
+      },
+      "original_scientific_sha256": "e7336a043af4aa27f11151fa2683c81d8b96f2ff9535703cc95f205a46b0ec75",
+      "original_objective_trace_sha256": "d8317a97a6db0e861ea5b6cfd535e13c847842b9e0b8e8150e5bdeb89ff32712",
+      "energy_hex": "-0x1.171c8c3aaf3a2p+8",
+      "selected_generators": [
+        "X0 Y6"
+      ],
+      "angles_hex": [
+        "0x0.0p+0"
+      ],
+      "logical_molecular_evaluations": 20,
+      "logical_screen_expectations": 630,
+      "logical_commutator_builds": 630,
+      "input": "results/profiling/semantic-acceptance/full-budget-gly/gly/inputs/gly.npz",
+      "input_sha256": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec"
+    }
+  },
+  "full_register_note": "One growth step on all 1,819 Pauli terms, 12 qubits, 6 electrons. Both variants use the same occupied-entry HF calculation to isolate iQCC speed. Single pair, later active-wire growth and dressed-term growth can change runtime.",
+  "full_register_shared_helper_sha256": {
+    "hamiltonian_loader": "22c60aa31e40ce04bdcbb4138542ebf712395957b4cf11275f49f737614c444a",
+    "hf_verification": "f7967253d03a0c200d568de7b29440f1455ceed324e4c9c3e9f7ec8ad2dd2d00"
+  },
+  "native_cli": {
+    "description": "Complete native prefix CLI, 8q frozen contextual glycine, counts 100/200, both iQCC methods, seed 42, two steps, no plots. Includes interpreter start, input and source snapshots, prefix reference, optimization, charge diagnostics and output. Four repetitions per revision in counterbalanced order.",
+    "command": "python -m experiments.experiment5_term_count_sweep --prepared-inputs /path/to/8q/glycine/inputs --molecules gly --cs-target-qubits 8 --term-counts 100 200 --algorithms iqcc_true_vqe iqcc_inspired_vqe --seeds 42 --max-operators 2 --max-iter 24 --no-plots --output-dir /fresh/output",
+    "seconds_before": [
+      7.583832874894142,
+      7.611258166842163,
+      7.578650707844645,
+      7.668201792053878
+    ],
+    "seconds_after": [
+      3.446716000325978,
+      3.393388125114143,
+      3.3919121245853603,
+      3.420663791242987
+    ],
+    "median_speedup": 2.229964084256607,
+    "comparison_sha256": {
+      "cases": "1a4cc2db91e461f05c76bfb3171888423d4315d1724c38fe7b86b0841aae6c98",
+      "science_csv": "3f253a3d34f081152e8dea3ed6778f8e29abe14aaa33b0c0d4e2663c45560118",
+      "input": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85"
+    },
+    "hash_scope": "Only the two additive physical-work counters and the wall-time CSV column are excluded from scientific comparison.",
+    "physical_work_ordered_by_term_count_then_method": [
+      {
+        "n_materialized_commutators": 36
+      },
+      {
+        "n_materialized_commutators": 108,
+        "n_screen_support_zeros": 444
+      },
+      {
+        "n_materialized_commutators": 36
+      },
+      {
+        "n_materialized_commutators": 114,
+        "n_screen_support_zeros": 438
+      }
+    ]
+  },
+  "repeat": "Set OMP_NUM_THREADS, OPENBLAS_NUM_THREADS, VECLIB_MAXIMUM_THREADS and MKL_NUM_THREADS to 1. From framework, run .venv/bin/python smoke/reproductions/study_checks/iqcc_screen_sweep.py /checkout/framework /frozen/input.npz result.json --terms 200 --steps 2 --repeats 3. Compare isolated versions of the two iQCC modules and core/iqcc_helpers.py, holding the remaining framework fixed. --inspect-screen independently measures disjoint gradients on the original inspired implementation."
+}

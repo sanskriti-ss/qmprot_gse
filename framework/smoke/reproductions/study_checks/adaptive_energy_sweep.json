@@ -1,0 +1,441 @@
+{
+  "scope": "Fresh published glycine geometry, canonical 6e/6o, 12 qubits, 1819 ordered terms, analytic single-thread Lightning 0.38.0, seeds and tolerances from run_config. Each measured process includes imports, fresh chemistry, the three registered algorithms, endpoint diagnostics, native I/O and the exact event logger, with plots disabled. One control timing, staged implementation timings, and a final post-regression timing on shared Mac.",
+  "control_revision": "ab1954f",
+  "verified_scientific_revision": "5ddab58",
+  "raw_outputs": "results/profiling/exact-sweep/adaptive",
+  "command_from_framework": "python smoke/record.py experiments.trainability EVENTS --molecule gly --cs-target-qubits 0 --algorithms hardware_efficient_vqe qubit_adapt_vqe adapt_vqe --param-targets 10 --eval-budget 2000 --max-iter 500 --no-plots --output-dir RUN",
+  "environment": {
+    "QMPROT_GEOMETRIES": "smoke/geometries",
+    "QMPROT_WORKLOAD": "gly12-native",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1"
+  },
+  "native": {
+    "before": {
+      "scientific_source_archive_sha256": "b65470bb9a4ee1163d96505a8a918d62ddc9980e7ba88d26393ed614b12ac59e",
+      "cli_seconds": 247.29,
+      "event_count": 2888,
+      "algorithms": {
+        "hardware_efficient_vqe": {
+          "n_cost_evals": "366",
+          "n_callback_evals": "256",
+          "actual_n_params": "10",
+          "final_energy": "-277.2235802145",
+          "wrong_electron_probability": "0.9999999999999962",
+          "runtime_seconds": "16.4859"
+        },
+        "qubit_adapt_vqe": {
+          "n_cost_evals": "2000",
+          "n_callback_evals": "0",
+          "actual_n_params": "1",
+          "final_energy": "-279.1115147283",
+          "wrong_electron_probability": "1.1555579666323425e-33",
+          "runtime_seconds": "90.7424"
+        },
+        "adapt_vqe": {
+          "n_cost_evals": "266",
+          "n_callback_evals": "0",
+          "actual_n_params": "0",
+          "final_energy": "-279.1115147283",
+          "wrong_electron_probability": "0.0",
+          "runtime_seconds": "135.6254"
+        }
+      }
+    },
+    "after-three": {
+      "scientific_source_archive_sha256": "3e116351d01b31f9962234bfa622c3ab16631667d19a5e7262cce3ee55bdc4ab",
+      "cli_seconds": 71.58,
+      "event_count": 2888,
+      "algorithms": {
+        "hardware_efficient_vqe": {
+          "n_cost_evals": "366",
+          "n_callback_evals": "256",
+          "actual_n_params": "10",
+          "final_energy": "-277.2235802145",
+          "wrong_electron_probability": "0.9999999999999962",
+          "runtime_seconds": "9.5303"
+        },
+        "qubit_adapt_vqe": {
+          "n_cost_evals": "2000",
+          "n_callback_evals": "0",
+          "actual_n_params": "1",
+          "final_energy": "-279.1115147283",
+          "wrong_electron_probability": "1.1555579666323425e-33",
+          "runtime_seconds": "50.5866"
+        },
+        "adapt_vqe": {
+          "n_cost_evals": "266",
+          "n_callback_evals": "0",
+          "actual_n_params": "0",
+          "final_energy": "-279.1115147283",
+          "wrong_electron_probability": "0.0",
+          "runtime_seconds": "6.8142"
+        }
+      }
+    },
+    "final": {
+      "scientific_source_archive_sha256": "b8c9913664880e2a259cc9f3ac2d6041d48f2c8800fe79ec6f998d03317965b0",
+      "cli_seconds": 26.25,
+      "event_count": 2888,
+      "algorithms": {
+        "hardware_efficient_vqe": {
+          "n_cost_evals": "366",
+          "n_callback_evals": "256",
+          "actual_n_params": "10",
+          "final_energy": "-277.2235802145",
+          "wrong_electron_probability": "0.9999999999999962",
+          "runtime_seconds": "9.2888"
+        },
+        "qubit_adapt_vqe": {
+          "n_cost_evals": "2000",
+          "n_callback_evals": "0",
+          "actual_n_params": "1",
+          "final_energy": "-279.1115147283",
+          "wrong_electron_probability": "1.1555579666323425e-33",
+          "runtime_seconds": "10.8932"
+        },
+        "adapt_vqe": {
+          "n_cost_evals": "266",
+          "n_callback_evals": "0",
+          "actual_n_params": "0",
+          "final_energy": "-279.1115147283",
+          "wrong_electron_probability": "0.0",
+          "runtime_seconds": "1.4930"
+        }
+      }
+    },
+    "verified": {
+      "scientific_source_archive_sha256": "2d31cd0e57f14d1e2d664f6eb00c2722d432df1e7f96b079ce4d2a1acd419f46",
+      "cli_seconds": 26.07,
+      "event_count": 2888,
+      "algorithms": {
+        "hardware_efficient_vqe": {
+          "n_cost_evals": "366",
+          "n_callback_evals": "256",
+          "actual_n_params": "10",
+          "final_energy": "-277.2235802145",
+          "wrong_electron_probability": "0.9999999999999962",
+          "runtime_seconds": "9.3787"
+        },
+        "qubit_adapt_vqe": {
+          "n_cost_evals": "2000",
+          "n_callback_evals": "0",
+          "actual_n_params": "1",
+          "final_energy": "-279.1115147283",
+          "wrong_electron_probability": "1.1555579666323425e-33",
+          "runtime_seconds": "10.7661"
+        },
+        "adapt_vqe": {
+          "n_cost_evals": "266",
+          "n_callback_evals": "0",
+          "actual_n_params": "0",
+          "final_energy": "-279.1115147283",
+          "wrong_electron_probability": "0.0",
+          "runtime_seconds": "1.4635"
+        }
+      }
+    },
+    "retained-tape": {
+      "scientific_source_archive_sha256": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad",
+      "cli_seconds": 25.13,
+      "event_count": 2888,
+      "algorithms": {
+        "hardware_efficient_vqe": {
+          "n_cost_evals": "366",
+          "n_callback_evals": "256",
+          "actual_n_params": "10",
+          "final_energy": "-277.2235802145",
+          "wrong_electron_probability": "0.9999999999999962",
+          "runtime_seconds": "9.1318"
+        },
+        "qubit_adapt_vqe": {
+          "n_cost_evals": "2000",
+          "n_callback_evals": "0",
+          "actual_n_params": "1",
+          "final_energy": "-279.1115147283",
+          "wrong_electron_probability": "1.1555579666323425e-33",
+          "runtime_seconds": "10.2722"
+        },
+        "adapt_vqe": {
+          "n_cost_evals": "266",
+          "n_callback_evals": "0",
+          "actual_n_params": "0",
+          "final_energy": "-279.1115147283",
+          "wrong_electron_probability": "0.0",
+          "runtime_seconds": "1.4350"
+        }
+      }
+    }
+  },
+  "scientific_sha256": {
+    "inputs/gly.npz": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec",
+    "run_config.json": "cc9ba33abe0b84964deba77c75fc09af3ca33496e38108a94f8448ac8ddd8ffc",
+    "endpoints.jsonl": "fc75d451ca54376c0e9b91334dd2494c17d89a66f95074107477d71a7e7aac49",
+    "convergence_traces.csv": "88d5421e8afd02289fed1f2c18b701000c3fe710a6df079454054d58b28858c6",
+    "eval_traces.csv": "dadeba996023e6347e523ad5ae08ecd7483df44ad97b00c264f7223b2facbe4c",
+    "model_reference.json": "abd0c1c42a389f7fb4eb286ed9a20befb2be1ad0065da010936384d21e42cf78",
+    "all_requested_evaluations.jsonl": "694610eebcb2c97e9ad567bb5d087e51eec5ac4a5f60394c7dfe8cdb40a26c78"
+  },
+  "per_call_kernel_comparison": {
+    "unreduced": {
+      "QubitAdaptVQE": {
+        "input_sha256": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec",
+        "qubits": 12,
+        "terms": 1819,
+        "pool_size": 972,
+        "energy_sha256": "988fc25fb530881752018b485b8d9176cea7619087c7ca980bf4567a957ce495",
+        "counts": {
+          "logical": 326,
+          "native_calls": 326
+        },
+        "seconds": {
+          "full_native": 6.670766135677695,
+          "selected_native": 0.3172705853357911,
+          "selected_including_lookup": 0.35998887568712234
+        },
+        "populated_basis_states_and_retained_terms": [
+          {
+            "populated": 3,
+            "retained": 79,
+            "calls": 156
+          },
+          {
+            "populated": 3,
+            "retained": 83,
+            "calls": 130
+          },
+          {
+            "populated": 3,
+            "retained": 85,
+            "calls": 22
+          },
+          {
+            "populated": 3,
+            "retained": 101,
+            "calls": 12
+          },
+          {
+            "populated": 33,
+            "retained": 1819,
+            "calls": 1
+          },
+          {
+            "populated": 38,
+            "retained": 1819,
+            "calls": 1
+          },
+          {
+            "populated": 583,
+            "retained": 1819,
+            "calls": 1
+          },
+          {
+            "populated": 588,
+            "retained": 1819,
+            "calls": 1
+          },
+          {
+            "populated": 4041,
+            "retained": 1819,
+            "calls": 1
+          },
+          {
+            "populated": 4043,
+            "retained": 1819,
+            "calls": 1
+          }
+        ]
+      },
+      "AdaptVQE": {
+        "input_sha256": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec",
+        "qubits": 12,
+        "terms": 1819,
+        "pool_size": 132,
+        "energy_sha256": "d9fb6ce98e31f2823de0aa4a2c12955cb0a66a02fef8af01c0d078860cccf969",
+        "counts": {
+          "logical": 226,
+          "native_calls": 222
+        },
+        "seconds": {
+          "full_native": 4.647680502384901,
+          "selected_native": 0.2211574981920421,
+          "selected_including_lookup": 0.25222904328256845
+        },
+        "populated_basis_states_and_retained_terms": [
+          {
+            "populated": 4,
+            "retained": 79,
+            "calls": 164
+          },
+          {
+            "populated": 4,
+            "retained": 101,
+            "calls": 52
+          },
+          {
+            "populated": 16,
+            "retained": 127,
+            "calls": 2
+          },
+          {
+            "populated": 512,
+            "retained": 1819,
+            "calls": 2
+          },
+          {
+            "populated": 2048,
+            "retained": 1819,
+            "calls": 2
+          }
+        ]
+      }
+    },
+    "contextual": {
+      "QubitAdaptVQE": {
+        "input_sha256": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85",
+        "qubits": 8,
+        "terms": 361,
+        "pool_size": 616,
+        "energy_sha256": "0a3c0735f9dc02e137a0aff6a0152f811a053de40b03caf0927168b444c287a8",
+        "counts": {
+          "logical": 326,
+          "native_calls": 326
+        },
+        "seconds": {
+          "full_native": 0.2437230828218162,
+          "selected_native": 0.038039037957787514,
+          "selected_including_lookup": 0.04888903070241213
+        },
+        "populated_basis_states_and_retained_terms": [
+          {
+            "populated": 3,
+            "retained": 37,
+            "calls": 98
+          },
+          {
+            "populated": 3,
+            "retained": 41,
+            "calls": 54
+          },
+          {
+            "populated": 3,
+            "retained": 43,
+            "calls": 2
+          },
+          {
+            "populated": 3,
+            "retained": 51,
+            "calls": 20
+          },
+          {
+            "populated": 13,
+            "retained": 59,
+            "calls": 38
+          },
+          {
+            "populated": 13,
+            "retained": 69,
+            "calls": 54
+          },
+          {
+            "populated": 13,
+            "retained": 79,
+            "calls": 52
+          },
+          {
+            "populated": 13,
+            "retained": 127,
+            "calls": 2
+          },
+          {
+            "populated": 61,
+            "retained": 361,
+            "calls": 1
+          },
+          {
+            "populated": 62,
+            "retained": 361,
+            "calls": 1
+          },
+          {
+            "populated": 249,
+            "retained": 361,
+            "calls": 1
+          },
+          {
+            "populated": 251,
+            "retained": 361,
+            "calls": 1
+          },
+          {
+            "populated": 253,
+            "retained": 361,
+            "calls": 1
+          },
+          {
+            "populated": 254,
+            "retained": 361,
+            "calls": 1
+          }
+        ]
+      },
+      "AdaptVQE": {
+        "input_sha256": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85",
+        "qubits": 8,
+        "terms": 361,
+        "pool_size": 56,
+        "energy_sha256": "ccf8fa4db3a563d79f2beaa84793d13462f7bddaa999901a6f2e67dc9181f89a",
+        "counts": {
+          "logical": 118,
+          "native_calls": 114
+        },
+        "seconds": {
+          "full_native": 0.08922457555308938,
+          "selected_native": 0.011852291878312826,
+          "selected_including_lookup": 0.016299467999488115
+        },
+        "populated_basis_states_and_retained_terms": [
+          {
+            "populated": 4,
+            "retained": 37,
+            "calls": 78
+          },
+          {
+            "populated": 4,
+            "retained": 51,
+            "calls": 30
+          },
+          {
+            "populated": 16,
+            "retained": 69,
+            "calls": 2
+          },
+          {
+            "populated": 64,
+            "retained": 361,
+            "calls": 2
+          },
+          {
+            "populated": 256,
+            "retained": 361,
+            "calls": 2
+          }
+        ]
+      }
+    }
+  },
+  "stages": {
+    "before": "Parent implementation at ab1954f.",
+    "after-three": "Native forward execution, literal-state result reuse, ordered HF determinant check; no Pauli support filtering.",
+    "final": "Exact support filtering, with the initial one-thread gate.",
+    "verified": "Exact support filtering and capability check on the loaded Lightning binary.",
+    "retained-tape": "Final thread guard and native QNode last-tape behavior after the full test suite exercised public tape introspection."
+  },
+  "single_thread_gate": {
+    "native_file_sha256": "5b135d1d26722fb14ee7d2ecefea9cddc517f2ceca944c0241187470172e109d",
+    "macOS_evidence": "otool -L showed libc++ and libSystem only. nm and c++filt found HamiltonianApplyInPlace<StateVectorLQubitManaged<double>, false>::run and no OpenMP import. Other binaries must expose omp_get_max_threads to the host.",
+    "all_input_support": "Nonzero amplitudes tested with exact floating equality, including roundoff tails. Original native Pauli actions, coefficient sequence, occupied-row accumulation and final full-length dot product are retained. Densely populated states use the original observable."
+  }
+}

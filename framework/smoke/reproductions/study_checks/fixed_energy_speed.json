@@ -1,0 +1,641 @@
+{
+  "baseline_commit": "ab1954f",
+  "changes": "2a46c81 and b01ec63 applied in isolation",
+  "host": "Local arm64 macOS, pinned Python 3.12 environment, OMP/BLAS/VECLIB/MKL single thread",
+  "raw_directory": "results/profiling/exact-sweep/fixed-studies-verified",
+  "native_protocol": "Independent fresh-process ABBA runs; chemistry except the frozen H2 prefix. Includes solver, saved data, reference diagnostics and command startup, plots disabled. Includes per-call binary recording for trainability and noise.",
+  "component_protocol": "Alternated raw PennyLane QNode and objective on identical independent real vectors, first evaluation excluded from both medians. Fixed forward only; classically boosted step timed separately by native prefix. Timing variation depends on concurrent CPU usage.",
+  "native": {
+    "gly-he": {
+      "argv": [
+        "experiments.trainability",
+        "--molecule",
+        "gly",
+        "--algorithms",
+        "hardware_efficient_vqe",
+        "--param-targets",
+        "10",
+        "--eval-budget",
+        "2000",
+        "--cs-target-qubits",
+        "0",
+        "--no-plots"
+      ],
+      "seconds": {
+        "before": [
+          19.07777658291161,
+          19.67843162501231
+        ],
+        "after": [
+          12.339227915741503,
+          12.330172417219728
+        ]
+      },
+      "median_seconds": {
+        "before": 19.37810410396196,
+        "after": 12.334700166480616
+      },
+      "wall_speedup": 1.5710235224542952,
+      "agreed": {
+        "inputs/gly.npz": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec",
+        "endpoints.jsonl": "e9dcd7c011f901ea9e86c5498f60d6029312aa9822ca734a11d14962236a2014",
+        "convergence_traces.csv": "e2f5e731542d7ba0cfde1bdbdfa6a536424de02b78679ff25eaeac4db48e9187",
+        "eval_traces.csv": "133c7c9a9904650b730f94cd86cf90d5214a50fe3cb1934f9c25251a9fed7279",
+        "model_reference.json": "abd0c1c42a389f7fb4eb286ed9a20befb2be1ad0065da010936384d21e42cf78",
+        "logical_events": "855f3f5a7602ce20f2ab37f3c2b1d5327bc3d50a3e5b926ab42ce889b2c89213",
+        "n_events": 622,
+        "results_excluding_runtime": "8bd3a93f9a0c6548b6fda551d05c04cb41482d99b579c6acc6b9b7a539e90614"
+      },
+      "source_sha256": {
+        "before": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8",
+        "after": "397ad73c9698882e2480a412a5604c2e549531dfc370646158beb80ca5f2b9b3"
+      }
+    },
+    "hydrogen-noise": {
+      "argv": [
+        "experiments.noise_resilience",
+        "--molecule",
+        "hydrogen",
+        "--algorithm",
+        "hardware_efficient_vqe",
+        "--n-layers",
+        "2",
+        "--optimizer",
+        "COBYLA",
+        "--max-iter",
+        "30",
+        "--cs-target-qubits",
+        "0",
+        "--noise-strengths",
+        "0",
+        ".01",
+        "--no-plots"
+      ],
+      "seconds": {
+        "before": [
+          3.1785446661524475,
+          3.1944897919893265
+        ],
+        "after": [
+          2.147755041718483,
+          2.1327622500248253
+        ]
+      },
+      "median_seconds": {
+        "before": 3.186517229070887,
+        "after": 2.140258645871654
+      },
+      "wall_speedup": 1.4888467967258825,
+      "agreed": {
+        "inputs/hydrogen.npz": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+        "convergence_traces.csv": "96c44aa7c459e125295c1775d7a8721d08c933586cede065b4a674352112df21",
+        "state_endpoints.json": "6c8a290f0ceb34edc616aeda4bf7783c0fb28188fc72a33d8aaf7529a8afee50",
+        "optimum_parameters.json": "e6089addd9f5ed7e314b8399201ab2bf4a4ef3f6c448e06b904586ea079f37f7",
+        "results.csv": "79c264951b6987feb3801b92c8ec42ab09dfbe0a76d7f17d6541d9b17ba535b2",
+        "logical_events": "b3baa2fe98c19b9492e4b6250625b2581c8be02644eb260eb1a656fc20b6afac",
+        "n_events": 131
+      },
+      "source_sha256": {
+        "before": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8",
+        "after": "397ad73c9698882e2480a412a5604c2e549531dfc370646158beb80ca5f2b9b3"
+      }
+    },
+    "gly-initialization": {
+      "argv": [
+        "experiments.barren_plateau",
+        "--molecule",
+        "gly",
+        "--cs-target-qubits",
+        "0",
+        "--algorithm",
+        "hardware_efficient_vqe",
+        "--layers",
+        "1",
+        "2",
+        "--bp-strategies",
+        "small_random",
+        "--n-samples",
+        "3",
+        "--max-gradient-probes",
+        "3",
+        "--opt-layers",
+        "1",
+        "--opt-strategies",
+        "small_random",
+        "--n-trials",
+        "1",
+        "--max-iter",
+        "2",
+        "--optimizer",
+        "GradientDescent",
+        "--no-plots"
+      ],
+      "seconds": {
+        "before": [
+          7.886610667221248,
+          7.582904167007655
+        ],
+        "after": [
+          6.208472541999072,
+          6.300694542005658
+        ]
+      },
+      "median_seconds": {
+        "before": 7.7347574171144515,
+        "after": 6.254583542002365
+      },
+      "wall_speedup": 1.2366542656552666,
+      "agreed": {
+        "inputs/gly.npz": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec",
+        "convergence_traces.csv": "545e669a51bc79817e083d3755718402a73f18337923e9249e0dce1e2933fe70",
+        "gradient_variance.csv": "8dcfb93a40a1a57729060abba6eaa0dc3b35ec0fbad3f4101df1f3153ca7b2bc",
+        "gradient_variance_by_parameter.csv": "c3cbb668df0173fa40887f2463da496eaff232bd0b860ba5d7cecd5de040cb03",
+        "optimization_results.csv": "45501b95657a42b8dcb8b745ce610ba2066cb653c87c2f12ac81dced56d102d8",
+        "trial_endpoints.json": "b68d2e1937bf34b5f28335a6359fccc7fab6b026966079c28a70b898805a5aa5"
+      },
+      "source_sha256": {
+        "before": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8",
+        "after": "397ad73c9698882e2480a412a5604c2e549531dfc370646158beb80ca5f2b9b3"
+      }
+    },
+    "seven-prefix": {
+      "argv": [
+        "experiments.experiment5_term_count_sweep",
+        "--prepared-inputs",
+        "framework/smoke/reproductions/layered_vqe",
+        "--molecules",
+        "hydrogen",
+        "--cs-target-qubits",
+        "0",
+        "--term-counts",
+        "15",
+        "--algorithms",
+        "hardware_efficient_vqe",
+        "pennylane_vqe",
+        "ucc_vqe",
+        "hva_vqe",
+        "nn_ae_vqe",
+        "qaoa_inspired_vqe",
+        "cb_vqe",
+        "--n-layers",
+        "2",
+        "--max-iter",
+        "32",
+        "--optimizer",
+        "COBYLA",
+        "--no-plots"
+      ],
+      "seconds": {
+        "before": [
+          1.6755325002595782,
+          1.706475708168
+        ],
+        "after": [
+          1.5548115419223905,
+          1.5160746672190726
+        ]
+      },
+      "median_seconds": {
+        "before": 1.691004104213789,
+        "after": 1.5354431045707315
+      },
+      "wall_speedup": 1.1013134248869145,
+      "agreed": {
+        "inputs/hydrogen.npz": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+        "cases.jsonl": "071ac7d95f1b10b83f4c153c4c8699d97ad435483bea08dc206ccdb3a2651ac0",
+        "results_excluding_runtime": "c191488bec18a23fa730b50d84a8f398e79c0ca3c05bb01298ebb47d5f963e09"
+      },
+      "source_sha256": {
+        "before": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8",
+        "after": "397ad73c9698882e2480a412a5604c2e549531dfc370646158beb80ca5f2b9b3"
+      }
+    }
+  },
+  "forward": [
+    {
+      "molecule": "hydrogen",
+      "qubits": 4,
+      "terms": 15,
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "methods": {
+        "hardware_efficient_vqe": {
+          "parameters": 12,
+          "vectors": 10,
+          "energies": [
+            "0x1.cdb97733acba2p-3",
+            "-0x1.dc2d6d2546a7cp-6",
+            "0x1.f8972c3b4ebcep-4",
+            "0x1.c3f9f5e79e632p-3",
+            "0x1.3082d50a3f83fp-6",
+            "0x1.58aa08d33eb47p-2",
+            "0x1.79e93dd64f88ep-3",
+            "0x1.c1f3adeb5ffbfp-4",
+            "0x1.b2596f3266a6bp-5",
+            "0x1.6ee666cc492bbp-5"
+          ],
+          "qnode_median_ms": 0.7326249033212662,
+          "objective_median_ms": 0.4327078349888325,
+          "speedup": 1.6931167963255718
+        },
+        "pennylane_vqe": {
+          "parameters": 24,
+          "vectors": 10,
+          "energies": [
+            "-0x1.968fbd81732afp-3",
+            "-0x1.665d08f942952p-4",
+            "-0x1.5dbb6a9f2f339p-3",
+            "-0x1.3c977ed6af5abp-6",
+            "0x1.c00961b515340p-9",
+            "-0x1.93271a9c92db8p-2",
+            "-0x1.fd0438aeb5204p-3",
+            "-0x1.c54b13b65d308p-3",
+            "-0x1.47d32e9b5f4b0p-3",
+            "0x1.a1a158be9e5dcp-3"
+          ],
+          "qnode_median_ms": 0.82016596570611,
+          "objective_median_ms": 0.5032080225646496,
+          "speedup": 1.629874582535574
+        },
+        "ucc_vqe": {
+          "parameters": 2,
+          "vectors": 10,
+          "energies": [
+            "-0x1.ecc4d0da80022p-1",
+            "-0x1.fd720f8ea2f5ap-1",
+            "-0x1.d9e09661a0716p-1",
+            "-0x1.0a3bcfa163532p+0",
+            "-0x1.bd98766791b7ap-1",
+            "-0x1.f10d10c208051p-1",
+            "-0x1.0cea515d6d5c3p+0",
+            "-0x1.cbe46dd9fb860p-1",
+            "-0x1.5c1853a652595p-1",
+            "-0x1.01a7729a81310p+0"
+          ],
+          "qnode_median_ms": 0.3372500650584698,
+          "objective_median_ms": 0.1787911169230938,
+          "speedup": 1.8862797596568313
+        },
+        "qaoa_inspired_vqe": {
+          "parameters": 8,
+          "vectors": 10,
+          "energies": [
+            "0x1.3e1a9a46d87e1p-3",
+            "-0x1.33a2564e705f4p-7",
+            "-0x1.64bdb8537c103p-4",
+            "0x1.2dda781362392p-2",
+            "0x1.e6087ccbc7b25p-3",
+            "-0x1.642337b300c30p-3",
+            "0x1.17d1da272f9e2p-2",
+            "0x1.723ff3591f1dbp-2",
+            "-0x1.c823cf2f28077p-3",
+            "0x1.2e6aeb38c0878p-1"
+          ],
+          "qnode_median_ms": 0.8479580283164978,
+          "objective_median_ms": 0.5755000747740269,
+          "speedup": 1.4734281809597558
+        },
+        "nn_ae_vqe": {
+          "parameters": 12,
+          "vectors": 10,
+          "energies": [
+            "-0x1.3c6c106eeb130p-1",
+            "-0x1.f90108ce28cc5p-2",
+            "-0x1.1a36f75edc5bcp-1",
+            "-0x1.62d08ca49b660p-1",
+            "-0x1.80cfa9d205758p-4",
+            "-0x1.b74adeeaf0938p-1",
+            "-0x1.6eb3fdadb712ep-1",
+            "0x1.f5c2bac29e524p-6",
+            "-0x1.6f7ab0c301250p-1",
+            "-0x1.6c6fc5da7c748p-1"
+          ],
+          "qnode_median_ms": 0.6162500940263271,
+          "objective_median_ms": 0.3871251828968525,
+          "speedup": 1.591862584125724
+        },
+        "cb_vqe": {
+          "parameters": 24,
+          "vectors": 10,
+          "energies": [
+            "-0x1.968fbd81732afp-3",
+            "-0x1.665d08f942952p-4",
+            "-0x1.5dbb6a9f2f339p-3",
+            "-0x1.3c977ed6af5abp-6",
+            "0x1.c00961b515340p-9",
+            "-0x1.93271a9c92db8p-2",
+            "-0x1.fd0438aeb5204p-3",
+            "-0x1.c54b13b65d308p-3",
+            "-0x1.47d32e9b5f4b0p-3",
+            "0x1.a1a158be9e5dcp-3"
+          ],
+          "qnode_median_ms": 0.6726672872900963,
+          "objective_median_ms": 0.44179195538163185,
+          "speedup": 1.5225883565693903
+        },
+        "hva_vqe": {
+          "parameters": 4,
+          "vectors": 10,
+          "energies": [
+            "-0x1.1a627dc3b90a1p+0",
+            "-0x1.0ff74950ed90ap+0",
+            "-0x1.16d8bc29136d7p+0",
+            "-0x1.1bd175f3d6ba5p+0",
+            "-0x1.0945634260803p+0",
+            "-0x1.0fe98bb8e2613p+0",
+            "-0x1.006c1e4f8eae9p+0",
+            "-0x1.0e9944fd6c3c4p+0",
+            "-0x1.140f22726fc55p+0",
+            "-0x1.1d631d16de3cfp+0"
+          ],
+          "qnode_median_ms": 1.5020831488072872,
+          "objective_median_ms": 1.0740840807557106,
+          "speedup": 1.3984781784964566
+        }
+      }
+    },
+    {
+      "molecule": "gly",
+      "qubits": 8,
+      "terms": 361,
+      "input_sha256": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85",
+      "methods": {
+        "hardware_efficient_vqe": {
+          "parameters": 24,
+          "vectors": 10,
+          "energies": [
+            "-0x1.15c8f67d23fdap+8",
+            "-0x1.15c528c9ec1b0p+8",
+            "-0x1.15a05f23c5b78p+8",
+            "-0x1.156daba33257dp+8",
+            "-0x1.159e579032971p+8",
+            "-0x1.1592af9ee9fa3p+8",
+            "-0x1.1577a443fd304p+8",
+            "-0x1.15b118720b4aap+8",
+            "-0x1.15f565cd7ef16p+8",
+            "-0x1.15e7ce60da4afp+8"
+          ],
+          "qnode_median_ms": 5.506874993443489,
+          "objective_median_ms": 2.205207943916321,
+          "speedup": 2.497213475325869
+        },
+        "pennylane_vqe": {
+          "parameters": 48,
+          "vectors": 10,
+          "energies": [
+            "-0x1.15e4bf2aa6d84p+8",
+            "-0x1.15f149df05df5p+8",
+            "-0x1.15eb07de61081p+8",
+            "-0x1.16047f35a6ba3p+8",
+            "-0x1.15e22c93511acp+8",
+            "-0x1.15ba43a25e095p+8",
+            "-0x1.15e4175247234p+8",
+            "-0x1.15bbcd91bafe8p+8",
+            "-0x1.15f54731a566bp+8",
+            "-0x1.15ae76531a8b8p+8"
+          ],
+          "qnode_median_ms": 5.459874868392944,
+          "objective_median_ms": 2.2994172759354115,
+          "speedup": 2.374460227612166
+        },
+        "ucc_vqe": {
+          "parameters": 8,
+          "vectors": 10,
+          "energies": [
+            "-0x1.16d4639c182c6p+8",
+            "-0x1.16ecfbc1fddb6p+8",
+            "-0x1.16d598447ce87p+8",
+            "-0x1.16ea89e99445ep+8",
+            "-0x1.170a8f3057fc4p+8",
+            "-0x1.16f6629aa0687p+8",
+            "-0x1.16da9242e626fp+8",
+            "-0x1.16feb117b48e8p+8",
+            "-0x1.1715158aa058ap+8",
+            "-0x1.16f3077159376p+8"
+          ],
+          "qnode_median_ms": 4.832125268876553,
+          "objective_median_ms": 1.7861253581941128,
+          "speedup": 2.7053673734088526
+        },
+        "qaoa_inspired_vqe": {
+          "parameters": 12,
+          "vectors": 10,
+          "energies": [
+            "-0x1.15c4a1321f328p+8",
+            "-0x1.158e1e96467fbp+8",
+            "-0x1.14f29ce487376p+8",
+            "-0x1.154e0baee0989p+8",
+            "-0x1.14fb953253e6ep+8",
+            "-0x1.15aeb2eaa1efbp+8",
+            "-0x1.15c8b28986957p+8",
+            "-0x1.15cf4e0a74739p+8",
+            "-0x1.15a6b3d3dbf73p+8",
+            "-0x1.15325a850d771p+8"
+          ],
+          "qnode_median_ms": 5.946875084191561,
+          "objective_median_ms": 2.6012081652879715,
+          "speedup": 2.2861972999893307
+        },
+        "nn_ae_vqe": {
+          "parameters": 24,
+          "vectors": 10,
+          "energies": [
+            "-0x1.16563082d89b4p+8",
+            "-0x1.163df47b777a3p+8",
+            "-0x1.16a6c70975630p+8",
+            "-0x1.1699506f50687p+8",
+            "-0x1.1648aa1de2494p+8",
+            "-0x1.169361c9fd022p+8",
+            "-0x1.161188f23455fp+8",
+            "-0x1.16899075783e0p+8",
+            "-0x1.1629a0348e648p+8",
+            "-0x1.16524116ca6c8p+8"
+          ],
+          "qnode_median_ms": 5.263499915599823,
+          "objective_median_ms": 2.1781250834465027,
+          "speedup": 2.416527845715478
+        },
+        "cb_vqe": {
+          "parameters": 48,
+          "vectors": 10,
+          "energies": [
+            "-0x1.15e4bf2aa6d84p+8",
+            "-0x1.15f149df05df5p+8",
+            "-0x1.15eb07de61081p+8",
+            "-0x1.16047f35a6ba3p+8",
+            "-0x1.15e22c93511acp+8",
+            "-0x1.15ba43a25e095p+8",
+            "-0x1.15e4175247234p+8",
+            "-0x1.15bbcd91bafe8p+8",
+            "-0x1.15f54731a566bp+8",
+            "-0x1.15ae76531a8b8p+8"
+          ],
+          "qnode_median_ms": 5.675917025655508,
+          "objective_median_ms": 2.3988340981304646,
+          "speedup": 2.3661148680848934
+        },
+        "hva_vqe": {
+          "parameters": 48,
+          "vectors": 10,
+          "energies": [
+            "-0x1.171abbfaab601p+8",
+            "-0x1.171836ac17c1cp+8",
+            "-0x1.171891019207dp+8",
+            "-0x1.17161b9a27172p+8",
+            "-0x1.1717d498ebcb6p+8",
+            "-0x1.1719b4a65917bp+8",
+            "-0x1.171b1d4e87510p+8",
+            "-0x1.1716937a31759p+8",
+            "-0x1.17124b09c6e5cp+8",
+            "-0x1.1718eca4e9473p+8"
+          ],
+          "qnode_median_ms": 82.39312516525388,
+          "objective_median_ms": 36.58000007271767,
+          "speedup": 2.252409103375176
+        }
+      }
+    },
+    {
+      "molecule": "gly",
+      "qubits": 12,
+      "terms": 1819,
+      "input_sha256": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec",
+      "methods": {
+        "hardware_efficient_vqe": {
+          "parameters": 36,
+          "vectors": 10,
+          "energies": [
+            "-0x1.14a346257ef43p+8",
+            "-0x1.1474cbefdf4c6p+8",
+            "-0x1.1472e4cd24d22p+8",
+            "-0x1.14cf3f6331b16p+8",
+            "-0x1.14dc468f41671p+8",
+            "-0x1.14c0fdb63c9e5p+8",
+            "-0x1.14ad8f6898484p+8",
+            "-0x1.14bd99698fefap+8",
+            "-0x1.1498ac92fb34cp+8",
+            "-0x1.1466345c0cdb8p+8"
+          ],
+          "qnode_median_ms": 46.52637476101518,
+          "objective_median_ms": 26.920416858047247,
+          "speedup": 1.728293250671086
+        },
+        "pennylane_vqe": {
+          "parameters": 72,
+          "vectors": 10,
+          "energies": [
+            "-0x1.154bd005fd019p+8",
+            "-0x1.152138953a64fp+8",
+            "-0x1.15099dff5605dp+8",
+            "-0x1.1533fccf11f31p+8",
+            "-0x1.1542ec612aeefp+8",
+            "-0x1.152993f6a18f1p+8",
+            "-0x1.152e19e6a5489p+8",
+            "-0x1.15418bab2f3f7p+8",
+            "-0x1.151a0ff5dfcddp+8",
+            "-0x1.151043106bd6ep+8"
+          ],
+          "qnode_median_ms": 47.23641602322459,
+          "objective_median_ms": 26.556875091046095,
+          "speedup": 1.7786887900508597
+        },
+        "ucc_vqe": {
+          "parameters": 18,
+          "vectors": 10,
+          "energies": [
+            "-0x1.1617bacc207d9p+8",
+            "-0x1.1618c78ee32a1p+8",
+            "-0x1.1618547f56f13p+8",
+            "-0x1.1627d31906963p+8",
+            "-0x1.15d3f70494983p+8",
+            "-0x1.161a8bc852d43p+8",
+            "-0x1.160a37f277ecdp+8",
+            "-0x1.161061aa40d96p+8",
+            "-0x1.16020646479d3p+8",
+            "-0x1.15dc55b0b3015p+8"
+          ],
+          "qnode_median_ms": 45.359374955296516,
+          "objective_median_ms": 26.187208015471697,
+          "speedup": 1.7321195496861554
+        },
+        "qaoa_inspired_vqe": {
+          "parameters": 16,
+          "vectors": 10,
+          "energies": [
+            "-0x1.148123a171335p+8",
+            "-0x1.141e3d7106739p+8",
+            "-0x1.147777436fecfp+8",
+            "-0x1.13cbc1f7cf911p+8",
+            "-0x1.126943987487ap+8",
+            "-0x1.14b13033030a4p+8",
+            "-0x1.14d139d8b9feap+8",
+            "-0x1.14f305cb48fb4p+8",
+            "-0x1.14d99e5dc7c9fp+8",
+            "-0x1.13f859ca06d57p+8"
+          ],
+          "qnode_median_ms": 47.42454178631306,
+          "objective_median_ms": 26.91729087382555,
+          "speedup": 1.7618616230219817
+        },
+        "nn_ae_vqe": {
+          "parameters": 36,
+          "vectors": 10,
+          "energies": [
+            "-0x1.15741bb627994p+8",
+            "-0x1.163a32fac577dp+8",
+            "-0x1.15e795adb3a88p+8",
+            "-0x1.15c72a35e43cdp+8",
+            "-0x1.162a81efb848ap+8",
+            "-0x1.15b031d15cbcdp+8",
+            "-0x1.15dd55b2b532ep+8",
+            "-0x1.15c2f079bbaeep+8",
+            "-0x1.1615660d56d14p+8",
+            "-0x1.15d1640850d09p+8"
+          ],
+          "qnode_median_ms": 49.31466607376933,
+          "objective_median_ms": 27.014166116714478,
+          "speedup": 1.8255113210123064
+        },
+        "cb_vqe": {
+          "parameters": 72,
+          "vectors": 10,
+          "energies": [
+            "-0x1.154bd005fd019p+8",
+            "-0x1.152138953a64fp+8",
+            "-0x1.15099dff5605dp+8",
+            "-0x1.1533fccf11f31p+8",
+            "-0x1.1542ec612aeefp+8",
+            "-0x1.152993f6a18f1p+8",
+            "-0x1.152e19e6a5489p+8",
+            "-0x1.15418bab2f3f7p+8",
+            "-0x1.151a0ff5dfcddp+8",
+            "-0x1.151043106bd6ep+8"
+          ],
+          "qnode_median_ms": 46.74912476912141,
+          "objective_median_ms": 26.34450001642108,
+          "speedup": 1.7745307270960426
+        },
+        "hva_vqe": {
+          "parameters": 134,
+          "vectors": 4,
+          "energies": [
+            "-0x1.1716bd44a163ap+8",
+            "-0x1.171d7ac37a5b7p+8",
+            "-0x1.1717ac47875f0p+8",
+            "-0x1.17162dac939e2p+8"
+          ],
+          "qnode_median_ms": 391.58554188907146,
+          "objective_median_ms": 303.0368331819773,
+          "speedup": 1.2922044418736374
+        }
+      }
+    }
+  ],
+  "rejected": {
+    "approach": "Changing to a forward-only decomposition before reading the HVA state changes the native objective. The retained implementation uses the original device decomposition.",
+    "max_fixed_input_error_ha": {
+      "H2": 7.771561172376096e-15,
+      "8q_gly": 1.134594640461728e-10,
+      "12q_gly": 6.212417247297708e-10
+    }
+  }
+}

@@ -1,0 +1,222 @@
+{
+  "scope": "Native Part B run_optimization_comparison with frozen ordered four-qubit/27-term contextual glycine, 16 HE layers, 68 angles, small_random seed 42, 200 optimizer calls, 168 acquisitions of 10,000 candidates with 100 ExtraTrees trees each. Includes initial preparation by the fit, optimizer and endpoint diagnostics. Molecular chemistry and input loading, CLI startup, final JSON writes and plots are outside the timed scope.",
+  "from_commit": "4d94bde",
+  "to_commit": "44456b7",
+  "input_sha256": "cbc61637c2f05242c3385dd3754c6564100c2fa347af820c355b952f0cfc7f15",
+  "hosts": {
+    "local": "macOS arm64, Darwin 27.0.0, Python 3.12.10. Host also used for other project checks during portions of the timings.",
+    "modal": "One Linux Modal Debian-slim Python 3.12 worker, CPU reservation 2, RAM 4 GiB. Worker-specific model and kernel release were not recorded."
+  },
+  "scientific_kernels": {
+    "backend": "lightning.qubit 0.38.0",
+    "numpy": "1.26.4",
+    "scipy": "1.16.3",
+    "skopt": "0.10.2",
+    "sklearn": "1.9.1",
+    "threads": 1
+  },
+  "reproduce": {
+    "input": "Either the archived readiness input at results/profiling/scientific-readiness/acceptance/gly-bayesian-depth16/inputs/gly.npz or gly.npz from the retrieved Modal worker.",
+    "baseline": "From the repository root, run git archive 4d94bde framework run_barren_plateau_part_b_all_molecules.py and extract the archive to a baseline directory. Set QMPROT_BASELINE_FRAMEWORK to its absolute framework directory.",
+    "environment": "From framework, set QMPROT_FOREST_INPUT to the absolute frozen gly.npz path. Set OMP_NUM_THREADS, OPENBLAS_NUM_THREADS, MKL_NUM_THREADS and VECLIB_MAXIMUM_THREADS to 1. Use the pinned .venv environment.",
+    "modal": ".venv/bin/python -m modal run -m smoke.modal_forest_trial",
+    "native": "PYTHONPATH=\"$QMPROT_BASELINE_FRAMEWORK\" .venv/bin/python smoke/forest_trial.py \"$DEST/baseline\" --input \"$QMPROT_FOREST_INPUT\" ; PYTHONPATH=\"$PWD\" .venv/bin/python smoke/forest_trial.py \"$DEST/candidate\" --input \"$QMPROT_FOREST_INPUT\" ; .venv/bin/python -m smoke.forest_trial \"$DEST\"",
+    "profile": "Run PYTHONPATH=\"$QMPROT_BASELINE_FRAMEWORK\" .venv/bin/python smoke/reproductions/study_checks/forest_efficiency.py \"$QMPROT_FOREST_INPUT\" \"$DEST/baseline-profile.json\". Repeat with PYTHONPATH=\"$PWD\" and candidate-profile.json. The driver measures the loaded production implementation."
+  },
+  "raw": {
+    "local_ab": "results/profiling/deep-efficiency/bayesian/native",
+    "local_ba": "results/profiling/deep-efficiency/bayesian/reverse",
+    "modal_ab": "results/smoke/forest-trial-03a0750a04ba4301bd02aa9a41112b0f",
+    "modal_volume": "qmprot-smoke-results/forest-trial-03a0750a04ba4301bd02aa9a41112b0f",
+    "modal_app": "ap-LVMWcojLjTkS0mOhkLUmO3"
+  },
+  "local_order_balanced": {
+    "baseline_seconds": 34.833235145546496,
+    "candidate_seconds": 21.86610749992542,
+    "trial_speedup": 1.5930240508359939
+  },
+  "timings": {
+    "local_ab": {
+      "seconds": {
+        "baseline": 34.25573108298704,
+        "candidate": 22.063476416748017
+      },
+      "speedup": 1.5525989846724284
+    },
+    "local_ba": {
+      "seconds": {
+        "baseline": 35.41073920810595,
+        "candidate": 21.668738583102822
+      },
+      "speedup": 1.6341855374875893
+    },
+    "modal_ab": {
+      "seconds": {
+        "baseline": 121.58170531900001,
+        "candidate": 80.19253033199999
+      },
+      "speedup": 1.5161225717114466
+    }
+  },
+  "verification": {
+    "forests": 168,
+    "candidates_per_forest": 10000,
+    "objective_calls": 200,
+    "distinct_angle_vectors": 200,
+    "local": {
+      "events.jsonl": "a7c7b375f332affdfad720a52f31f408d3c9bf3450cf7e6584e20d47916da4e6",
+      "forests.jsonl": "0f9ae34e26b16f2dcf500f57b41ed3d3d909c73d5823790a4f41f7b776e0eb23",
+      "endpoint.json": "b45a60c14852f88d83185eead73907f9b347e7760cfa734201a5c6c077c45bb0"
+    },
+    "modal": {
+      "events.jsonl": "bd666fb1c84471deec6b1126dbd3eb514d96ba7690789d7da64ae80c208e6040",
+      "forests.jsonl": "59518818d90c41b76b635c012118251626fbfc47ed576cdba16ff755a71b21c5",
+      "endpoint.json": "e8c7ba0da383880bfd356b35e3cac04698b80b1778f054dd46c63de19c17a2bc"
+    },
+    "initial_energy": -278.0220528076332,
+    "local_final_energy": -278.74166030942996,
+    "modal_final_energy": -278.81864914333795,
+    "sector_status": "missing_parent_transform",
+    "wrong_electron_probability": null,
+    "cross_host": "Sampled candidate coordinate grids match at all 168 acquisitions. The stock baseline energy differs across hosts first at objective 2 by 5.684341886080802e-14 Ha. Mean/std byte strings differ on the first acquisition, and the first different chosen angle vector occurs at objective 37."
+  },
+  "local_hash_overhead": {
+    "baseline": {
+      "grid_hash_seconds": 0.30520291486755013,
+      "event_trace_seconds": 0.0004794597625732422
+    },
+    "candidate": {
+      "grid_hash_seconds": 0.30235141748562455,
+      "event_trace_seconds": 0.0004868381656706333
+    }
+  },
+  "local_timing_profile": {
+    "baseline": {
+      "source_sha256": "04a95642d7a9591deb2cdfe966f7f8ba2af95ae836e5281ea18deeca3fd88ca9",
+      "input_sha256": "cbc61637c2f05242c3385dd3754c6564100c2fa347af820c355b952f0cfc7f15",
+      "trial_seconds": 36.63632708322257,
+      "phases": {
+        "energy": {
+          "calls": 200,
+          "seconds": 0.10766070056706667
+        },
+        "sample": {
+          "calls": 200,
+          "seconds": 4.768040959723294
+        },
+        "transform": {
+          "calls": 336,
+          "seconds": 3.634022713638842
+        },
+        "forest_fit": {
+          "calls": 168,
+          "seconds": 8.392997576855123
+        },
+        "predict": {
+          "calls": 168,
+          "seconds": 17.787457996979356
+        },
+        "optimizer": {
+          "calls": 1,
+          "seconds": 36.61818183399737
+        }
+      },
+      "logical_objectives": 200,
+      "distinct_angle_vectors": 200,
+      "objective_stream_sha256": "9b0f9735d61522b9e1f79e9d910c83e53f5acb1f6910cd4a9a09e07fa3ff5f58",
+      "initial_energy": -278.0220528076332,
+      "final_energy": -278.74166030942996,
+      "winning_angles_sha256": "0e0fd6a5cfec9cfbe537ab68928d18531540fcb8c774e5af2ce5d6c6fa032fe1",
+      "candidate_predictions": [
+        {
+          "forest_number": 1,
+          "grid_shape": [
+            10000,
+            68
+          ],
+          "prediction_sha256": "e01f4ef664656971bc464b80e20c7b0280d226c4035412e7ffaf71ea493c04be"
+        },
+        {
+          "forest_number": 84,
+          "grid_shape": [
+            10000,
+            68
+          ],
+          "prediction_sha256": "c58857e8f2f757749f4902dd95d4b8e75eab61362fefde684667273bccc4265e"
+        },
+        {
+          "forest_number": 168,
+          "grid_shape": [
+            10000,
+            68
+          ],
+          "prediction_sha256": "bdc2478b6b7dfdc1652d3a1f3ef9305e1691f632ea13753efa0d2ae796f60eb5"
+        }
+      ]
+    },
+    "candidate": {
+      "source_sha256": "6f9800b7c6afce5a467b56ab7818fda480183202ccd9244333a2a3d2336c1385",
+      "input_sha256": "cbc61637c2f05242c3385dd3754c6564100c2fa347af820c355b952f0cfc7f15",
+      "trial_seconds": 22.68197120912373,
+      "phases": {
+        "energy": {
+          "calls": 200,
+          "seconds": 0.10707924840971828
+        },
+        "sample": {
+          "calls": 200,
+          "seconds": 4.730189548805356
+        },
+        "transform": {
+          "calls": 336,
+          "seconds": 3.6227393723092973
+        },
+        "forest_fit": {
+          "calls": 168,
+          "seconds": 8.304598801769316
+        },
+        "predict": {
+          "calls": 168,
+          "seconds": 4.153113003820181
+        },
+        "optimizer": {
+          "calls": 1,
+          "seconds": 22.664938957896084
+        }
+      },
+      "logical_objectives": 200,
+      "distinct_angle_vectors": 200,
+      "objective_stream_sha256": "9b0f9735d61522b9e1f79e9d910c83e53f5acb1f6910cd4a9a09e07fa3ff5f58",
+      "initial_energy": -278.0220528076332,
+      "final_energy": -278.74166030942996,
+      "winning_angles_sha256": "0e0fd6a5cfec9cfbe537ab68928d18531540fcb8c774e5af2ce5d6c6fa032fe1",
+      "candidate_predictions": [
+        {
+          "forest_number": 1,
+          "grid_shape": [
+            10000,
+            68
+          ],
+          "prediction_sha256": "e01f4ef664656971bc464b80e20c7b0280d226c4035412e7ffaf71ea493c04be"
+        },
+        {
+          "forest_number": 84,
+          "grid_shape": [
+            10000,
+            68
+          ],
+          "prediction_sha256": "c58857e8f2f757749f4902dd95d4b8e75eab61362fefde684667273bccc4265e"
+        },
+        {
+          "forest_number": 168,
+          "grid_shape": [
+            10000,
+            68
+          ],
+          "prediction_sha256": "bdc2478b6b7dfdc1652d3a1f3ef9305e1691f632ea13753efa0d2ae796f60eb5"
+        }
+      ]
+    },
+    "prediction_speedup": 4.282921745836875
+  }
+}

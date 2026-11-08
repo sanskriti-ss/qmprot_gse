@@ -1,0 +1,266 @@
+{
+  "tested_revision": "d2ba4d7629b5f7ee2bb5be59289678d20301d4be",
+  "basis": "sto-3g",
+  "study_dispatch": {
+    "hva": {
+      "command": [
+        "python",
+        "-m",
+        "experiments.noise_resilience",
+        "--molecule",
+        "hydrogen",
+        "--basis",
+        "sto-3g",
+        "--cs-target-qubits",
+        "0",
+        "--max-iter",
+        "5",
+        "--seed",
+        "42",
+        "--no-plots",
+        "--output-dir",
+        "<fresh_output_directory>",
+        "--algorithm",
+        "hva_vqe",
+        "--n-layers",
+        "2",
+        "--optimizer",
+        "BAYESIAN",
+        "--init-strategy",
+        "random_uniform",
+        "--noise-models",
+        "phaseflip",
+        "--noise-strengths",
+        "0",
+        ".01"
+      ],
+      "exit_status": 0,
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "rng_seed": 42,
+      "angles_declared": [
+        4.862909272689599,
+        2.757554564287996,
+        5.3947298351621535,
+        4.381692553882582
+      ],
+      "angles_wrapped": [
+        -1.4202760344899872,
+        2.757554564287996,
+        -0.8884554720174336,
+        -1.9014927532970045
+      ],
+      "declared_energy": -0.963381597991363,
+      "wrapped_energy": -0.5393868878015735,
+      "optimizer_first_energy": -0.5393868878015735,
+      "first_cli_row": {
+        "noise_model": "none",
+        "noise_strength": "0",
+        "iteration": "0",
+        "energy": "-0.5393868878"
+      },
+      "difference_hartree": 0.4239947101897895
+    },
+    "cb": {
+      "command": [
+        "python",
+        "-m",
+        "experiments.barren_plateau",
+        "--molecule",
+        "hydrogen",
+        "--basis",
+        "sto-3g",
+        "--cs-target-qubits",
+        "0",
+        "--max-iter",
+        "32",
+        "--seed",
+        "42",
+        "--no-plots",
+        "--output-dir",
+        "<fresh_output_directory>",
+        "--algorithm",
+        "cb_vqe",
+        "--skip-part-a",
+        "--opt-layers",
+        "2",
+        "--opt-strategies",
+        "small_random",
+        "--n-trials",
+        "1",
+        "--optimizer",
+        "COBYLA"
+      ],
+      "exit_status": 0,
+      "input_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3",
+      "seed": 42,
+      "trial": 0,
+      "trial_seed": 42,
+      "n_parameters": 24,
+      "initial_angles": [
+        0.21516457738747574,
+        -0.04800476116272462,
+        0.28164214769654505,
+        0.15501248753659858,
+        -0.31873236563412166,
+        0.3735529214462834,
+        0.20509864233338015,
+        0.22467437997808648,
+        -0.2920788698891751,
+        -0.0389667932555085,
+        -0.10147499447505232,
+        0.33518043844402434,
+        0.1129914010883073,
+        0.25349637827810734,
+        -0.04444238431538733,
+        -0.21422620695617664,
+        0.04287079147167755,
+        -0.34257712596144024,
+        0.25732092075472746,
+        0.10340897725529835,
+        0.20270163705845057,
+        -0.11425503745282323,
+        0.3696853638745643,
+        0.30875660667919946
+      ],
+      "final_angles": [
+        0.2313213292676399,
+        0.6726354105452823,
+        1.2609005558359012,
+        0.05945249869444276,
+        -0.36448071424118456,
+        1.4215867114007328,
+        1.2853056618457395,
+        1.2611270764342,
+        0.2948151395333268,
+        0.2525207604508801,
+        0.22568680378984046,
+        0.7591931624666748,
+        0.3438995843038906,
+        0.4568032086437849,
+        1.384762482115964,
+        -0.27453026867947333,
+        -0.013134243002558332,
+        0.65742287403856,
+        0.1410245615682414,
+        0.025868384991824575,
+        0.20270163705845048,
+        -0.2601449906615626,
+        0.19345362052681134,
+        0.30580643857084616
+      ],
+      "cli_row": {
+        "strategy": "small_random",
+        "trial": "0",
+        "n_layers": "2",
+        "n_parameters": "24",
+        "initial_energy": "-0.3634912915",
+        "final_energy": "-0.5742183864",
+        "n_iterations": "3"
+      },
+      "variational_energy": -0.5742183863746485,
+      "ritz_energy": -1.1176862309529618,
+      "difference_hartree": 0.5434678445783133
+    }
+  },
+  "contextual_glycine": {
+    "sha256": {
+      "fits": "d7d814654cfd97dfa90d995d41e3ab20babb3dfd2b7e4b7a516cc1ac1b607907",
+      "reduced": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85",
+      "parent": "2b68e309e2e538c11ae44a9b4f6bebf8812242ab98451465ce1480065b0c5dc7"
+    },
+    "physical_electrons": 6,
+    "isometry_max_error": 1.1102230246251565e-16,
+    "normalized_hf_wrong_N_probability": 1.232595164407831e-32,
+    "projected_matrix_max_error_ha": 3.410605131648481e-13,
+    "full_casci": -279.1376629146243,
+    "reduced_ground_ha": -279.11289056807345,
+    "attainable_floor_mha": 24.772346550832935,
+    "rows": [
+      {
+        "method": "hardware_efficient_vqe",
+        "start": "default",
+        "budget": 100,
+        "wrong_N_probability": 0.5644691486172884,
+        "lifted_parent_energy_ha": -278.30381867460676,
+        "energy_difference_ha": 1.1368683772161603e-13
+      },
+      {
+        "method": "hardware_efficient_vqe",
+        "start": "reference",
+        "budget": 100,
+        "wrong_N_probability": 3.107294892735153e-32,
+        "lifted_parent_energy_ha": -279.1115147283365,
+        "energy_difference_ha": 5.684341886080802e-14
+      },
+      {
+        "method": "hardware_efficient_vqe",
+        "start": "default",
+        "budget": 1000,
+        "wrong_N_probability": 0.44060242929761456,
+        "lifted_parent_energy_ha": -278.8405612690111,
+        "energy_difference_ha": 1.7053025658242404e-13
+      },
+      {
+        "method": "hardware_efficient_vqe",
+        "start": "reference",
+        "budget": 1000,
+        "wrong_N_probability": 3.673552071785885e-12,
+        "lifted_parent_energy_ha": -279.1115148419485,
+        "energy_difference_ha": -5.684341886080802e-14
+      },
+      {
+        "method": "pennylane_vqe",
+        "start": "default",
+        "budget": 100,
+        "wrong_N_probability": 0.43874971350449804,
+        "lifted_parent_energy_ha": -278.5847223321198,
+        "energy_difference_ha": 5.684341886080802e-14
+      },
+      {
+        "method": "pennylane_vqe",
+        "start": "reference",
+        "budget": 100,
+        "wrong_N_probability": 2.3574150014042242e-32,
+        "lifted_parent_energy_ha": -279.1115147283365,
+        "energy_difference_ha": 5.684341886080802e-14
+      },
+      {
+        "method": "pennylane_vqe",
+        "start": "default",
+        "budget": 1000,
+        "wrong_N_probability": 0.007427240690807786,
+        "lifted_parent_energy_ha": -278.77310688998597,
+        "energy_difference_ha": 0.0
+      },
+      {
+        "method": "pennylane_vqe",
+        "start": "reference",
+        "budget": 1000,
+        "wrong_N_probability": 1.8335055375116435e-20,
+        "lifted_parent_energy_ha": -279.11151472833666,
+        "energy_difference_ha": 2.2737367544323206e-13
+      }
+    ]
+  },
+  "prefix_roster": {
+    "input": "smoke/reproductions/layered_vqe/four_orbital_gly.npz",
+    "terms": 200,
+    "method": "qaoa_inspired_vqe",
+    "layers": 2,
+    "optimizer": "COBYLA",
+    "budget": 64,
+    "base_seed": 42,
+    "zero_based_algorithm_indices": [
+      4,
+      0
+    ],
+    "case_seeds": [
+      20310,
+      20242
+    ],
+    "error_to_prefix_minimum_ha": [
+      0.97880900104,
+      1.016449502713
+    ]
+  }
+}

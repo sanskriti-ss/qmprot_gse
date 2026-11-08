@@ -1,0 +1,96 @@
+{
+  "scientific_revision": "9c7549e",
+  "driver": "ordered_energy_sweep.py",
+  "protocol": "Single native thread, fresh process per host. For each frozen glycine input we compare eight-byte scalar outputs for 85 real statevectors, including near-denormal and sparse vectors. One cold call and 84 interleaved warm comparisons. Optimization and preparation are excluded from this component timing.",
+  "equivalence": {
+    "serialized_terms": "Compare every native Pauli word, coefficient, length and order against the serialized observable before using the plan. Float64 real coefficients and finite, real, bounded complex128 amplitudes are required. Input magnitudes outside the bound fall back.",
+    "action": "On row r, a Pauli word maps column r XOR x to row r with phase (-i)^nY times (-1)^parity(r AND z). For real states, odd-Y terms add zero to the real component. Splitting r into block and lane preserves the XOR and parity factors. Columns are not sorted or combined. Each surviving coefficient multiplies its signed input and adds into the row in the original order. All signs are exact, including terms below roundoff.",
+    "native": "Lightning 0.38.0 ObservablesLQubit.hpp HamiltonianApplyInPlace, LinearAlgebra.hpp omp_scaleAndAdd and innerProdC, and MeasurementsLQubit.hpp calculateObsExpval. One native thread. For the supported dimensions, the real part of the final inner product visits amplitudes in increasing order from +0 and rounds each scalar product separately. The maximum coefficient guard bounds both H\u03c8 and the subsequent dot product. Products and ordered accumulation are evaluated separately in NumPy.",
+    "inspected_macos": "Lightning HamiltonianApplyInPlace<managed double,false> at 0x7cf38 calls complex multiply (0x6cbd8) then FADD. The SciPy complex csr_matvecs<int,complex128> loop at 0x2415f0 completes its product then separately FADDs into the row. The single nonzero real product inside each complex multiplication has identical rounding. SciPy double csr_matvecs<int,double> at 0x23a6a4 fuses the addition (FMADD/FMLA). The real kernel was rejected here. One of 36 dense 12-qubit glycine probe energies differed by a final bit with that rejected path.",
+    "inspected_linux": "Lightning omp_scaleAndAdd<double,4096> (0x13b320, OpenMP worker 0xb1080) multiplies with VMULSD and separately adds with VADDSD. The pinned SciPy double csr_matvecs<int,double> at 0x2a6ce0 uses MULPD/ADDPD for packed lanes and MULSD/ADDSD for the scalar paths. Both stay in original term order. The binary statement is restricted to the file SHA-256 pairs below and the currently verified one-thread device.",
+    "memory": "The 16-lane table is shared in a process-wide one-entry cache. Plan arrays are capped at 16 MiB with a separately bounded 8 MiB per-call state-lane array, plus basis-sized output vectors. The cold builder also allocates temporary sign/column arrays and the source Hamiltonian/solver remains live."
+  },
+  "extra_controls": "72 additional native differential states using 128 random signed Pauli terms with odd Ys, severe cancellation, sparsity, subnormals and signed zero per audited host. Verified native fallback for a complex state, distinct serialized observable and oversized plan.",
+  "cases": {
+    "local": [
+      {
+        "qubits": 8,
+        "terms": 361,
+        "lanes": 16,
+        "states": 85,
+        "energy_sha256": "d3562b8854847999557798b2581611cca6afbacc4f33713e244134c9843748ec",
+        "native_median_ms": 0.72997878305614,
+        "ordered_median_ms": 0.10112510062754154,
+        "setup_ms": 5.06683299317956,
+        "cold_first_call_ms": 1.7309999093413353,
+        "retained_plan_bytes": 214388,
+        "temporary_state_lane_bytes": 389120,
+        "input_sha256": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85",
+        "wheel_sha256": {
+          "pennylane_lightning.lightning_qubit_ops": "5b135d1d26722fb14ee7d2ecefea9cddc517f2ceca944c0241187470172e109d",
+          "scipy.sparse._sparsetools": "9436d040c36250dfcd73335b75ccaf52c315469aab03fed3f02999f899398233"
+        },
+        "component_speedup": 7.218571635787617
+      },
+      {
+        "qubits": 12,
+        "terms": 1819,
+        "lanes": 16,
+        "states": 85,
+        "energy_sha256": "61e820e6020fbc644453e6ff1b2fa3fc1e88824ff262de8f0456bf1a9c64ab41",
+        "native_median_ms": 20.146291935816407,
+        "ordered_median_ms": 4.243332892656326,
+        "setup_ms": 0.056916847825050354,
+        "cold_first_call_ms": 15.09304204955697,
+        "retained_plan_bytes": 10872308,
+        "temporary_state_lane_bytes": 6225920,
+        "input_sha256": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec",
+        "wheel_sha256": {
+          "pennylane_lightning.lightning_qubit_ops": "5b135d1d26722fb14ee7d2ecefea9cddc517f2ceca944c0241187470172e109d",
+          "scipy.sparse._sparsetools": "9436d040c36250dfcd73335b75ccaf52c315469aab03fed3f02999f899398233"
+        },
+        "component_speedup": 4.747751931195959
+      }
+    ],
+    "modal": [
+      {
+        "qubits": 8,
+        "terms": 361,
+        "lanes": 16,
+        "states": 85,
+        "energy_sha256": "79939c40d518a631b4573f6456a13322447bad32fb48acc51acb5eb3e7fbe9cf",
+        "native_median_ms": 0.30139800000039685,
+        "ordered_median_ms": 0.09861950000011888,
+        "setup_ms": 63.57213100000081,
+        "cold_first_call_ms": 4.108750000000327,
+        "retained_plan_bytes": 168180,
+        "temporary_state_lane_bytes": 194560,
+        "input_sha256": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85",
+        "wheel_sha256": {
+          "pennylane_lightning.lightning_qubit_ops": "d41ad298e9eaab23f5accbbc012f7731dfb459c61230ce11f96368e8c2bfc9be",
+          "scipy.sparse._sparsetools": "54d239dc364f96e6b82ff983fe9f2f71598af74b4f931b0f5198a8411b0375d3"
+        },
+        "component_speedup": 3.0561704328254913
+      },
+      {
+        "qubits": 12,
+        "terms": 1819,
+        "lanes": 16,
+        "states": 85,
+        "energy_sha256": "012f8bfe15b2075dc3ce8d70d65fb77abe81d732170f71b2f15321d609ba8dea",
+        "native_median_ms": 24.684342999999664,
+        "ordered_median_ms": 3.3979090000002543,
+        "setup_ms": 0.14307900000076756,
+        "cold_first_call_ms": 30.996584000000382,
+        "retained_plan_bytes": 7146996,
+        "temporary_state_lane_bytes": 3112960,
+        "input_sha256": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec",
+        "wheel_sha256": {
+          "pennylane_lightning.lightning_qubit_ops": "d41ad298e9eaab23f5accbbc012f7731dfb459c61230ce11f96368e8c2bfc9be",
+          "scipy.sparse._sparsetools": "54d239dc364f96e6b82ff983fe9f2f71598af74b4f931b0f5198a8411b0375d3"
+        },
+        "component_speedup": 7.264568592036402
+      }
+    ]
+  }
+}

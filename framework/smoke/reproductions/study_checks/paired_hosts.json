@@ -1,0 +1,277 @@
+{
+  "modal_app": "https://modal.com/apps/ethan-k-kuntz/main/ap-pRnvO2gib23XgCd0ghOWHa",
+  "hosts": {
+    "local": {
+      "directory": "study-campaign-fixed-and-fresh",
+      "files": 65,
+      "plots": 16,
+      "source_sha256": "fe1fcbb8014be224caa7d1869ec681848073c7789feaaeb1cafed07d6098e07d",
+      "control_sha256": "220e5a77c189860bae4501c4a1191d38e53992015e8b4bcf1dfe58da631313be",
+      "control_elapsed_s": 2.3507728329859674,
+      "fixed_iqcc": {
+        "rotations": 2,
+        "energy_ha": -279.1115147391168
+      },
+      "models": {
+        "hydrogen": {
+          "geometry_sha256": "44b816528c2cd1296765d5497e6d7040e63a6eae377c98da63c3079982cf9357",
+          "hamiltonian_sha256": "1564458c3f4bc5b1e10c66bb2cb527145bf42e53e5bf6762972af383cf3807c4",
+          "casci": -1.1368465754720538,
+          "trial_double_0p4": {
+            "circuit": "approximate_matched_pool",
+            "operator": [
+              "double",
+              0,
+              1,
+              2,
+              3
+            ],
+            "angle": 0.4,
+            "fidelity_to_jw": 0.009477915332901082,
+            "off_particle_sector": 0.9802652485007215,
+            "energy": -0.5309984623461094
+          },
+          "runs": {
+            "registered": {
+              "energy": -1.117505884204331,
+              "error_mha": 19.340691267722754,
+              "cost_evals": 26,
+              "off_particle_sector": 0.0,
+              "selected": [],
+              "angles": []
+            },
+            "approximate_matched_pool": {
+              "energy": -1.117505884204331,
+              "error_mha": 19.340691267722754,
+              "cost_evals": 8,
+              "off_particle_sector": 0.0,
+              "selected": [],
+              "angles": []
+            },
+            "fermionic_matched_pool": {
+              "energy": -1.1368465754720454,
+              "error_mha": 8.43769498715119e-12,
+              "cost_evals": 55,
+              "off_particle_sector": 5.169561263064702e-32,
+              "selected": [
+                [
+                  "double",
+                  0,
+                  1,
+                  2,
+                  3
+                ]
+              ],
+              "angles": [
+                0.21446702499999998
+              ]
+            }
+          }
+        },
+        "gly": {
+          "geometry_sha256": "d6c06b5e1faec00a1d5d3ea6ff47232a9b5f049ffc375ac502f404179704cb8f",
+          "hamiltonian_sha256": "f3279219997939a6167236da12a341f7a1f6cd2ce513a64ae1ba4a11f0648357",
+          "casci": -279.1115600159873,
+          "trial_double_0p4": {
+            "circuit": "approximate_matched_pool",
+            "operator": [
+              "double",
+              0,
+              1,
+              2,
+              3
+            ],
+            "angle": 0.4,
+            "fidelity_to_jw": 0.009477915332901082,
+            "off_particle_sector": 0.9802652485007215,
+            "energy": -278.792934231623
+          },
+          "runs": {
+            "registered": {
+              "energy": -279.1115147283362,
+              "error_mha": 0.04528765111899702,
+              "cost_evals": 26,
+              "off_particle_sector": 0.0,
+              "selected": [],
+              "angles": []
+            },
+            "approximate_matched_pool": {
+              "energy": -279.1115147283362,
+              "error_mha": 0.04528765111899702,
+              "cost_evals": 8,
+              "off_particle_sector": 0.0,
+              "selected": [],
+              "angles": []
+            },
+            "fermionic_matched_pool": {
+              "energy": -279.11156001598476,
+              "error_mha": 2.5579538487363607e-09,
+              "cost_evals": 190,
+              "off_particle_sector": 5.724337650766933e-32,
+              "selected": [
+                [
+                  "double",
+                  0,
+                  1,
+                  2,
+                  3
+                ],
+                [
+                  "single",
+                  0,
+                  2
+                ],
+                [
+                  "single",
+                  1,
+                  3
+                ]
+              ],
+              "angles": [
+                0.01269937182475131,
+                9.193760994814697e-05,
+                9.306437045664464e-05
+              ]
+            }
+          }
+        }
+      }
+    },
+    "modal": {
+      "directory": "study-campaign-c34334ad59c04a1ca1cf93d618b1a44a",
+      "files": 65,
+      "plots": 16,
+      "source_sha256": "fe1fcbb8014be224caa7d1869ec681848073c7789feaaeb1cafed07d6098e07d",
+      "control_sha256": "220e5a77c189860bae4501c4a1191d38e53992015e8b4bcf1dfe58da631313be",
+      "control_elapsed_s": 7.810810245999988,
+      "fixed_iqcc": {
+        "rotations": 2,
+        "energy_ha": -279.11151473911684
+      },
+      "models": {
+        "hydrogen": {
+          "geometry_sha256": "44b816528c2cd1296765d5497e6d7040e63a6eae377c98da63c3079982cf9357",
+          "hamiltonian_sha256": "595ae13d04ac5dc453df6af30e59d7e77ed560b1b65e6376e5dfa2d5346dcbb8",
+          "casci": -1.1368465754720547,
+          "trial_double_0p4": {
+            "circuit": "approximate_matched_pool",
+            "operator": [
+              "double",
+              0,
+              1,
+              2,
+              3
+            ],
+            "angle": 0.4,
+            "fidelity_to_jw": 0.009477915332901082,
+            "off_particle_sector": 0.9802652485007215,
+            "energy": -0.5309984623461095
+          },
+          "runs": {
+            "registered": {
+              "energy": -1.1175058842043313,
+              "error_mha": 19.34069126772342,
+              "cost_evals": 26,
+              "off_particle_sector": 0.0,
+              "selected": [],
+              "angles": []
+            },
+            "approximate_matched_pool": {
+              "energy": -1.1175058842043313,
+              "error_mha": 19.34069126772342,
+              "cost_evals": 8,
+              "off_particle_sector": 0.0,
+              "selected": [],
+              "angles": []
+            },
+            "fermionic_matched_pool": {
+              "energy": -1.1368465754720491,
+              "error_mha": 5.551115123125783e-12,
+              "cost_evals": 59,
+              "off_particle_sector": 8.351509763417304e-32,
+              "selected": [
+                [
+                  "double",
+                  0,
+                  1,
+                  2,
+                  3
+                ]
+              ],
+              "angles": [
+                0.21446701399999998
+              ]
+            }
+          }
+        },
+        "gly": {
+          "geometry_sha256": "d6c06b5e1faec00a1d5d3ea6ff47232a9b5f049ffc375ac502f404179704cb8f",
+          "hamiltonian_sha256": "80d1376585365cbd75339c790bf3c1d95b7a3b4438a3228c2446618812404309",
+          "casci": -279.11156001598783,
+          "trial_double_0p4": {
+            "circuit": "approximate_matched_pool",
+            "operator": [
+              "double",
+              0,
+              1,
+              2,
+              3
+            ],
+            "angle": 0.4,
+            "fidelity_to_jw": 0.009477915332901082,
+            "off_particle_sector": 0.9802652485007215,
+            "energy": -278.7929342316237
+          },
+          "runs": {
+            "registered": {
+              "energy": -279.1115147283367,
+              "error_mha": 0.04528765111899702,
+              "cost_evals": 26,
+              "off_particle_sector": 0.0,
+              "selected": [],
+              "angles": []
+            },
+            "approximate_matched_pool": {
+              "energy": -279.1115147283367,
+              "error_mha": 0.04528765111899702,
+              "cost_evals": 8,
+              "off_particle_sector": 0.0,
+              "selected": [],
+              "angles": []
+            },
+            "fermionic_matched_pool": {
+              "energy": -279.1115600159858,
+              "error_mha": 2.0463630789890885e-09,
+              "cost_evals": 202,
+              "off_particle_sector": 6.245408870589303e-32,
+              "selected": [
+                [
+                  "double",
+                  0,
+                  1,
+                  2,
+                  3
+                ],
+                [
+                  "single",
+                  0,
+                  2
+                ],
+                [
+                  "single",
+                  1,
+                  3
+                ]
+              ],
+              "angles": [
+                0.012699000316121256,
+                9.220364174904931e-05,
+                9.218596847407361e-05
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

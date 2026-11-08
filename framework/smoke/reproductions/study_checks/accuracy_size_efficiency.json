@@ -1,0 +1,178 @@
+{
+  "workload": "experiments.accuracy_vs_params, native batch CLI with figures, canonical active space",
+  "baseline": "ab1954f",
+  "platform": "macOS arm64",
+  "inner_max_iter": 24,
+  "seed": 42,
+  "threads": 1,
+  "timing": "Fresh process through plot writes, including streaming a digest of every cost request.",
+  "parity": "Compared input snapshots, scientific CSV headers and cells, scientific JSON, PNG bytes, and all objective and callback events. Excluded runtime.json, framework-source.zip, solver_runtime_s and cumulative_runtime_s.",
+  "source_sha256": {
+    "A": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8",
+    "B": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad"
+  },
+  "cases": {
+    "hydrogen-adapt_vqe-COBYLA": {
+      "run_order": "ABBA",
+      "requested_operators": [
+        1,
+        2,
+        5
+      ],
+      "cli_seconds": [
+        1.7840154580771923,
+        1.8785941251553595,
+        1.8353831660933793,
+        1.8065769160166383
+      ],
+      "end_to_end_speedup": 0.9667782252073429,
+      "events_per_run": 26,
+      "events_sha256": "4758dcdab8f6fe65deb0986ddc4650919be9f5a9ec493d4ae43aab8e43f1a205",
+      "files_compared": 13,
+      "plots_compared": 5,
+      "manifest_sha256": "3e6da45e9cb3e3ff8966eb0817ceb2523d99f9a61bec38130869cfb953bef2bf",
+      "molecules": {
+        "hydrogen": {
+          "attained_operators": 0,
+          "cost_evals": 26,
+          "solver_seconds": [
+            0.013776083942502737,
+            0.010291832964867353,
+            0.007321584038436413,
+            0.012892875354737043
+          ]
+        }
+      }
+    },
+    "hydrogen-adapt_vqe-BAYESIAN": {
+      "run_order": "ABBA",
+      "requested_operators": [
+        1,
+        2,
+        5
+      ],
+      "cli_seconds": [
+        1.8651935420930386,
+        1.8692381246946752,
+        1.8732439167797565,
+        1.8846337078139186
+      ],
+      "end_to_end_speedup": 1.0019626569616435,
+      "events_per_run": 26,
+      "events_sha256": "4758dcdab8f6fe65deb0986ddc4650919be9f5a9ec493d4ae43aab8e43f1a205",
+      "files_compared": 13,
+      "plots_compared": 5,
+      "manifest_sha256": "da649406c026300b8f17cc1b43cb4f4a99d4cebf8f2d4e4028e7c9f0ccef5b77",
+      "molecules": {
+        "hydrogen": {
+          "attained_operators": 0,
+          "cost_evals": 26,
+          "solver_seconds": [
+            0.014549583196640015,
+            0.007700625341385603,
+            0.007496249862015247,
+            0.013871625065803528
+          ]
+        }
+      }
+    },
+    "hydrogen-qubit_adapt_vqe-COBYLA": {
+      "run_order": "ABBA",
+      "requested_operators": [
+        1,
+        2,
+        5
+      ],
+      "cli_seconds": [
+        2.002759583760053,
+        1.9744218746200204,
+        2.0172871672548354,
+        1.9877156247384846
+      ],
+      "end_to_end_speedup": 0.9996909009741505,
+      "events_per_run": 196,
+      "events_sha256": "4e15687f8bdcf6dca9a58704c9d2886441bbbb04499e8b125b0b592a8cf4bb62",
+      "files_compared": 14,
+      "plots_compared": 6,
+      "manifest_sha256": "8a905b3c08e9a0afc35ebb8c62241d6b5a5079447158264c71119b0a78b12d49",
+      "molecules": {
+        "hydrogen": {
+          "attained_operators": 4,
+          "cost_evals": 196,
+          "solver_seconds": [
+            0.14902908261865377,
+            0.09826579177752137,
+            0.09931133408099413,
+            0.1398932090960443
+          ]
+        }
+      }
+    },
+    "hydrogen-qubit_adapt_vqe-BAYESIAN": {
+      "run_order": "ABBA",
+      "requested_operators": [
+        1,
+        2,
+        5
+      ],
+      "cli_seconds": [
+        4.3286080420948565,
+        4.272211499977857,
+        4.266621790826321,
+        4.19196116598323
+      ],
+      "end_to_end_speedup": 0.9978610564108611,
+      "events_per_run": 196,
+      "events_sha256": "b2feee1bc3b99a73e8dd45a47e1e5915b895872af983711bef92a527909e33a8",
+      "files_compared": 14,
+      "plots_compared": 6,
+      "manifest_sha256": "f6a505477fec95b12a2e1699a5b6d23aa23470f10a542aef6b72dfa67b485294",
+      "molecules": {
+        "hydrogen": {
+          "attained_operators": 4,
+          "cost_evals": 196,
+          "solver_seconds": [
+            2.423434874974191,
+            2.365883500315249,
+            2.3366144583560526,
+            2.3465542923659086
+          ]
+        }
+      }
+    },
+    "hydrogen-glycine-qubit_adapt_vqe-COBYLA": {
+      "run_order": "AB",
+      "requested_operators": [
+        1
+      ],
+      "cli_seconds": [
+        90.06868416583166,
+        13.172337959054857
+      ],
+      "end_to_end_speedup": 6.837714340901581,
+      "events_per_run": 2016,
+      "events_sha256": "b4ea102f1553728180f28deb431175ca288384e4c14826687478de7f0ba6ab35",
+      "files_compared": 21,
+      "plots_compared": 9,
+      "manifest_sha256": "a7b8b4aeec828be763c723d2bd3f322d4a8e4e89a138f825a923ba582e168c47",
+      "molecules": {
+        "hydrogen": {
+          "attained_operators": 1,
+          "cost_evals": 48,
+          "solver_seconds": [
+            0.033084915950894356,
+            0.021356625016778708
+          ]
+        },
+        "gly": {
+          "attained_operators": 1,
+          "cost_evals": 1968,
+          "solver_seconds": [
+            87.13782779173926,
+            10.301976792048663
+          ]
+        }
+      }
+    }
+  }
+}

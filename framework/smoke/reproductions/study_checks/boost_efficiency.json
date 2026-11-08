@@ -1,0 +1,258 @@
+{
+  "baseline_commit": "116b39e",
+  "candidate_commit": "e58082e",
+  "threads": 1,
+  "policy": "Each host ran before then after in fresh processes. Native six-fit timed prefix command includes plotting and output. Component probes compare the entire 256\u00d7256 ansatz unitary, all measured complex overlaps and both endpoint energies for each set of distinct angles. Reuses the native preparation matrix across equal input bytes at most through 9 qubits. Basis rows preserve coefficient cutoffs and addition order.",
+  "local": {
+    "path": "results/profiling/deep-efficiency/cb-local",
+    "prefix": {
+      "seconds": {
+        "baseline": 8.603028,
+        "candidate": 4.067235
+      },
+      "source_sha256": {
+        "baseline": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad",
+        "candidate": "46b384b30fabafc2498ed49112e3a14609e196bc703fbffedc47e252d94850de"
+      },
+      "cases": 6,
+      "cases_sha256": "5b1deb9996961bafd1569592fa0606aab520f50d1e02bc16b7746bcd59391db6",
+      "input_sha256": {
+        "gly": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85"
+      },
+      "solver_seconds": {
+        "cb_vqe": {
+          "baseline_seconds": 7.029300000000001,
+          "candidate_seconds": 2.4738
+        }
+      }
+    },
+    "components": {
+      "baseline": {
+        "contextual": {
+          "terms": 200,
+          "qubits": 8,
+          "measured_overlaps": 18,
+          "input_sha256": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85",
+          "trials": [
+            {
+              "science": {
+                "unitary_sha256": "498ebf379715055716fd60e61d7ece82690e03543fc9db20cfe3aa6db690de8c",
+                "overlap_sha256": "313877e1f0a9680fbac772701b190a5a836e4f6796361acb9044cd0999877ef3",
+                "raw_energy": "-0x1.15d48b3680eebp+8",
+                "ritz_energy": "-0x1.171c8cf4c9f4ep+8"
+              },
+              "unitary_seconds": 1.038642458152026,
+              "overlap_seconds": 0.04112308286130428,
+              "boost_seconds": 1.0557042923755944
+            },
+            {
+              "science": {
+                "unitary_sha256": "14c63baa175532ca3bfd858bd065837d205c0c67f1e959354a0272c8580a2974",
+                "overlap_sha256": "dad5929fa897c87024a56d9e6f6a227a6de80da263316705e1f3200844de67c6",
+                "raw_energy": "-0x1.15e83d40e65b4p+8",
+                "ritz_energy": "-0x1.171c8ce469501p+8"
+              },
+              "unitary_seconds": 1.0424393326975405,
+              "overlap_seconds": 0.00818174984306097,
+              "boost_seconds": 1.0476488340646029
+            },
+            {
+              "science": {
+                "unitary_sha256": "06ce1ba61ef33862efa92fe270eefc4ab3f312c43d70a9318f5c9ea505958313",
+                "overlap_sha256": "d70e99ba470822a3bb5eda9a681d82f29a3baa47899d6f36b52397ffb3ad0e37",
+                "raw_energy": "-0x1.15c9dc18fe1b2p+8",
+                "ritz_energy": "-0x1.171c8de4b7d63p+8"
+              },
+              "unitary_seconds": 1.0285833752714097,
+              "overlap_seconds": 0.008118541911244392,
+              "boost_seconds": 1.0422802921384573
+            }
+          ]
+        },
+        "determinant": {
+          "terms": 200,
+          "qubits": 12,
+          "row": 4032,
+          "sha256": "028fbeb5227583a13f6a5a6ef9d9ee014e50a7589049cd78bc57d7d1727f7d68",
+          "seconds": 0.023051374591886997
+        }
+      },
+      "candidate": {
+        "contextual": {
+          "terms": 200,
+          "qubits": 8,
+          "measured_overlaps": 18,
+          "input_sha256": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85",
+          "trials": [
+            {
+              "science": {
+                "unitary_sha256": "498ebf379715055716fd60e61d7ece82690e03543fc9db20cfe3aa6db690de8c",
+                "overlap_sha256": "313877e1f0a9680fbac772701b190a5a836e4f6796361acb9044cd0999877ef3",
+                "raw_energy": "-0x1.15d48b3680eebp+8",
+                "ritz_energy": "-0x1.171c8cf4c9f4ep+8"
+              },
+              "unitary_seconds": 1.0427176668308675,
+              "overlap_seconds": 0.041008209343999624,
+              "boost_seconds": 0.18458750005811453
+            },
+            {
+              "science": {
+                "unitary_sha256": "14c63baa175532ca3bfd858bd065837d205c0c67f1e959354a0272c8580a2974",
+                "overlap_sha256": "dad5929fa897c87024a56d9e6f6a227a6de80da263316705e1f3200844de67c6",
+                "raw_energy": "-0x1.15e83d40e65b4p+8",
+                "ritz_energy": "-0x1.171c8ce469501p+8"
+              },
+              "unitary_seconds": 0.17367404187098145,
+              "overlap_seconds": 0.008946291171014309,
+              "boost_seconds": 0.180374791380018
+            },
+            {
+              "science": {
+                "unitary_sha256": "06ce1ba61ef33862efa92fe270eefc4ab3f312c43d70a9318f5c9ea505958313",
+                "overlap_sha256": "d70e99ba470822a3bb5eda9a681d82f29a3baa47899d6f36b52397ffb3ad0e37",
+                "raw_energy": "-0x1.15c9dc18fe1b2p+8",
+                "ritz_energy": "-0x1.171c8de4b7d63p+8"
+              },
+              "unitary_seconds": 0.16839550016447902,
+              "overlap_seconds": 0.007625583093613386,
+              "boost_seconds": 0.17883587488904595
+            }
+          ]
+        },
+        "determinant": {
+          "terms": 200,
+          "qubits": 12,
+          "row": 4032,
+          "sha256": "028fbeb5227583a13f6a5a6ef9d9ee014e50a7589049cd78bc57d7d1727f7d68",
+          "seconds": 0.0009162919595837593
+        }
+      }
+    }
+  },
+  "modal": {
+    "path": "results/smoke/boost-efficiency-0afbac088b6446e08b43e98ea520ef48",
+    "prefix": {
+      "seconds": {
+        "baseline": 18.348631,
+        "candidate": 10.975038
+      },
+      "source_sha256": {
+        "baseline": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad",
+        "candidate": "46b384b30fabafc2498ed49112e3a14609e196bc703fbffedc47e252d94850de"
+      },
+      "cases": 6,
+      "cases_sha256": "1e8e49c20fed1ff71a37a7a75a49ce854b6234bd9e51f282d6ae8b95a68dedb9",
+      "input_sha256": {
+        "gly": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85"
+      },
+      "solver_seconds": {
+        "cb_vqe": {
+          "baseline_seconds": 10.7772,
+          "candidate_seconds": 5.145599999999999
+        }
+      }
+    },
+    "components": {
+      "baseline": {
+        "contextual": {
+          "terms": 200,
+          "qubits": 8,
+          "measured_overlaps": 18,
+          "input_sha256": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85",
+          "trials": [
+            {
+              "science": {
+                "unitary_sha256": "781fa73921c02625ed124780a2c7eda70ad9b79fd5e9b04abc6a2cea4e044976",
+                "overlap_sha256": "8db3f0e5b14ecd7943cb17f5263f4fae43350269fa0937d09e20cc95d01dda2a",
+                "raw_energy": "-0x1.15d48b3680eebp+8",
+                "ritz_energy": "-0x1.171c8cf4c9f4ep+8"
+              },
+              "unitary_seconds": 1.4115644510000003,
+              "overlap_seconds": 0.03841362500000045,
+              "boost_seconds": 1.4320613689999995
+            },
+            {
+              "science": {
+                "unitary_sha256": "d6a23b27a362c756fd5d73b97eef9c7bb81504b5bd86d029e7a653143b7c9b7b",
+                "overlap_sha256": "92d2942ab7c119f4195f27f231ec7ddb010b0fe07aa097d85dbc1ecee289a942",
+                "raw_energy": "-0x1.15e83d40e65b3p+8",
+                "ritz_energy": "-0x1.171c8ce469500p+8"
+              },
+              "unitary_seconds": 1.469718683,
+              "overlap_seconds": 0.030627270000000095,
+              "boost_seconds": 1.471661117
+            },
+            {
+              "science": {
+                "unitary_sha256": "3f4101789de1ee72316928efca771823648c9d836ff587083e48d2da1dd1cb68",
+                "overlap_sha256": "2efc24bef2c81aafd329d4f93b17264ad792be7e21c85016f050283f69e72818",
+                "raw_energy": "-0x1.15c9dc18fe1b0p+8",
+                "ritz_energy": "-0x1.171c8de4b7d62p+8"
+              },
+              "unitary_seconds": 1.4065208509999998,
+              "overlap_seconds": 0.04132418100000024,
+              "boost_seconds": 1.4677095289999968
+            }
+          ]
+        },
+        "determinant": {
+          "terms": 200,
+          "qubits": 12,
+          "row": 4032,
+          "sha256": "028fbeb5227583a13f6a5a6ef9d9ee014e50a7589049cd78bc57d7d1727f7d68",
+          "seconds": 0.04715399999999903
+        }
+      },
+      "candidate": {
+        "contextual": {
+          "terms": 200,
+          "qubits": 8,
+          "measured_overlaps": 18,
+          "input_sha256": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85",
+          "trials": [
+            {
+              "science": {
+                "unitary_sha256": "781fa73921c02625ed124780a2c7eda70ad9b79fd5e9b04abc6a2cea4e044976",
+                "overlap_sha256": "8db3f0e5b14ecd7943cb17f5263f4fae43350269fa0937d09e20cc95d01dda2a",
+                "raw_energy": "-0x1.15d48b3680eebp+8",
+                "ritz_energy": "-0x1.171c8cf4c9f4ep+8"
+              },
+              "unitary_seconds": 1.3951680310000043,
+              "overlap_seconds": 0.03780889199999393,
+              "boost_seconds": 0.26954032899999447
+            },
+            {
+              "science": {
+                "unitary_sha256": "d6a23b27a362c756fd5d73b97eef9c7bb81504b5bd86d029e7a653143b7c9b7b",
+                "overlap_sha256": "92d2942ab7c119f4195f27f231ec7ddb010b0fe07aa097d85dbc1ecee289a942",
+                "raw_energy": "-0x1.15e83d40e65b3p+8",
+                "ritz_energy": "-0x1.171c8ce469500p+8"
+              },
+              "unitary_seconds": 0.22640533999999946,
+              "overlap_seconds": 0.03216281199999571,
+              "boost_seconds": 0.27199320299999385
+            },
+            {
+              "science": {
+                "unitary_sha256": "3f4101789de1ee72316928efca771823648c9d836ff587083e48d2da1dd1cb68",
+                "overlap_sha256": "2efc24bef2c81aafd329d4f93b17264ad792be7e21c85016f050283f69e72818",
+                "raw_energy": "-0x1.15c9dc18fe1b0p+8",
+                "ritz_energy": "-0x1.171c8de4b7d62p+8"
+              },
+              "unitary_seconds": 0.22514228099999656,
+              "overlap_seconds": 0.03701622799999882,
+              "boost_seconds": 0.2610745320000021
+            }
+          ]
+        },
+        "determinant": {
+          "terms": 200,
+          "qubits": 12,
+          "row": 4032,
+          "sha256": "028fbeb5227583a13f6a5a6ef9d9ee014e50a7589049cd78bc57d7d1727f7d68",
+          "seconds": 0.0035578620000009664
+        }
+      }
+    }
+  }
+}

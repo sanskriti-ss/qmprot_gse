@@ -1,0 +1,71 @@
+{
+  "input_sha256": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec",
+  "qubits": 12,
+  "terms": 1819,
+  "runs": [
+    {
+      "mode": "control",
+      "setup_and_screen_seconds": 10.66043991688639,
+      "screen_seconds": 10.563266542274505,
+      "pool": 972,
+      "probes": 1944,
+      "distinct_states": 1944,
+      "nonzero_amplitudes": {
+        "3": 1944
+      },
+      "state_sha256": "a22d520423bb6165ca2a059e2ee38375fa223dae14557aa54894e5b5ed26ad7b",
+      "energy_sha256": "d535128a264134a99a97812d7c3b3401182b4484b04a572241cefd35c6fb47cd",
+      "gradient_sha256": "b8f90433a550de80e7b66f648900cb48e6db5c5c5bff9079b39065f41c34b74a",
+      "selected_index": 612,
+      "gradient_max": 0.2718742109664163
+    },
+    {
+      "mode": "rebind",
+      "setup_and_screen_seconds": 6.161788208875805,
+      "screen_seconds": 6.0916182501241565,
+      "pool": 972,
+      "probes": 1944,
+      "distinct_states": 1944,
+      "nonzero_amplitudes": {
+        "3": 1944
+      },
+      "state_sha256": "a22d520423bb6165ca2a059e2ee38375fa223dae14557aa54894e5b5ed26ad7b",
+      "energy_sha256": "d535128a264134a99a97812d7c3b3401182b4484b04a572241cefd35c6fb47cd",
+      "gradient_sha256": "b8f90433a550de80e7b66f648900cb48e6db5c5c5bff9079b39065f41c34b74a",
+      "selected_index": 612,
+      "gradient_max": 0.2718742109664163
+    },
+    {
+      "mode": "rebind",
+      "setup_and_screen_seconds": 6.00515858316794,
+      "screen_seconds": 5.891054125037044,
+      "pool": 972,
+      "probes": 1944,
+      "distinct_states": 1944,
+      "nonzero_amplitudes": {
+        "3": 1944
+      },
+      "state_sha256": "a22d520423bb6165ca2a059e2ee38375fa223dae14557aa54894e5b5ed26ad7b",
+      "energy_sha256": "d535128a264134a99a97812d7c3b3401182b4484b04a572241cefd35c6fb47cd",
+      "gradient_sha256": "b8f90433a550de80e7b66f648900cb48e6db5c5c5bff9079b39065f41c34b74a",
+      "selected_index": 612,
+      "gradient_max": 0.2718742109664163
+    },
+    {
+      "mode": "control",
+      "setup_and_screen_seconds": 10.304133041761816,
+      "screen_seconds": 10.201222791802138,
+      "pool": 972,
+      "probes": 1944,
+      "distinct_states": 1944,
+      "nonzero_amplitudes": {
+        "3": 1944
+      },
+      "state_sha256": "a22d520423bb6165ca2a059e2ee38375fa223dae14557aa54894e5b5ed26ad7b",
+      "energy_sha256": "d535128a264134a99a97812d7c3b3401182b4484b04a572241cefd35c6fb47cd",
+      "gradient_sha256": "b8f90433a550de80e7b66f648900cb48e6db5c5c5bff9079b39065f41c34b74a",
+      "selected_index": 612,
+      "gradient_max": 0.2718742109664163
+    }
+  ]
+}

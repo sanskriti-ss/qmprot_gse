@@ -1,0 +1,36 @@
+--- a/framework/algorithms/vqe_qubit_adapt.py
++++ b/framework/algorithms/vqe_qubit_adapt.py
+@@ -184,2 +184,5 @@
+         self.device = create_device(self.backend_config)
++        self._observable = None
++        if self.backend_config.backend_type == "statevector" and self.backend_config.n_shots == 0:
++            self._observable = self.hamiltonian.to_pennylane()
+         self.cost_fn = None
+@@ -263,2 +266,4 @@
+-            H = self.hamiltonian.to_pennylane()
++            H = self._observable
++            if H is None:
++                H = self.hamiltonian.to_pennylane()
+             return qml.expval(H)
+--- a/framework/algorithms/vqe_hardware_efficient.py
++++ b/framework/algorithms/vqe_hardware_efficient.py
+@@ -152,1 +152,4 @@
++        self._callback_energies = None
++        if self.backend_config.backend_type == "statevector" and self.backend_config.n_shots == 0:
++            self._callback_energies = {}
+         self.cost_fn = circuit
+@@ -164,2 +167,13 @@
+             raise RuntimeError("Must call build_ansatz() first")
+-        return float(self.cost_fn(parameters))
++        counter = getattr(self, "_eval_counter", None)
++        if self._callback_energies is None or counter is None:
++            return float(self.cost_fn(parameters))
++
++        vector = np.asarray(parameters)
++        key = (vector.dtype.str, vector.shape, vector.tobytes())
++        if counter._in_callback and key in self._callback_energies:
++            return self._callback_energies[key]
++        energy = float(self.cost_fn(parameters))
++        if not counter._in_callback:
++            self._callback_energies[key] = energy
++        return energy

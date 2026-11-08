@@ -1,0 +1,79 @@
+{
+  "march_heatmap": {
+    "archive_revision": "db605e94ac9b9177438409190994c8a6a1d8a007",
+    "archive_directory": "plots/20260318_200609",
+    "log": "run_all_cs.log",
+    "source": "algorithms/vqe_CB.py at this revision, lines 277\u2013280 and 408\u2013414",
+    "warning": "Classical boost failed (ControlledQubitUnitary.__init__() missing 1 required positional argument: 'control_wires'); using VQE energy.",
+    "experiment": "cc-pVDZ, 14 active qubits projected to 8; parent active-space CASCI reference; COBYLA, 100 max iterations, 48 angles",
+    "data_quality": "run_results.csv and all_results.json agree on all five CB rows. all_results.csv labels all 55 methods unknown and omits every VQE energy.",
+    "interpretation": "All five entries are unboosted fitted energies. Archived zero-operator ADAPT energies give an upper bound on the Ritz minimum of a span containing the correctly encoded reference. The March CB HF column uses a half-filled computational determinant. The March output directory lacks the reduced operators and encoded kets needed to reconstruct the exact corrected energies.",
+    "mean_published_error_ha": 1.2353899117399352,
+    "mean_encoded_reference_minus_casci_ha": 0.00328086267385288,
+    "molecules": {
+      "ala": {
+        "casci": -321.89207872400544,
+        "published_cb": -320.0305468251134,
+        "cb_error_ha": 1.8615318988920535,
+        "cb_reported_hf": -317.37063240037514,
+        "encoded_reference": -321.88975642379455,
+        "encoded_reference_minus_casci_ha": 0.002322300210892081,
+        "warning_line": 194
+      },
+      "arg": {
+        "casci": -602.9340092864841,
+        "published_cb": -601.7546128154286,
+        "cb_error_ha": 1.1793964710554974,
+        "cb_reported_hf": -600.0894730077101,
+        "encoded_reference": -602.9339108170591,
+        "encoded_reference_minus_casci_ha": 9.846942498370481e-05,
+        "warning_line": 413
+      },
+      "asp": {
+        "casci": -509.51718663063,
+        "published_cb": -508.3064192763922,
+        "cb_error_ha": 1.2107673542378166,
+        "cb_reported_hf": -506.0881242533257,
+        "encoded_reference": -509.51164219781595,
+        "encoded_reference_minus_casci_ha": 0.005544432814076572,
+        "warning_line": 632
+      },
+      "cys": {
+        "casci": -719.4144095585827,
+        "published_cb": -718.8025399761923,
+        "cb_error_ha": 0.6118695823904545,
+        "cb_reported_hf": -716.7322829176494,
+        "encoded_reference": -719.4133024340704,
+        "encoded_reference_minus_casci_ha": 0.0011071245123730478,
+        "warning_line": 851
+      },
+      "gly": {
+        "casci": -282.86225556885967,
+        "published_cb": -281.5488713167358,
+        "cb_error_ha": 1.3133842521238535,
+        "cb_reported_hf": -280.00797061259516,
+        "encoded_reference": -282.8549235824527,
+        "encoded_reference_minus_casci_ha": 0.007331986406938995,
+        "warning_line": 1070
+      }
+    }
+  },
+  "contemporary_frozen_control": {
+    "input": "smoke/reproductions/iqcc_glycine/glycine.json",
+    "input_sha256": "6de2adcfdd7926b5406ab1730e26b776489757b076fe837bbf5fce54a0cfa042",
+    "scope": "Independent STO-3G glycine 12-to-4-qubit projection, first 26 ordered terms. Each energy uses this same prefix.",
+    "solver_sha256": "b7a9bd329837db8525da5db63a883d0ad0e7d9ae67dad3bb1bd6bef9a964ebe5",
+    "settings": {
+      "n_layers": 2,
+      "max_iterations": 100,
+      "optimizer": "COBYLA",
+      "random_seed": 42
+    },
+    "prefix_ground_ha": -279.11151473911696,
+    "encoded_hf_ha": -279.1115147283363,
+    "fitted_ha": -278.99078916746,
+    "independent_complex_ritz_ha": -279.111514728337,
+    "reported_boost_ha": -279.111514728337,
+    "published_historical_replay": false
+  }
+}

@@ -1,0 +1,360 @@
+{
+  "scope": "Local statevector; H2 all 15 terms, contextual glycine and two-molecule subset controls. Seeds 42 and 43 are paired trials. Stationary solvers may select zero operators.",
+  "runs": {
+    "prefix-cobyla": {
+      "source_sha256": "2e6e5d3309df0e5da89902db7832cb6bea0db3524ad7240f7e00ccc23d4efe6d",
+      "input_sha256": {
+        "hydrogen": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3"
+      },
+      "term_counts": [
+        15
+      ],
+      "n_layers": 1,
+      "max_operators": 2,
+      "max_iterations": 24,
+      "optimizer_requested": "COBYLA",
+      "seeds": [
+        42,
+        43
+      ],
+      "passed": 22,
+      "max_endpoint_energy_difference_ha": 6.661338147750939e-16
+    },
+    "prefix-bayesian": {
+      "source_sha256": "2e6e5d3309df0e5da89902db7832cb6bea0db3524ad7240f7e00ccc23d4efe6d",
+      "input_sha256": {
+        "hydrogen": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3"
+      },
+      "term_counts": [
+        15
+      ],
+      "n_layers": 1,
+      "max_operators": 2,
+      "max_iterations": 24,
+      "optimizer_requested": "BAYESIAN",
+      "seeds": [
+        42,
+        43
+      ],
+      "passed": 22,
+      "max_endpoint_energy_difference_ha": 6.661338147750939e-16
+    },
+    "gly-iqcc-cobyla": {
+      "source_sha256": "2e6e5d3309df0e5da89902db7832cb6bea0db3524ad7240f7e00ccc23d4efe6d",
+      "input_sha256": {
+        "gly": "5d1da4e2be2af4ccf918c9ade7fc08adc129ce80c253cfac27c995aa350b1539"
+      },
+      "term_counts": [
+        26
+      ],
+      "n_layers": 1,
+      "max_operators": 3,
+      "max_iterations": 24,
+      "optimizer_requested": "COBYLA",
+      "seeds": [
+        42,
+        43
+      ],
+      "passed": 4,
+      "max_endpoint_energy_difference_ha": 2.2737367544323206e-13
+    },
+    "gly-iqcc-bayesian": {
+      "source_sha256": "2e6e5d3309df0e5da89902db7832cb6bea0db3524ad7240f7e00ccc23d4efe6d",
+      "input_sha256": {
+        "gly": "5d1da4e2be2af4ccf918c9ade7fc08adc129ce80c253cfac27c995aa350b1539"
+      },
+      "term_counts": [
+        26
+      ],
+      "n_layers": 1,
+      "max_operators": 3,
+      "max_iterations": 24,
+      "optimizer_requested": "BAYESIAN",
+      "seeds": [
+        42,
+        43
+      ],
+      "passed": 4,
+      "max_endpoint_energy_difference_ha": 2.2737367544323206e-13
+    },
+    "gly-adapt-cobyla": {
+      "source_sha256": "2e6e5d3309df0e5da89902db7832cb6bea0db3524ad7240f7e00ccc23d4efe6d",
+      "input_sha256": {
+        "gly": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85"
+      },
+      "term_counts": [
+        361
+      ],
+      "n_layers": 2,
+      "max_operators": 1,
+      "max_iterations": 24,
+      "optimizer_requested": "COBYLA",
+      "seeds": [
+        42,
+        43
+      ],
+      "passed": 2,
+      "max_endpoint_energy_difference_ha": 0.0
+    },
+    "gly-adapt-bayesian": {
+      "source_sha256": "2e6e5d3309df0e5da89902db7832cb6bea0db3524ad7240f7e00ccc23d4efe6d",
+      "input_sha256": {
+        "gly": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85"
+      },
+      "term_counts": [
+        361
+      ],
+      "n_layers": 2,
+      "max_operators": 1,
+      "max_iterations": 24,
+      "optimizer_requested": "BAYESIAN",
+      "seeds": [
+        42,
+        43
+      ],
+      "passed": 2,
+      "max_endpoint_energy_difference_ha": 0.0
+    },
+    "gly-roster-A": {
+      "source_sha256": "2e6e5d3309df0e5da89902db7832cb6bea0db3524ad7240f7e00ccc23d4efe6d",
+      "input_sha256": {
+        "gly": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85"
+      },
+      "term_counts": [
+        50,
+        200
+      ],
+      "n_layers": 2,
+      "max_operators": 20,
+      "max_iterations": 64,
+      "optimizer_requested": "COBYLA",
+      "seeds": [
+        42,
+        43
+      ],
+      "passed": 8,
+      "max_endpoint_energy_difference_ha": 1.7053025658242404e-13
+    },
+    "gly-roster-B": {
+      "source_sha256": "2e6e5d3309df0e5da89902db7832cb6bea0db3524ad7240f7e00ccc23d4efe6d",
+      "input_sha256": {
+        "gly": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85"
+      },
+      "term_counts": [
+        200
+      ],
+      "n_layers": 2,
+      "max_operators": 20,
+      "max_iterations": 64,
+      "optimizer_requested": "COBYLA",
+      "seeds": [
+        43,
+        42
+      ],
+      "passed": 4,
+      "max_endpoint_energy_difference_ha": 1.7053025658242404e-13
+    },
+    "molecule-roster-A": {
+      "source_sha256": "2e6e5d3309df0e5da89902db7832cb6bea0db3524ad7240f7e00ccc23d4efe6d",
+      "input_sha256": {
+        "hydrogen": "e264d57128449b3812b9ff425c6e81780b297f3f15d739bd76248cda48caf030",
+        "gly": "5d1da4e2be2af4ccf918c9ade7fc08adc129ce80c253cfac27c995aa350b1539"
+      },
+      "term_counts": [
+        10
+      ],
+      "n_layers": 1,
+      "max_operators": 20,
+      "max_iterations": 24,
+      "optimizer_requested": "COBYLA",
+      "seeds": [
+        42,
+        43
+      ],
+      "passed": 8,
+      "max_endpoint_energy_difference_ha": 2.2737367544323206e-13
+    },
+    "molecule-roster-B": {
+      "source_sha256": "2e6e5d3309df0e5da89902db7832cb6bea0db3524ad7240f7e00ccc23d4efe6d",
+      "input_sha256": {
+        "gly": "5d1da4e2be2af4ccf918c9ade7fc08adc129ce80c253cfac27c995aa350b1539",
+        "hydrogen": "e264d57128449b3812b9ff425c6e81780b297f3f15d739bd76248cda48caf030"
+      },
+      "term_counts": [
+        10
+      ],
+      "n_layers": 1,
+      "max_operators": 20,
+      "max_iterations": 24,
+      "optimizer_requested": "COBYLA",
+      "seeds": [
+        43,
+        42
+      ],
+      "passed": 8,
+      "max_endpoint_energy_difference_ha": 2.2737367544323206e-13
+    }
+  },
+  "identical_replayed_case_records": {
+    "gly-roster": 4,
+    "molecule-roster": 8
+  },
+  "h2_parameter_update_policy": {
+    "adapt_vqe": {
+      "COBYLA": "COBYLA",
+      "BAYESIAN": "BAYESIAN"
+    },
+    "cb_vqe": {
+      "COBYLA": "COBYLA",
+      "BAYESIAN": "BAYESIAN"
+    },
+    "hardware_efficient_vqe": {
+      "COBYLA": "COBYLA",
+      "BAYESIAN": "BAYESIAN"
+    },
+    "hva_vqe": {
+      "COBYLA": "COBYLA",
+      "BAYESIAN": "BAYESIAN"
+    },
+    "iqcc_inspired_vqe": {
+      "COBYLA": "COBYLA",
+      "BAYESIAN": "COBYLA"
+    },
+    "iqcc_true_vqe": {
+      "COBYLA": "analytic Pauli angle selection",
+      "BAYESIAN": "analytic Pauli angle selection"
+    },
+    "nn_ae_vqe": {
+      "COBYLA": "COBYLA",
+      "BAYESIAN": "BAYESIAN"
+    },
+    "pennylane_vqe": {
+      "COBYLA": "COBYLA",
+      "BAYESIAN": "BAYESIAN"
+    },
+    "qaoa_inspired_vqe": {
+      "COBYLA": "COBYLA",
+      "BAYESIAN": "BAYESIAN"
+    },
+    "qubit_adapt_vqe": {
+      "COBYLA": "COBYLA",
+      "BAYESIAN": "BAYESIAN"
+    },
+    "ucc_vqe": {
+      "COBYLA": "COBYLA",
+      "BAYESIAN": "BAYESIAN"
+    }
+  },
+  "h2_wrong_electron_probability_by_seed_42_43": {
+    "adapt_vqe": {
+      "COBYLA": [
+        0.0,
+        0.0
+      ],
+      "BAYESIAN": [
+        0.0,
+        0.0
+      ]
+    },
+    "cb_vqe": {
+      "COBYLA": [
+        0.0,
+        0.0
+      ],
+      "BAYESIAN": [
+        0.0,
+        0.0
+      ]
+    },
+    "hardware_efficient_vqe": {
+      "COBYLA": [
+        0.07115334820274195,
+        0.6167550210518584
+      ],
+      "BAYESIAN": [
+        0.34050141898484443,
+        0.932764445510932
+      ]
+    },
+    "hva_vqe": {
+      "COBYLA": [
+        1.1555579666323452e-32,
+        1.1555579666323452e-32
+      ],
+      "BAYESIAN": [
+        1.1555579666323425e-32,
+        1.1555579666323425e-32
+      ]
+    },
+    "iqcc_inspired_vqe": {
+      "COBYLA": [
+        0.0,
+        0.0
+      ],
+      "BAYESIAN": [
+        0.0,
+        0.0
+      ]
+    },
+    "iqcc_true_vqe": {
+      "COBYLA": [
+        0.0,
+        0.0
+      ],
+      "BAYESIAN": [
+        0.0,
+        0.0
+      ]
+    },
+    "nn_ae_vqe": {
+      "COBYLA": [
+        0.0,
+        0.0
+      ],
+      "BAYESIAN": [
+        0.0,
+        0.0
+      ]
+    },
+    "pennylane_vqe": {
+      "COBYLA": [
+        0.9965354498250494,
+        0.9962235357820395
+      ],
+      "BAYESIAN": [
+        0.9957761060628658,
+        0.9965735675603196
+      ]
+    },
+    "qaoa_inspired_vqe": {
+      "COBYLA": [
+        0.29711533613422997,
+        0.42767231456442817
+      ],
+      "BAYESIAN": [
+        0.22257421291183338,
+        0.4529727882153752
+      ]
+    },
+    "qubit_adapt_vqe": {
+      "COBYLA": [
+        1.4623634713995072e-32,
+        1.4623634713995072e-32
+      ],
+      "BAYESIAN": [
+        1.4373875279505195e-32,
+        1.0430938444718021e-32
+      ]
+    },
+    "ucc_vqe": {
+      "COBYLA": [
+        0.0,
+        0.0
+      ],
+      "BAYESIAN": [
+        0.0,
+        0.0
+      ]
+    }
+  }
+}

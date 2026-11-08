@@ -1,0 +1,818 @@
+{
+  "problem_definition": "CASCI in the indicated closed-shell active space, STO-3G; natural minus canonical in mHa",
+  "complete_roster": [
+    {
+      "molecule": "ala",
+      "geometry_sha256": "8b028f489591b223ef93e653e93fcc4ec8d28104068761ba6550efa474665087",
+      "basis": "sto-3g",
+      "hf_ha": -317.6913581340427,
+      "active_indices": [
+        21,
+        22,
+        23,
+        24,
+        25,
+        26
+      ],
+      "electrons": 6,
+      "natural_minus_canonical_mha": -49.9773578196141,
+      "models": {
+        "canonical": {
+          "casci_ha": -317.7169479822924,
+          "sector_energy_ha": -317.71694798229225,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "a5b8ad233e35691e08d26ff53ff55b1f7336242eb51570d53c680108c0a6c470"
+        },
+        "natural": {
+          "casci_ha": -317.76692534011204,
+          "sector_energy_ha": -317.76692534011204,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "93ebf3d40d3a6a78dba96bad14a57069da5f932bba5f10fcc1f5df7f25b80d02"
+        }
+      },
+      "orbital_cap": 6
+    },
+    {
+      "molecule": "arg",
+      "geometry_sha256": "dff970c4ea890b41774ae35bdecca0a29949922d265f950834f5fbe8f793b7dd",
+      "basis": "sto-3g",
+      "hf_ha": -595.1725463951992,
+      "active_indices": [
+        45,
+        46,
+        47,
+        48,
+        49,
+        50
+      ],
+      "electrons": 4,
+      "natural_minus_canonical_mha": -57.00818026093657,
+      "models": {
+        "canonical": {
+          "casci_ha": -595.1923262954627,
+          "sector_energy_ha": -595.1923262954615,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "bdf725daf849f700be926f96665be2c428c14d9211621cc538b565c0380623ac"
+        },
+        "natural": {
+          "casci_ha": -595.2493344757237,
+          "sector_energy_ha": -595.2493344757253,
+          "qubits": 12,
+          "terms": 1739,
+          "hamiltonian_sha256": "e946cdbd4836fe510a897ecb47301d93de1d4b42a94562eb530079e62ab5b92d"
+        }
+      },
+      "orbital_cap": 6
+    },
+    {
+      "molecule": "asp",
+      "geometry_sha256": "8fbdeb641d60899c5972257e4e3fc04c0f1aac867644bf8b785ba55429791e84",
+      "basis": "sto-3g",
+      "hf_ha": -502.7671341827563,
+      "active_indices": [
+        33,
+        34,
+        35,
+        36,
+        37,
+        38
+      ],
+      "electrons": 4,
+      "natural_minus_canonical_mha": -81.98792341784156,
+      "models": {
+        "canonical": {
+          "casci_ha": -502.77507093703,
+          "sector_energy_ha": -502.7750709370302,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "ffb6892d7f4c4192827eb623a81404cc9748366216434a8d8a8621d54fff7d3f"
+        },
+        "natural": {
+          "casci_ha": -502.85705886044786,
+          "sector_energy_ha": -502.8570588604471,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "10a354037b53ea7191ebc87300551d36e604aba3de9f8645331113d00657268b"
+        }
+      },
+      "orbital_cap": 6
+    },
+    {
+      "molecule": "cys",
+      "geometry_sha256": "be802c098b25067d752a699321f88d2aecd8a9fd004f53372435a92d1bd37fcc",
+      "basis": "sto-3g",
+      "hf_ha": -710.8573037538381,
+      "active_indices": [
+        30,
+        31,
+        32,
+        33,
+        34,
+        35
+      ],
+      "electrons": 4,
+      "natural_minus_canonical_mha": -70.90917246353001,
+      "models": {
+        "canonical": {
+          "casci_ha": -710.8586168824926,
+          "sector_energy_ha": -710.8586168824929,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "9fd848db64d136ec91401fbf46257cc13a81d6765d9d0638a62facbfe4499982"
+        },
+        "natural": {
+          "casci_ha": -710.9295260549561,
+          "sector_energy_ha": -710.9295260549566,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "dd4398d8c165d4b0d719fc72592ac48b5025f67ca0bb10f1fbebea0001fa7aa6"
+        }
+      },
+      "orbital_cap": 6
+    },
+    {
+      "molecule": "gln",
+      "geometry_sha256": "a5ed22c24c2d1cdce28fdd78774d04eb3228af73b32678f89dd98bd9ec773dbb",
+      "basis": "sto-3g",
+      "hf_ha": -521.8217891674533,
+      "active_indices": [
+        37,
+        38,
+        39,
+        40,
+        41,
+        42
+      ],
+      "electrons": 4,
+      "natural_minus_canonical_mha": -68.24369326363922,
+      "models": {
+        "canonical": {
+          "casci_ha": -521.840635374402,
+          "sector_energy_ha": -521.8406353744006,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "9aa3ee5c3a5a5b72b868060500dba770f04a9754342343fea01234ffcab55581"
+        },
+        "natural": {
+          "casci_ha": -521.9088790676657,
+          "sector_energy_ha": -521.9088790676647,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "797d2c11c102f75ed8b2243cb885910ccb3e64fdec5cb6ef60293e0a1e35c8dd"
+        }
+      },
+      "orbital_cap": 6
+    },
+    {
+      "molecule": "glu",
+      "geometry_sha256": "f2401aa079110b52d1bf7cf10cafdf3a782a6aa2b03a40981109230b9dc9b458",
+      "basis": "sto-3g",
+      "hf_ha": -541.3498031797161,
+      "active_indices": [
+        37,
+        38,
+        39,
+        40,
+        41,
+        42
+      ],
+      "electrons": 4,
+      "natural_minus_canonical_mha": -88.64379202782402,
+      "models": {
+        "canonical": {
+          "casci_ha": -541.3505089538502,
+          "sector_energy_ha": -541.3505089538497,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "7719851caa7be4b78bff4e31a4b91a767e56fb8440bd69407569aa9fe2088a2d"
+        },
+        "natural": {
+          "casci_ha": -541.439152745878,
+          "sector_energy_ha": -541.4391527458789,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "709a127de15a4428c472f4e69e536c0b43fb170c4cc98a73338fb18a7d3fa6a1"
+        }
+      },
+      "orbital_cap": 6
+    },
+    {
+      "molecule": "gly",
+      "geometry_sha256": "d6c06b5e1faec00a1d5d3ea6ff47232a9b5f049ffc375ac502f404179704cb8f",
+      "basis": "sto-3g",
+      "hf_ha": -279.11151472833757,
+      "active_indices": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "electrons": 6,
+      "natural_minus_canonical_mha": -51.13326528237394,
+      "models": {
+        "canonical": {
+          "casci_ha": -279.1376629146243,
+          "sector_energy_ha": -279.13766291462423,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "068c7b52d287574b42736feb590587853e81bf7b3b43a626f4deb18d04b4d30e"
+        },
+        "natural": {
+          "casci_ha": -279.18879617990666,
+          "sector_energy_ha": -279.188796179907,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "9632d8c31ebaa6b1dfb5596cf726f0136161f2dcd5cc2056833b7c58f07bb847"
+        }
+      },
+      "orbital_cap": 6
+    },
+    {
+      "molecule": "his",
+      "geometry_sha256": "cab677063047faee1e052223d19ecdad229e92a715c74188d8005fba1a828d34",
+      "basis": "sto-3g",
+      "hf_ha": -538.5338884358218,
+      "active_indices": [
+        38,
+        39,
+        40,
+        41,
+        42,
+        43
+      ],
+      "electrons": 6,
+      "natural_minus_canonical_mha": -55.93273500426221,
+      "models": {
+        "canonical": {
+          "casci_ha": -538.581236932228,
+          "sector_energy_ha": -538.581236932228,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "b8d8bf2cfc6e080c4ce815f5d0202be5e76edd3eb52f8821bf4d93b54d3171b6"
+        },
+        "natural": {
+          "casci_ha": -538.6371696672322,
+          "sector_energy_ha": -538.6371696672334,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "c12c480b9e9b7426c90242be09fa69f905e5cfdff989ccbb2546ee23ced4d123"
+        }
+      },
+      "orbital_cap": 6
+    },
+    {
+      "molecule": "hydrogen",
+      "geometry_sha256": "44b816528c2cd1296765d5497e6d7040e63a6eae377c98da63c3079982cf9357",
+      "basis": "sto-3g",
+      "hf_ha": -1.117505884204331,
+      "active_indices": [
+        0,
+        1
+      ],
+      "electrons": 2,
+      "natural_minus_canonical_mha": 0.0,
+      "models": {
+        "canonical": {
+          "casci_ha": -1.1368465754720538,
+          "sector_energy_ha": -1.1368465754720543,
+          "qubits": 4,
+          "terms": 15,
+          "hamiltonian_sha256": "1a2dddad497e52933c5894b8a02f41372d7f06fd87822987d08a74dd5cf4f219"
+        },
+        "natural": {
+          "casci_ha": -1.1368465754720538,
+          "sector_energy_ha": -1.1368465754720543,
+          "qubits": 4,
+          "terms": 15,
+          "hamiltonian_sha256": "1a2dddad497e52933c5894b8a02f41372d7f06fd87822987d08a74dd5cf4f219"
+        }
+      },
+      "orbital_cap": 6
+    },
+    {
+      "molecule": "ile",
+      "geometry_sha256": "45ecadceeb2bc516d4b1b86742d9eb985da6c92956395be9ce1295cea3929209",
+      "basis": "sto-3g",
+      "hf_ha": -433.42805412244877,
+      "active_indices": [
+        33,
+        34,
+        35,
+        36,
+        37,
+        38
+      ],
+      "electrons": 6,
+      "natural_minus_canonical_mha": -48.33773280120113,
+      "models": {
+        "canonical": {
+          "casci_ha": -433.45168561166037,
+          "sector_energy_ha": -433.45168561166076,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "b7f697e11410a1766987d99d0d3d3ed07b02de21863cc076e252b8364b2b6575"
+        },
+        "natural": {
+          "casci_ha": -433.50002334446157,
+          "sector_energy_ha": -433.5000233444616,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "e0f6ee624e36f07f4fc7ccf197957baaa794921a1891e258ca56c361dfdb6794"
+        }
+      },
+      "orbital_cap": 6
+    },
+    {
+      "molecule": "leu",
+      "geometry_sha256": "a7c70266f2888b73bf5e4cdc454b0cc786f513a507a6f685a2c03ee5a6581937",
+      "basis": "sto-3g",
+      "hf_ha": -433.42225457561176,
+      "active_indices": [
+        33,
+        34,
+        35,
+        36,
+        37,
+        38
+      ],
+      "electrons": 6,
+      "natural_minus_canonical_mha": -50.256212263320776,
+      "models": {
+        "canonical": {
+          "casci_ha": -433.4461651618208,
+          "sector_energy_ha": -433.44616516182134,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "2d702f80b385dfb180955a0076fcc3cec242fbb7876119c1e0152332dff52d82"
+        },
+        "natural": {
+          "casci_ha": -433.4964213740841,
+          "sector_energy_ha": -433.49642137408415,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "67e2ae69d4041d6a1753d3fe6b1e9ec8077217e77754de9f5a63795479a3df1d"
+        }
+      },
+      "orbital_cap": 6
+    },
+    {
+      "molecule": "lys",
+      "geometry_sha256": "ef03a4389994714a1bb7e008229c838e8e3b47099ab09b0e927219cbed4e7bf7",
+      "basis": "sto-3g",
+      "hf_ha": -487.7406090039775,
+      "active_indices": [
+        37,
+        38,
+        39,
+        40,
+        41,
+        42
+      ],
+      "electrons": 6,
+      "natural_minus_canonical_mha": -49.500091326024176,
+      "models": {
+        "canonical": {
+          "casci_ha": -487.7623184017293,
+          "sector_energy_ha": -487.76231840173017,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "6ff870cb09e35556d3300e2ade87ae27a0076d92a03f98b0f2ad770d76eb75f0"
+        },
+        "natural": {
+          "casci_ha": -487.81181849305534,
+          "sector_energy_ha": -487.81181849305506,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "0922e8407882a836270c1a08c7d3295ced93534f6452239415b86b9ca1c8b818"
+        }
+      },
+      "orbital_cap": 6
+    },
+    {
+      "molecule": "met",
+      "geometry_sha256": "4f52d3a22369b80ac3f8ec93c63c8642951b1e183ba7d3c5e48d898fbb845e61",
+      "basis": "sto-3g",
+      "hf_ha": -788.0213861360659,
+      "active_indices": [
+        38,
+        39,
+        40,
+        41,
+        42,
+        43
+      ],
+      "electrons": 4,
+      "natural_minus_canonical_mha": -69.33208431269122,
+      "models": {
+        "canonical": {
+          "casci_ha": -788.0227139834731,
+          "sector_energy_ha": -788.0227139834748,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "7bc7c3e2487a74dba8cb79778cb268adf7775f17376a781aa24cbe1b0986317f"
+        },
+        "natural": {
+          "casci_ha": -788.0920460677858,
+          "sector_energy_ha": -788.0920460677864,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "a7d4683180f7a960cbacb82c79bf5044ef214935c3d2351b30d69709efc8e07b"
+        }
+      },
+      "orbital_cap": 6
+    },
+    {
+      "molecule": "phe",
+      "geometry_sha256": "940533574f9b74c42b14751b9128ac4d14f50f6e7f1d1fc59d10eb71450a9362",
+      "basis": "sto-3g",
+      "hf_ha": -544.4374319890644,
+      "active_indices": [
+        41,
+        42,
+        43,
+        44,
+        45,
+        46
+      ],
+      "electrons": 6,
+      "natural_minus_canonical_mha": -46.521560026008046,
+      "models": {
+        "canonical": {
+          "casci_ha": -544.4887554286973,
+          "sector_energy_ha": -544.4887554286969,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "8a4c7d90b6d52cb617503098584fbe3aa80f238d9e7c3dec2c57bdcbd6035f32"
+        },
+        "natural": {
+          "casci_ha": -544.5352769887234,
+          "sector_energy_ha": -544.5352769887229,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "4d5b472850849d9f9f271579672cffae997a28fdc32512b0012cb8737aca6546"
+        }
+      },
+      "orbital_cap": 6
+    },
+    {
+      "molecule": "pro",
+      "geometry_sha256": "7a244089c674f3a2aea97a8fc125886f6eb9c94527fb6f03965136a6c36f73d6",
+      "basis": "sto-3g",
+      "hf_ha": -393.7002039994643,
+      "active_indices": [
+        28,
+        29,
+        30,
+        31,
+        32,
+        33
+      ],
+      "electrons": 6,
+      "natural_minus_canonical_mha": -46.119646274178194,
+      "models": {
+        "canonical": {
+          "casci_ha": -393.72425899099073,
+          "sector_energy_ha": -393.7242589909907,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "9314724f93470df1eb05acc58165f6a01a259b1e14e7b9ae96c2d6169fcb7c2f"
+        },
+        "natural": {
+          "casci_ha": -393.7703786372649,
+          "sector_energy_ha": -393.77037863726497,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "e61ae15fdd8b51ca9e308100bd8002277f3ded6c87b3bb9a38cdbc6c5071736f"
+        }
+      },
+      "orbital_cap": 6
+    },
+    {
+      "molecule": "ser",
+      "geometry_sha256": "c884a002d02e4def816863e833ae7057c070c4af5b4c36006071c16abb7afd3d",
+      "basis": "sto-3g",
+      "hf_ha": -391.51594170140413,
+      "active_indices": [
+        25,
+        26,
+        27,
+        28,
+        29,
+        30
+      ],
+      "electrons": 6,
+      "natural_minus_canonical_mha": -57.67992146741108,
+      "models": {
+        "canonical": {
+          "casci_ha": -391.5316863068541,
+          "sector_energy_ha": -391.53168630685406,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "a451e4566be22884b3c76ee1b0dd456f6a9639f8842db04801f8c92d63e865b0"
+        },
+        "natural": {
+          "casci_ha": -391.5893662283215,
+          "sector_energy_ha": -391.5893662283218,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "97596877c8a19396d3ab6ab7ff4ccc8454be6ab96e4f83a556dd7f2222a071a9"
+        }
+      },
+      "orbital_cap": 6
+    },
+    {
+      "molecule": "thr",
+      "geometry_sha256": "a7b4951d352a9de5e6298d65e4945fe95258b87c78dee456aa953e98549897e4",
+      "basis": "sto-3g",
+      "hf_ha": -430.09637055218553,
+      "active_indices": [
+        29,
+        30,
+        31,
+        32,
+        33,
+        34
+      ],
+      "electrons": 6,
+      "natural_minus_canonical_mha": -53.24421632343501,
+      "models": {
+        "canonical": {
+          "casci_ha": -430.11331700930725,
+          "sector_energy_ha": -430.1133170093063,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "33463dfce78610241b2998611a0a6d3deef8f2f58e9e2d342868c9291e287b5b"
+        },
+        "natural": {
+          "casci_ha": -430.1665612256307,
+          "sector_energy_ha": -430.1665612256312,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "c4ae2f7ec4f914a781702077267ba79f9565381bbc6c2a76df33e3f70f763df9"
+        }
+      },
+      "orbital_cap": 6
+    },
+    {
+      "molecule": "trp",
+      "geometry_sha256": "2f2b942206f7bd1d1ba660d15c740c875c663ac7c11d01f51ce08e270b8b0711",
+      "basis": "sto-3g",
+      "hf_ha": -673.5737791032262,
+      "active_indices": [
+        51,
+        52,
+        53,
+        54,
+        55,
+        56
+      ],
+      "electrons": 6,
+      "natural_minus_canonical_mha": -45.79465274832728,
+      "models": {
+        "canonical": {
+          "casci_ha": -673.6082008853674,
+          "sector_energy_ha": -673.6082008853673,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "dd2524c230a79e277d77df4077a131bb4ae8ea6008b4a728577670674ecc102e"
+        },
+        "natural": {
+          "casci_ha": -673.6539955381157,
+          "sector_energy_ha": -673.6539955381156,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "e3b1bf683a223dd675994f280c0b9918a4a76ae085560488e7c002c3219e8b4e"
+        }
+      },
+      "orbital_cap": 6
+    },
+    {
+      "molecule": "tyr",
+      "geometry_sha256": "e262316a8fdb28420c6289762cd24c838fb770033e7a04039badfc8036cf2d97",
+      "basis": "sto-3g",
+      "hf_ha": -618.2759535173881,
+      "active_indices": [
+        45,
+        46,
+        47,
+        48,
+        49,
+        50
+      ],
+      "electrons": 6,
+      "natural_minus_canonical_mha": -50.622500867461895,
+      "models": {
+        "canonical": {
+          "casci_ha": -618.3216659391531,
+          "sector_energy_ha": -618.3216659391524,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "43da2d990efd2465ec1f3333c9c8a53c9f988b6cbb82328acfeb5d11129ffa97"
+        },
+        "natural": {
+          "casci_ha": -618.3722884400206,
+          "sector_energy_ha": -618.3722884400214,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "705d7108091e6c1ef17bf7ed0c4441025a9dd2ca934b8e41d6a49bd053943d36"
+        }
+      },
+      "orbital_cap": 6
+    },
+    {
+      "molecule": "val",
+      "geometry_sha256": "519818f437dc76f7ea35df1685fe10b5439b868e67fbf5e3d8649a89fc17b830",
+      "basis": "sto-3g",
+      "hf_ha": -394.8474980586269,
+      "active_indices": [
+        29,
+        30,
+        31,
+        32,
+        33,
+        34
+      ],
+      "electrons": 6,
+      "natural_minus_canonical_mha": -50.57727253461053,
+      "models": {
+        "canonical": {
+          "casci_ha": -394.8721009174527,
+          "sector_energy_ha": -394.87210091745254,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "28ef011815a59a45f9e430fd5ce08aa1f8678fa42f338d83fef08024e156ebc4"
+        },
+        "natural": {
+          "casci_ha": -394.9226781899873,
+          "sector_energy_ha": -394.9226781899878,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "3c0483ac104a99604b6b8358ae9ba7976ad59f28d11ade153e51e690b8f0cb76"
+        }
+      },
+      "orbital_cap": 6
+    }
+  ],
+  "glycine_orbital_caps": [
+    {
+      "molecule": "gly",
+      "geometry_sha256": "d6c06b5e1faec00a1d5d3ea6ff47232a9b5f049ffc375ac502f404179704cb8f",
+      "basis": "sto-3g",
+      "orbital_cap": 2,
+      "hf_ha": -279.11151472833757,
+      "active_indices": [
+        19,
+        20
+      ],
+      "electrons": 2,
+      "natural_minus_canonical_mha": -43.73997570189658,
+      "models": {
+        "canonical": {
+          "casci_ha": -279.1115600159873,
+          "sector_energy_ha": -279.1115600159874,
+          "qubits": 4,
+          "terms": 27,
+          "hamiltonian_sha256": "23a6aa7f5d68521650ea7a35223966927d86c6e5acf478c82f2bbe50aa9f18a2"
+        },
+        "natural": {
+          "casci_ha": -279.1552999916892,
+          "sector_energy_ha": -279.1552999916893,
+          "qubits": 4,
+          "terms": 27,
+          "hamiltonian_sha256": "df96e87ec52e45bfb0212e8f5f4d1c79905dd492a9b9c299b99084275086db67"
+        }
+      }
+    },
+    {
+      "molecule": "gly",
+      "geometry_sha256": "d6c06b5e1faec00a1d5d3ea6ff47232a9b5f049ffc375ac502f404179704cb8f",
+      "basis": "sto-3g",
+      "orbital_cap": 3,
+      "hf_ha": -279.11151472833757,
+      "active_indices": [
+        19,
+        20,
+        21
+      ],
+      "electrons": 2,
+      "natural_minus_canonical_mha": -43.7356397906683,
+      "models": {
+        "canonical": {
+          "casci_ha": -279.1117191910853,
+          "sector_energy_ha": -279.111719191085,
+          "qubits": 6,
+          "terms": 118,
+          "hamiltonian_sha256": "55db27736d99f8bae82ba6d332ec1eabf6d7426d2b234c54759a3960421cb249"
+        },
+        "natural": {
+          "casci_ha": -279.15545483087595,
+          "sector_energy_ha": -279.15545483087607,
+          "qubits": 6,
+          "terms": 118,
+          "hamiltonian_sha256": "d59e7c990875fe6ca4e2bdd20fb3e01865c90abbb643f5125dd62c0b7683185b"
+        }
+      }
+    },
+    {
+      "molecule": "gly",
+      "geometry_sha256": "d6c06b5e1faec00a1d5d3ea6ff47232a9b5f049ffc375ac502f404179704cb8f",
+      "basis": "sto-3g",
+      "orbital_cap": 4,
+      "hf_ha": -279.11151472833757,
+      "active_indices": [
+        18,
+        19,
+        20,
+        21
+      ],
+      "electrons": 4,
+      "natural_minus_canonical_mha": -31.713465960251597,
+      "models": {
+        "canonical": {
+          "casci_ha": -279.1346834122203,
+          "sector_energy_ha": -279.1346834122198,
+          "qubits": 8,
+          "terms": 361,
+          "hamiltonian_sha256": "5e335bbb1368316253b81091fb82357577a006faf43697ecfc74871287ab0349"
+        },
+        "natural": {
+          "casci_ha": -279.16639687818054,
+          "sector_energy_ha": -279.1663968781806,
+          "qubits": 8,
+          "terms": 361,
+          "hamiltonian_sha256": "ca67f62231c337ab6ae9cc64da263e43334314c30109fe275b795f07df16b9f8"
+        }
+      }
+    },
+    {
+      "molecule": "gly",
+      "geometry_sha256": "d6c06b5e1faec00a1d5d3ea6ff47232a9b5f049ffc375ac502f404179704cb8f",
+      "basis": "sto-3g",
+      "orbital_cap": 5,
+      "hf_ha": -279.11151472833757,
+      "active_indices": [
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "electrons": 4,
+      "natural_minus_canonical_mha": -47.380659308942086,
+      "models": {
+        "canonical": {
+          "casci_ha": -279.13540710792716,
+          "sector_energy_ha": -279.135407107927,
+          "qubits": 10,
+          "terms": 876,
+          "hamiltonian_sha256": "40196469450961dac175af0f295fe8244686a78602531fec72ca8f80dc053f32"
+        },
+        "natural": {
+          "casci_ha": -279.1827877672361,
+          "sector_energy_ha": -279.1827877672359,
+          "qubits": 10,
+          "terms": 876,
+          "hamiltonian_sha256": "8ab0fd5010bda57dfb0e0d5a8f1b8a952cbb17bf7cc058cceb081aa926c16e46"
+        }
+      }
+    },
+    {
+      "molecule": "gly",
+      "geometry_sha256": "d6c06b5e1faec00a1d5d3ea6ff47232a9b5f049ffc375ac502f404179704cb8f",
+      "basis": "sto-3g",
+      "orbital_cap": 6,
+      "hf_ha": -279.11151472833757,
+      "active_indices": [
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "electrons": 6,
+      "natural_minus_canonical_mha": -51.13326528237394,
+      "models": {
+        "canonical": {
+          "casci_ha": -279.1376629146243,
+          "sector_energy_ha": -279.13766291462423,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "068c7b52d287574b42736feb590587853e81bf7b3b43a626f4deb18d04b4d30e"
+        },
+        "natural": {
+          "casci_ha": -279.18879617990666,
+          "sector_energy_ha": -279.188796179907,
+          "qubits": 12,
+          "terms": 1819,
+          "hamiltonian_sha256": "9632d8c31ebaa6b1dfb5596cf726f0136161f2dcd5cc2056833b7c58f07bb847"
+        }
+      }
+    }
+  ]
+}

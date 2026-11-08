@@ -1,0 +1,564 @@
+{
+  "pricing_url": "https://modal.com/pricing",
+  "timeout_url": "https://modal.com/docs/guide/timeouts",
+  "checked": "2026-11-08",
+  "app": "https://modal.com/apps/ethan-k-kuntz/main/ap-MAPMvbanRGUaWSbygoSf7h",
+  "cpu_cores": 2,
+  "memory_gib": 4,
+  "usd_per_requested_worker_hour": 0.12628799999999998,
+  "cohort": 19,
+  "seeds": 1,
+  "orbital_families": 1,
+  "optimizer": "COBYLA for noise",
+  "noise_depth": 2,
+  "positive_noise_points": 15,
+  "positive_fits_per_method": 285,
+  "projected_unique_calls_per_positive_fit": 150,
+  "clean_fits_for_six_noise_methods": 114,
+  "local_eight_qubit": [
+    {
+      "method": "hardware_efficient_vqe",
+      "build_seconds": 0.010375875048339367,
+      "n_parameters": 24,
+      "source": "5cc3351f2169b694c6eb1381748ec7e0b0e4df219a80bca47fbcb2aa397df18f",
+      "input": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85"
+    },
+    {
+      "method": "hardware_efficient_vqe",
+      "sample": 0,
+      "energy": "-0x1.150b33918dcd1p+8",
+      "seconds": 0.9820596249774098,
+      "parameters_sha256": "89a788ea2391234dead6e7eac6ad53a0fe412e0f5099713601cb2a2327857632"
+    },
+    {
+      "method": "hardware_efficient_vqe",
+      "sample": 1,
+      "energy": "-0x1.1566b87c6d7f9p+8",
+      "seconds": 0.9470500419847667,
+      "parameters_sha256": "e60aa9fb4b99e1e4585dd53307e9d3572117e6dffb860fbe4e85ed10cc48b49a"
+    },
+    {
+      "method": "hardware_efficient_vqe",
+      "sample": 2,
+      "energy": "-0x1.154ea95030f24p+8",
+      "seconds": 0.9438653336837888,
+      "parameters_sha256": "07b13a32334b1458809ae91b1fc16e9d029ec66ede90ee5eacd022c4d09cd893"
+    },
+    {
+      "method": "pennylane_vqe",
+      "build_seconds": 0.010074916295707226,
+      "n_parameters": 48,
+      "source": "5cc3351f2169b694c6eb1381748ec7e0b0e4df219a80bca47fbcb2aa397df18f",
+      "input": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85"
+    },
+    {
+      "method": "pennylane_vqe",
+      "sample": 0,
+      "energy": "-0x1.1610d3f753b00p+8",
+      "seconds": 0.9730928339995444,
+      "parameters_sha256": "52a5239720d252ce2ea3c7cd786362ae0a55dcd5740bd54958fc3dbf0d9385b2"
+    },
+    {
+      "method": "pennylane_vqe",
+      "sample": 1,
+      "energy": "-0x1.15ca0037ee0dbp+8",
+      "seconds": 0.9352015419863164,
+      "parameters_sha256": "144ac0aefe26967f8fc59d0f4dbcbd7a7ee928c0afa07633c350c4e0c9260bad"
+    },
+    {
+      "method": "pennylane_vqe",
+      "sample": 2,
+      "energy": "-0x1.15ee254efa20cp+8",
+      "seconds": 0.9387957500293851,
+      "parameters_sha256": "a522f77f0fa003c577f67146fe929c48cff3e369f1ee38fdc533b53ffa69be04"
+    },
+    {
+      "method": "qaoa_inspired_vqe",
+      "build_seconds": 0.01004683319479227,
+      "n_parameters": 12,
+      "source": "5cc3351f2169b694c6eb1381748ec7e0b0e4df219a80bca47fbcb2aa397df18f",
+      "input": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85"
+    },
+    {
+      "method": "qaoa_inspired_vqe",
+      "sample": 0,
+      "energy": "-0x1.15f48dbfde9c4p+8",
+      "seconds": 1.0363958748057485,
+      "parameters_sha256": "541217c0bd357a97a2e48cadb5c8c58ede2b6535c866eedea0a4b07fa6e1c11e"
+    },
+    {
+      "method": "qaoa_inspired_vqe",
+      "sample": 1,
+      "energy": "-0x1.15e6ae5e41777p+8",
+      "seconds": 1.002802665811032,
+      "parameters_sha256": "7891e4922067f7d0259126575c90fc32998d781b658cd7b71a7528528043f258"
+    },
+    {
+      "method": "qaoa_inspired_vqe",
+      "sample": 2,
+      "energy": "-0x1.15ecf72b05af3p+8",
+      "seconds": 0.9999839588999748,
+      "parameters_sha256": "d6d506feca0ec355e7cbf9d815c310350ed863ef2280aa40bc5facdeb5412d17"
+    },
+    {
+      "method": "ucc_vqe",
+      "build_seconds": 0.010391375049948692,
+      "n_parameters": 8,
+      "source": "5cc3351f2169b694c6eb1381748ec7e0b0e4df219a80bca47fbcb2aa397df18f",
+      "input": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85"
+    },
+    {
+      "method": "ucc_vqe",
+      "sample": 0,
+      "energy": "-0x1.170a793574e25p+8",
+      "seconds": 0.8315816670656204,
+      "parameters_sha256": "0b91c0aab29b9f61f2c572eccf2cf44bcef187736d7da587553ad838ac757a1a"
+    },
+    {
+      "method": "ucc_vqe",
+      "sample": 1,
+      "energy": "-0x1.170a793574e25p+8",
+      "seconds": 0.8323857500217855,
+      "parameters_sha256": "f3f1281c0e0dcc7e0d08b19c8c5a28c2c705384bb648389315204883245c0e3d"
+    },
+    {
+      "method": "ucc_vqe",
+      "sample": 2,
+      "energy": "-0x1.16ed1f6f2d964p+8",
+      "seconds": 0.7995080826804042,
+      "parameters_sha256": "caaf75a0f03c0bbbd2adb52f7d21c5cb7597f232cc2bee213a3187ccfbfe0b05"
+    },
+    {
+      "method": "nn_ae_vqe",
+      "build_seconds": 0.01002529077231884,
+      "n_parameters": 24,
+      "source": "5cc3351f2169b694c6eb1381748ec7e0b0e4df219a80bca47fbcb2aa397df18f",
+      "input": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85"
+    },
+    {
+      "method": "nn_ae_vqe",
+      "sample": 0,
+      "energy": "-0x1.16f06b5d90ed8p+8",
+      "seconds": 0.9172868337482214,
+      "parameters_sha256": "89a788ea2391234dead6e7eac6ad53a0fe412e0f5099713601cb2a2327857632"
+    },
+    {
+      "method": "nn_ae_vqe",
+      "sample": 1,
+      "energy": "-0x1.16cfa11ecef76p+8",
+      "seconds": 0.8793022497557104,
+      "parameters_sha256": "e60aa9fb4b99e1e4585dd53307e9d3572117e6dffb860fbe4e85ed10cc48b49a"
+    },
+    {
+      "method": "nn_ae_vqe",
+      "sample": 2,
+      "energy": "-0x1.16e44370bc8b1p+8",
+      "seconds": 0.8739549997262657,
+      "parameters_sha256": "07b13a32334b1458809ae91b1fc16e9d029ec66ede90ee5eacd022c4d09cd893"
+    },
+    {
+      "method": "hva_vqe",
+      "build_seconds": 0.05404083291068673,
+      "n_parameters": 48,
+      "source": "5cc3351f2169b694c6eb1381748ec7e0b0e4df219a80bca47fbcb2aa397df18f",
+      "input": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85"
+    },
+    {
+      "method": "hva_vqe",
+      "timed_out_seconds": 180
+    }
+  ],
+  "local_native_displaced_hva_trace": [
+    {
+      "parameters_sha256": "144ac0aefe26967f8fc59d0f4dbcbd7a7ee928c0afa07633c350c4e0c9260bad",
+      "n_parameters": 48,
+      "input_sha256": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85",
+      "heat": "first displaced parameter vector"
+    },
+    {
+      "batch_count": 290,
+      "seconds_to_native_batch": 6.181382790673524
+    },
+    {
+      "begin": 0,
+      "elapsed_at_begin": 6.182173624634743,
+      "ops_count": 4769,
+      "same_ref_as_previous": 0,
+      "gates_equal_to_previous": false,
+      "grouped": true,
+      "readout_stack_enabled": false
+    },
+    {
+      "finished": 0,
+      "seconds": 3.8084479589015245,
+      "output": [
+        -0.9731780085979287,
+        -0.9735146622153785,
+        -0.9683188052375249,
+        0.947231847649305,
+        0.9734940125018999,
+        0.9682979049018539,
+        0.9733100167971934
+      ]
+    },
+    {
+      "begin": 1,
+      "elapsed_at_begin": 9.990735833067447,
+      "ops_count": 4769,
+      "same_ref_as_previous": 17,
+      "gates_equal_to_previous": true,
+      "grouped": true,
+      "readout_stack_enabled": false
+    },
+    {
+      "finished": 1,
+      "seconds": 3.813811957836151,
+      "output": [
+        -0.9734854615259092,
+        0.9474461623771503,
+        3.373067660053519e-05,
+        0.9424645746489421
+      ]
+    },
+    {
+      "begin": 2,
+      "elapsed_at_begin": 13.838983499910682,
+      "ops_count": 4769,
+      "same_ref_as_previous": 17,
+      "gates_equal_to_previous": true,
+      "grouped": true,
+      "readout_stack_enabled": false
+    },
+    {
+      "finished": 2,
+      "seconds": 3.8159410832449794,
+      "output": [
+        4.35296162301646e-06,
+        -0.9174878362640022
+      ]
+    },
+    {
+      "stopped_after_completed_groups": 3,
+      "elapsed": 17.688891999889165
+    }
+  ],
+  "local_selected_hva_groups": [
+    {
+      "groups": 290,
+      "indices": [
+        0,
+        1,
+        145,
+        289
+      ],
+      "commuting_groups": 24,
+      "unexpanded_ops": 65,
+      "grouping_seconds": 0.04068995779380202,
+      "expand_selected_seconds": 0.0970065831206739,
+      "operations_per_group": [
+        4769,
+        4769,
+        4769,
+        4769
+      ],
+      "refs_shared_with_group0": [
+        4769,
+        17,
+        17,
+        17
+      ],
+      "identical_gates_with_group0": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "op_counts": {
+        "StatePrep": 1,
+        "MultiRZ": 720,
+        "Hadamard": 2016,
+        "RX": 2016,
+        "DepolarizingChannel": 16
+      },
+      "grouped_readout_order_available": false
+    },
+    {
+      "group": 0,
+      "seconds": 3.8984757498838007,
+      "readout": [
+        -0.9731780085979299,
+        -0.9735146622153769,
+        -0.9683188052375235,
+        0.9472318476493058,
+        0.9734940125018978,
+        0.9682979049018533,
+        0.9733100167971942
+      ]
+    },
+    {
+      "group": 1,
+      "seconds": 3.8913255827501416,
+      "readout": [
+        -0.973485461525909,
+        0.9474461623771506,
+        3.373067660003559e-05,
+        0.9424645746489413
+      ]
+    },
+    {
+      "group": 145,
+      "seconds": 3.885144041851163,
+      "readout": [
+        -0.0007301110802694385
+      ]
+    },
+    {
+      "group": 289,
+      "seconds": 3.8853565831668675,
+      "readout": [
+        0.00018012119293878137
+      ]
+    }
+  ],
+  "local_four_qubit": {
+    "scope": "Frozen 4-qubit contextual glycine, depolarizing p=.01, analytic default.mixed, n_layers=2 where applicable, HE RY+HF. One warm-up plus a distinct timed small-random vector per method, native objective + analytic cache, no optimizer. One native thread.",
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "revision": "a20bb3a6a60a9a09f56bafff0ec43b3d3423d6b1",
+    "input_sha256": "5d1da4e2be2af4ccf918c9ade7fc08adc129ce80c253cfac27c995aa350b1539",
+    "qubits": 4,
+    "terms": 27,
+    "rows": [
+      {
+        "algorithm": "hardware_efficient_vqe",
+        "parameters": 12,
+        "setup": 0.0023632082156836987,
+        "warmup": {
+          "seconds": 0.009605249855667353,
+          "energy": -278.65457721112926
+        },
+        "timed": {
+          "seconds": 0.008210291620343924,
+          "energy": -278.6795047049398
+        }
+      },
+      {
+        "algorithm": "pennylane_vqe",
+        "parameters": 24,
+        "setup": 0.0007464587688446045,
+        "warmup": {
+          "seconds": 0.00876816688105464,
+          "energy": -278.77264598706677
+        },
+        "timed": {
+          "seconds": 0.008997041266411543,
+          "energy": -278.7695448161878
+        }
+      },
+      {
+        "algorithm": "qaoa_inspired_vqe",
+        "parameters": 8,
+        "setup": 0.0007115001790225506,
+        "warmup": {
+          "seconds": 0.009612834081053734,
+          "energy": -278.6888821842271
+        },
+        "timed": {
+          "seconds": 0.009559167083352804,
+          "energy": -278.6428675501175
+        }
+      },
+      {
+        "algorithm": "hva_vqe",
+        "parameters": 6,
+        "setup": 0.0017281253822147846,
+        "warmup": {
+          "seconds": 0.19663145765662193,
+          "energy": -279.09327682769054
+        },
+        "timed": {
+          "seconds": 0.15949958423152566,
+          "energy": -279.09327732900454
+        }
+      },
+      {
+        "algorithm": "ucc_vqe",
+        "parameters": 2,
+        "setup": 0.0006896252743899822,
+        "warmup": {
+          "seconds": 0.006386749912053347,
+          "energy": -279.09928158158704
+        },
+        "timed": {
+          "seconds": 0.005984458141028881,
+          "energy": -279.1013892670263
+        }
+      },
+      {
+        "algorithm": "nn_ae_vqe",
+        "parameters": 12,
+        "setup": 0.000632207840681076,
+        "warmup": {
+          "seconds": 0.007467249874025583,
+          "energy": -279.0681210643626
+        },
+        "timed": {
+          "seconds": 0.0073523749597370625,
+          "energy": -279.03424734993035
+        }
+      }
+    ]
+  },
+  "modal_eight_qubit_hva": {
+    "input_sha256": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85",
+    "scientific_source_sha256": "5cc3351f2169b694c6eb1381748ec7e0b0e4df219a80bca47fbcb2aa397df18f",
+    "qubits": 8,
+    "terms": 361,
+    "seed": 42,
+    "layers": 2,
+    "worker_seconds": 68.200706031,
+    "cases": [
+      {
+        "channel": "depolarizing",
+        "strength": 0.01,
+        "groups": 290,
+        "parameters": 48,
+        "operations_per_group": [
+          4769,
+          4769,
+          4769
+        ],
+        "shared_readout_order": false,
+        "samples": [
+          {
+            "group": 0,
+            "seconds": 7.393407657999999,
+            "values": [
+              -0.9731780085979299,
+              -0.9735146622153769,
+              -0.9683188052375235,
+              0.9472318476493058,
+              0.9734940125018978,
+              0.9682979049018533,
+              0.9733100167971942
+            ]
+          },
+          {
+            "group": 145,
+            "seconds": 7.097873125,
+            "values": [
+              -0.0007301110802694179
+            ]
+          },
+          {
+            "group": 289,
+            "seconds": 7.293313183999999,
+            "values": [
+              0.00018012119293878137
+            ]
+          }
+        ]
+      },
+      {
+        "channel": "phaseflip",
+        "strength": 0.01,
+        "groups": 290,
+        "parameters": 48,
+        "operations_per_group": [
+          4769,
+          4769,
+          4769
+        ],
+        "shared_readout_order": false,
+        "samples": [
+          {
+            "group": 0,
+            "seconds": 7.360695339999996,
+            "values": [
+              -0.9997037708304518,
+              -0.9999830471099153,
+              -0.9946487870892027,
+              0.9995058955681394,
+              0.9999819286231069,
+              0.9946266936806141,
+              0.9997939704528694
+            ]
+          },
+          {
+            "group": 145,
+            "seconds": 7.367349197000003,
+            "values": [
+              -0.0007826603011628025
+            ]
+          },
+          {
+            "group": 289,
+            "seconds": 7.657843675000002,
+            "values": [
+              0.00018447688499842642
+            ]
+          }
+        ]
+      },
+      {
+        "channel": "amplitude_damping",
+        "strength": 0.01,
+        "groups": 290,
+        "parameters": 48,
+        "operations_per_group": [
+          4769,
+          4769,
+          4769
+        ],
+        "shared_readout_order": false,
+        "samples": [
+          {
+            "group": 0,
+            "seconds": 7.366044522000003,
+            "values": [
+              -0.9598569133757779,
+              -0.9602134141925391,
+              -0.9549888424343754,
+              0.921496350785813,
+              0.9999828620819472,
+              0.9947671755179913,
+              0.9997945151559129
+            ]
+          },
+          {
+            "group": 145,
+            "seconds": 7.401629222000004,
+            "values": [
+              -0.0007355676141933028
+            ]
+          },
+          {
+            "group": 289,
+            "seconds": 7.153739530999999,
+            "values": [
+              0.00017652882775446785
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "inference": {
+    "mean_group_seconds": 7.343543939333334,
+    "projected_native_hva_group_evolution_seconds_per_energy": 2129.627742406667,
+    "projected_hva_hours_per_150_call_fit": 88.73448926694445,
+    "cohort_hva_worker_hours": 25289.32944107917,
+    "cohort_hva_usd": 3193.738836455006,
+    "cohort_other_five_noise_hours_from_relative_local_rates": 199.48970229060984,
+    "cohort_other_five_noise_usd": 25.193155522876534,
+    "four_qubit_local_noise_forward_hours": 2.3702846429659985,
+    "budgeted_clean_studies_hours": [
+      10.24,
+      13.629999999999999
+    ],
+    "cohort_all_six_plus_clean_usd": [
+      3220.225181097883,
+      3220.6532974178826
+    ]
+  },
+  "scope": "Group extrapolation on a 361-term frozen glycine operator at p=.01 in each channel. The 8-qubit 19-molecule model assigns those group counts and mean costs to each molecule and strength, at 150 distinct calls. A full HVA energy, fit and cohort were not timed. The five other noise methods are scaled by local warm energy ratios against the recorded 520.588-s Modal HE fit. Lifecycle, per-case preprocessing, plotting, failed attempts, retries and extra replication can add to these numbers. The clean allowance uses the dedicated HE Bayesian initialization schedule, trainability, default adaptive size and default prefixes. Historical deep/alternate solver-optimizer budgets are separate scenarios."
+}

@@ -1,0 +1,518 @@
+{
+  "baseline_commit": "ab1954f6c33f7c9640ada79b1722107a9e573ff6",
+  "optimized_scientific_commit": "5ddab58",
+  "protocol": "Native CLI on single-thread analytic backends. Compare each host against itself. Logically identical arithmetic, parameters and scientific fields. Timings include native trial outputs and startup. Solvers can stop before their cap.",
+  "local": {
+    "trainability": {
+      "seconds": {
+        "baseline": 481.08,
+        "candidate": 144.18
+      },
+      "source_sha256": {
+        "baseline": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8",
+        "candidate": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad"
+      },
+      "cases": [
+        {
+          "algorithm": "qubit_adapt_vqe",
+          "target": 10,
+          "evaluations": 2000,
+          "baseline_seconds": 86.4668,
+          "candidate_seconds": 11.6531,
+          "reused_reference_probes": 0
+        },
+        {
+          "algorithm": "hardware_efficient_vqe",
+          "target": 10,
+          "evaluations": 366,
+          "baseline_seconds": 16.3638,
+          "candidate_seconds": 10.4203,
+          "reused_reference_probes": 0
+        },
+        {
+          "algorithm": "qubit_adapt_vqe",
+          "target": 50,
+          "evaluations": 2000,
+          "baseline_seconds": 91.4799,
+          "candidate_seconds": 0.4593,
+          "reused_reference_probes": 1944
+        },
+        {
+          "algorithm": "hardware_efficient_vqe",
+          "target": 50,
+          "evaluations": 2000,
+          "baseline_seconds": 94.1244,
+          "candidate_seconds": 55.4787,
+          "reused_reference_probes": 0
+        },
+        {
+          "algorithm": "qubit_adapt_vqe",
+          "target": 100,
+          "evaluations": 1945,
+          "baseline_seconds": 87.5755,
+          "candidate_seconds": 0.1303,
+          "reused_reference_probes": 1944
+        },
+        {
+          "algorithm": "hardware_efficient_vqe",
+          "target": 100,
+          "evaluations": 2000,
+          "baseline_seconds": 98.5583,
+          "candidate_seconds": 59.0687,
+          "reused_reference_probes": 0
+        }
+      ],
+      "events": 13046,
+      "events_sha256": "1456755880ab6ad5d68deb71db5cda3c8b4ad321c6ca0a09bdd25b96421e7101",
+      "artifact_sha256": {
+        "inputs/gly.npz": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec",
+        "run_config.json": "d05ec7900f4821de8aa606fd8f701c384f246aa8cf5cf17e7f76220d78be7cc2",
+        "endpoints.jsonl": "004e8b4a1bd177f4e41e8b5ff33f208dc5da19f1abfddec07229ff611dec97e7",
+        "eval_traces.csv": "412973ed408717a00f0c68f0bf3c4cc76c3d35e85d5a3917d788fd2f69da2702",
+        "convergence_traces.csv": "2a3c630c9d4195ae0741e386fe3082d90cc66cbf6a7e9a22468125987671c87f",
+        "model_reference.json": "abd0c1c42a389f7fb4eb286ed9a20befb2be1ad0065da010936384d21e42cf78",
+        "batch_manifest.json": "59c2534a34bea777bb5601bad49c8f78f6c9ae1e90b5b9ee7bba086a1f44579b",
+        "all_molecules_convergence_traces.csv": "09a3e809bcb9fd9a0f4309d8ef257814caea9ff859e611546f612a8a1f95f486",
+        "all_molecules_eval_traces.csv": "412973ed408717a00f0c68f0bf3c4cc76c3d35e85d5a3917d788fd2f69da2702",
+        "all_molecules_cost_to_accuracy_summary.csv": "d4b8387f4a45384369def39702615f818136f2aff82b324bc8205da5e39941f9"
+      }
+    },
+    "prefix": {
+      "seconds": {
+        "baseline": 53.19,
+        "candidate": 29.1
+      },
+      "source_sha256": {
+        "baseline": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8",
+        "candidate": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad"
+      },
+      "cases": 66,
+      "cases_sha256": "0522c5ef2527734560bd5a0acddc9b6a72ef3fc849d444516e86ec612f71f681",
+      "input_sha256": {
+        "gly": "8c07e44128d2bc4463a351e80c37b88d384b605a72a353bb17d9ab19517dbe85"
+      },
+      "solver_seconds": {
+        "pennylane_vqe": {
+          "baseline_seconds": 0.8303,
+          "candidate_seconds": 0.6026
+        },
+        "adapt_vqe": {
+          "baseline_seconds": 2.4397,
+          "candidate_seconds": 1.0072
+        },
+        "qubit_adapt_vqe": {
+          "baseline_seconds": 20.069100000000002,
+          "candidate_seconds": 8.0226
+        },
+        "hardware_efficient_vqe": {
+          "baseline_seconds": 0.5603,
+          "candidate_seconds": 0.44970000000000004
+        },
+        "qaoa_inspired_vqe": {
+          "baseline_seconds": 0.8485,
+          "candidate_seconds": 0.5409999999999999
+        },
+        "iqcc_inspired_vqe": {
+          "baseline_seconds": 9.610800000000001,
+          "candidate_seconds": 2.715
+        },
+        "iqcc_true_vqe": {
+          "baseline_seconds": 1.3936000000000002,
+          "candidate_seconds": 0.8936
+        },
+        "cb_vqe": {
+          "baseline_seconds": 7.461600000000001,
+          "candidate_seconds": 7.3705
+        },
+        "hva_vqe": {
+          "baseline_seconds": 3.7367,
+          "candidate_seconds": 2.4776999999999996
+        },
+        "ucc_vqe": {
+          "baseline_seconds": 0.638,
+          "candidate_seconds": 0.3851
+        },
+        "nn_ae_vqe": {
+          "baseline_seconds": 0.6088,
+          "candidate_seconds": 0.4687
+        }
+      }
+    }
+  },
+  "modal": {
+    "trainability": {
+      "seconds": {
+        "baseline": 359.394966,
+        "candidate": 87.757062
+      },
+      "source_sha256": {
+        "baseline": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8",
+        "candidate": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad"
+      },
+      "cases": [
+        {
+          "algorithm": "qubit_adapt_vqe",
+          "target": 10,
+          "evaluations": 2000,
+          "baseline_seconds": 288.0852,
+          "candidate_seconds": 47.0282,
+          "reused_reference_probes": 0
+        },
+        {
+          "algorithm": "hardware_efficient_vqe",
+          "target": 10,
+          "evaluations": 329,
+          "baseline_seconds": 49.8339,
+          "candidate_seconds": 21.6694,
+          "reused_reference_probes": 0
+        }
+      ],
+      "events": 2554,
+      "events_sha256": "a99bf9f6f3788e74306428ff55ad0666ec5491fedd71a45abfbce2258f74a52d",
+      "artifact_sha256": {
+        "inputs/gly.npz": "08f6eeb5fe7cfdd1d123205293b381837f83c8871f6025b4c06b289b58729219",
+        "run_config.json": "203213ec771a00fc5871546981f1b3a2e964080acbea3e83b7cd3280800add74",
+        "endpoints.jsonl": "146f7bf599ce719b01361bdef6f2363a82da3df199d55f7398d124139f1869f9",
+        "eval_traces.csv": "e58dc4db7947b0d0a4f18d58d2ad5f0c14f2aa034b9207c42f0bc894e4694d71",
+        "convergence_traces.csv": "8ddf78fd319ae3deef882d3c7bf352b460dffc47a6a256ccdab6c4aa167d95b3",
+        "model_reference.json": "da7e9262103ff04bc7b418f9258577e115b36837d21814597f0adeb45256b52a",
+        "batch_manifest.json": "b960b46753a05169314c7b56ffbf40ad3311182c6df974c568400960ce61635e",
+        "all_molecules_convergence_traces.csv": "10b7d6a9ac799fdf6876745ab5c871c30a0695ae17126fa2b33e558e8c452f92",
+        "all_molecules_eval_traces.csv": "e58dc4db7947b0d0a4f18d58d2ad5f0c14f2aa034b9207c42f0bc894e4694d71",
+        "all_molecules_cost_to_accuracy_summary.csv": "8cad4441e69fc90640a5ec30ec614ee617bb28b38f004815cae71a590ce41eeb"
+      }
+    },
+    "prefix": {
+      "seconds": {
+        "baseline": 11.446473,
+        "candidate": 8.825686
+      },
+      "source_sha256": {
+        "baseline": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8",
+        "candidate": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad"
+      },
+      "cases": 22,
+      "cases_sha256": "48300358f07f564958145627d0b75d11533bcf563b96bf9a8419bdaaa9f498d7",
+      "input_sha256": {
+        "hydrogen": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3"
+      },
+      "solver_seconds": {
+        "pennylane_vqe": {
+          "baseline_seconds": 0.2373,
+          "candidate_seconds": 0.167
+        },
+        "adapt_vqe": {
+          "baseline_seconds": 0.1061,
+          "candidate_seconds": 0.0562
+        },
+        "qubit_adapt_vqe": {
+          "baseline_seconds": 0.5662,
+          "candidate_seconds": 0.374
+        },
+        "hardware_efficient_vqe": {
+          "baseline_seconds": 0.2119,
+          "candidate_seconds": 0.1562
+        },
+        "qaoa_inspired_vqe": {
+          "baseline_seconds": 0.293,
+          "candidate_seconds": 0.1694
+        },
+        "iqcc_inspired_vqe": {
+          "baseline_seconds": 0.4678,
+          "candidate_seconds": 0.013999999999999999
+        },
+        "iqcc_true_vqe": {
+          "baseline_seconds": 0.0208,
+          "candidate_seconds": 0.0097
+        },
+        "cb_vqe": {
+          "baseline_seconds": 0.24819999999999998,
+          "candidate_seconds": 0.1617
+        },
+        "hva_vqe": {
+          "baseline_seconds": 0.43400000000000005,
+          "candidate_seconds": 0.2374
+        },
+        "ucc_vqe": {
+          "baseline_seconds": 0.2576,
+          "candidate_seconds": 0.1404
+        },
+        "nn_ae_vqe": {
+          "baseline_seconds": 0.22970000000000002,
+          "candidate_seconds": 0.1491
+        }
+      }
+    },
+    "solver": {
+      "seconds": {
+        "baseline": 176.777029,
+        "candidate": 107.284221
+      },
+      "source_sha256": {
+        "baseline": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8",
+        "candidate": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad"
+      },
+      "artifacts": 227,
+      "artifact_counts": {
+        "convergence_traces.csv": 42,
+        "gradient_variance.csv": 2,
+        "gradient_variance_by_parameter.csv": 2,
+        "hydrogen.npz": 42,
+        "matrix.json": 1,
+        "optimization_results.csv": 30,
+        "optimum_parameters.json": 12,
+        "results.csv": 12,
+        "run_config.json": 42,
+        "state_endpoints.json": 12,
+        "trial_endpoints.json": 30
+      },
+      "matrix_sha256": "3e656198dcc313479af13e652d19ac1fbe09734f3069462b3839042366a40001",
+      "inventory_sha256": "1baaeca4efc71c3ed318cd873ce2694c0274d1a194e7c2a0c27fdaf0cc1802fe"
+    },
+    "volume": "exact-efficiency-44bd0206112646e4873fc67b84d60af5",
+    "single_worker_allocation": {
+      "cpu": 2,
+      "memory_mib": 4096
+    }
+  },
+  "local_solver": {
+    "source_sha256": {
+      "baseline": "0448600123e6ae07f9945cf542908b12fb4d4b796e51cc1004306f85a7b2b1f8",
+      "candidate": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad"
+    },
+    "artifacts": 227,
+    "artifact_counts": {
+      "convergence_traces.csv": 42,
+      "gradient_variance.csv": 2,
+      "gradient_variance_by_parameter.csv": 2,
+      "hydrogen.npz": 42,
+      "matrix.json": 1,
+      "optimization_results.csv": 30,
+      "optimum_parameters.json": 12,
+      "results.csv": 12,
+      "run_config.json": 42,
+      "state_endpoints.json": 12,
+      "trial_endpoints.json": 30
+    },
+    "matrix_sha256": "20362c0b393b08628dc02f93cedd0e24d64fe969867fe1c15d58466b5d1bec71",
+    "inventory_sha256": "d046a138992ba1ada85cdea2631ffa17e0dc18c110614fda66497fcc892d7e10"
+  },
+  "deep_he": {
+    "molecule": "gly",
+    "qubits": 12,
+    "terms": 1819,
+    "angles": 100,
+    "warm_evaluations": 64,
+    "input_sha256": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec",
+    "energy_sha256": "c9cffc52bca1f6617e5a24a182cc643d064ec3dbdf8f7a791611955e3a472cf8",
+    "seconds": {
+      "construct": 0.26146396109834313,
+      "transform": 0.193081290461123,
+      "evolve": 0.029120504390448332,
+      "expectation": 1.2998532461933792
+    }
+  },
+  "tests": {
+    "passed": 162,
+    "elapsed_seconds": 163.266
+  },
+  "physics": {
+    "rows": 22,
+    "fail": [
+      {
+        "molecule": "hydrogen",
+        "algorithm": "adapt_vqe",
+        "violations": [
+          "zero-angle excitation changes the state"
+        ]
+      }
+    ],
+    "warnings": [],
+    "endpoint_sha256": "ffd70cd5053f00c71752d4e6986f35506ad44689b745a7b9d7340ab54f757d6f"
+  },
+  "campaigns": {
+    "local": {
+      "folder": "results/profiling/exact-efficiency/five-final",
+      "sources_verified": 55,
+      "initialization_fits": 78,
+      "noise_fits": 48,
+      "max_independent_init_noise_difference": 4.977929179972307e-11,
+      "checks": {
+        "trainability_replay": {
+          "endpoints": 4,
+          "crossing_witnesses": 3,
+          "endpoints_with_wrong_electron_probability_above_1e_8": 2,
+          "operator_ground_energy": -1.1368465754720543,
+          "casci_energy": -1.1368465754720538,
+          "operator_ground_minus_casci": -4.440892098500626e-16,
+          "minimum_possible_abs_error_to_casci": 0.0
+        },
+        "trainability": {
+          "molecule": "hydrogen",
+          "qubits": 4,
+          "plots": 5,
+          "source_sha256": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad"
+        },
+        "noise": {
+          "molecule": "hydrogen",
+          "qubits": 4,
+          "plots": 3,
+          "source_sha256": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad"
+        },
+        "attained_k": 4,
+        "accuracy": {
+          "molecule": "hydrogen",
+          "qubits": 4,
+          "plots": 3,
+          "source_sha256": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad"
+        },
+        "initialization": {
+          "molecule": "hydrogen",
+          "qubits": 4,
+          "plots": 3,
+          "source_sha256": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad"
+        },
+        "max_iqcc_rotations": 3,
+        "prefix": {
+          "molecule": "gly",
+          "qubits": 4,
+          "plots": 2,
+          "source_sha256": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad"
+        },
+        "fermionic_error_mha": {
+          "hydrogen": 8.43769498715119e-12,
+          "gly": 2.5579538487363607e-09
+        },
+        "fixed_iqcc": {
+          "rotations": 2,
+          "energy": -279.1115147391168,
+          "prefix_reference": -279.11151473911696,
+          "largest_rescore_difference_ha": 1.1368683772161603e-13
+        },
+        "solver_studies": {
+          "initialization_configurations": 30,
+          "noise_configurations": 12,
+          "frozen_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3"
+        },
+        "paired_studies": {
+          "prefix": 44,
+          "prefix_wrong_electron_above_1pct": 12,
+          "accuracy": 8,
+          "trainability": 6,
+          "source_sha256": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad",
+          "frozen_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3"
+        }
+      }
+    },
+    "modal": {
+      "folder": "results/smoke/study-campaign-57cb02248ffa40a0844705c6e02ab4d4",
+      "sources_verified": 55,
+      "initialization_fits": 78,
+      "noise_fits": 48,
+      "max_independent_init_noise_difference": 4.977929179972307e-11,
+      "checks": {
+        "trainability_replay": {
+          "endpoints": 4,
+          "crossing_witnesses": 3,
+          "endpoints_with_wrong_electron_probability_above_1e_8": 2,
+          "operator_ground_energy": -1.1368465754720543,
+          "casci_energy": -1.1368465754720547,
+          "operator_ground_minus_casci": 4.440892098500626e-16,
+          "minimum_possible_abs_error_to_casci": 4.440892098500626e-16
+        },
+        "trainability": {
+          "molecule": "hydrogen",
+          "qubits": 4,
+          "plots": 5,
+          "source_sha256": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad"
+        },
+        "noise": {
+          "molecule": "hydrogen",
+          "qubits": 4,
+          "plots": 3,
+          "source_sha256": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad"
+        },
+        "attained_k": 4,
+        "accuracy": {
+          "molecule": "hydrogen",
+          "qubits": 4,
+          "plots": 3,
+          "source_sha256": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad"
+        },
+        "initialization": {
+          "molecule": "hydrogen",
+          "qubits": 4,
+          "plots": 3,
+          "source_sha256": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad"
+        },
+        "max_iqcc_rotations": 1,
+        "prefix": {
+          "molecule": "gly",
+          "qubits": 4,
+          "plots": 2,
+          "source_sha256": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad"
+        },
+        "fermionic_error_mha": {
+          "hydrogen": 5.995204332975845e-12,
+          "gly": 3.069544618483633e-09
+        },
+        "fixed_iqcc": {
+          "rotations": 2,
+          "energy": -279.11151473911684,
+          "prefix_reference": -279.11151473911696,
+          "largest_rescore_difference_ha": 5.684341886080802e-14
+        },
+        "solver_studies": {
+          "initialization_configurations": 30,
+          "noise_configurations": 12,
+          "frozen_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3"
+        },
+        "paired_studies": {
+          "prefix": 44,
+          "prefix_wrong_electron_above_1pct": 12,
+          "accuracy": 8,
+          "trainability": 6,
+          "source_sha256": "f218d0b1820c65c8c0a7905ad55540391874a4abc56a1bc9d64006c102aba0ad",
+          "frozen_sha256": "fd1e51fabf33165b030d0ea0f1bd9efbe015e8ab64e7a14863f3846fc19546d3"
+        }
+      }
+    }
+  },
+  "shared_components": {
+    "determinant_8q_200terms": {
+      "output_sha256": "cbbe3c3f0451dc52923b8cf75152034fdc7aeab54b20569eccbcd030df9bcf7e",
+      "baseline_median_seconds": 0.06185670895501971,
+      "candidate_median_seconds": 7.27497972548008e-05
+    },
+    "dense_matrix_8q_200terms": {
+      "output_sha256": "051d5d2a6814b9dc3c3b980c6fbdfd17dc759318f7558dfacea5fe2cf78734f2",
+      "baseline_median_seconds": 0.05949116684496403,
+      "candidate_median_seconds": 0.0013193748891353607
+    },
+    "determinant_12q_40terms": {
+      "output_sha256": "3abf1aba224cba1e2bfc7be1462b0acb413851ab1babc767ffdf111be8129e05",
+      "baseline_median_seconds": 2.7126000416465104,
+      "candidate_median_seconds": 2.7063069865107536e-05
+    },
+    "dense_matrix_12q_40terms": {
+      "output_sha256": "076ddf05c02900ed8e03bce69658c2eb724e056ff62fbf83949ce80db0bc0a1d",
+      "baseline_median_seconds": 2.6952517919708043,
+      "candidate_median_seconds": 0.012892750557512045
+    },
+    "all_sector_observables_8q": {
+      "output_sha256": "e305ce0cf49aeed1e78d77cf9cd4df1a6000ed89578d095f8e0bc3ef2e1d98c4",
+      "baseline_median_seconds": 0.016896792221814394,
+      "candidate_median_seconds": 0.001333917025476694
+    },
+    "prefix_references_and_endpoint_operators_12q": {
+      "output_sha256": "7019264e52bc48f6d35222d8d3dccf3f0ba687633a6a9528fc20c5e9bb1ff604",
+      "baseline_median_seconds": 0.07936199987307191,
+      "candidate_median_seconds": 0.052429040893912315
+    },
+    "prefix_references_and_endpoint_operators_8q": {
+      "output_sha256": "ff2dc9ec5d0824e1f37e82fe87cd7c43447bdc42591fcb1febb89bee01eadbba",
+      "baseline_median_seconds": 0.030956541653722525,
+      "candidate_median_seconds": 0.022210165858268738
+    }
+  }
+}

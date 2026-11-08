@@ -1,0 +1,108 @@
+{
+  "source_before": "9c1c1af",
+  "source_after": "199f47f",
+  "source_sha256": {
+    "core/hamiltonian_loader.py": {
+      "before": "10f1d8e1c8d8b5a703cb90a776147b81fc6aca3c6257047b1d6a0c36535584fb",
+      "after": "de1cd50d9999d9426ab827a5974056b463c7a5560f88430a18dcec1a4f8796ea"
+    },
+    "experiments/endpoint_sector.py": {
+      "before": "c65a8ebe0a08d4c5fec3d18e7da2e7490f7cce281dd8899aa46124306d36dfbf",
+      "after": "bec6a77275014c874ff10e4c9ded01a5e6520be5bc2e37b8abcca5e5a66e2cf6"
+    },
+    "experiments/trainability.py": {
+      "before": "ba162efe0bec273126a006e1e2ed75c225475f8dcf5b97beb5e4e37da0ad24aa",
+      "after": "ba162efe0bec273126a006e1e2ed75c225475f8dcf5b97beb5e4e37da0ad24aa"
+    },
+    "experiments/replay_trainability.py": {
+      "before": "1c25bce1afd1d8b6e4243cb7cebdb5d2882d6a0f657da5c69a6d2f8b1549429b",
+      "after": "1c25bce1afd1d8b6e4243cb7cebdb5d2882d6a0f657da5c69a6d2f8b1549429b"
+    }
+  },
+  "platform": "macOS-27.0-arm64-arm-64bit",
+  "repeats": 3,
+  "threads": 1,
+  "frozen_molecule": "gly",
+  "qubits": 12,
+  "terms": 1819,
+  "input_sha256": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec",
+  "csr_bytes": 7532548,
+  "ordered_csr_sha256": "a4e4a0178fadb89e6cd3f54a47fa64e2328c510606a08ec63776fca85b5c292d",
+  "isolated_csr_seconds": {
+    "before": [
+      0.7871148753911257,
+      0.7271029581315815,
+      0.7248285827226937,
+      0.7175681660883129,
+      0.7150284578092396
+    ],
+    "after": [
+      0.7760593327693641,
+      2.2499822080135345e-05,
+      5.499925464391708e-06,
+      5.541834980249405e-06,
+      4.208646714687347e-06
+    ],
+    "before_median": 0.7248285827226937,
+    "after_first_construction": 0.7760593327693641,
+    "after_warm_median": 5.520880222320557e-06
+  },
+  "full_budget_pilot_replay": {
+    "before": [
+      5.297852875199169,
+      5.285314792301506,
+      5.324883624911308
+    ],
+    "after": [
+      0.9542597089894116,
+      0.9443450826220214,
+      0.9502695840783417
+    ],
+    "median_speedup": 5.575105174325358,
+    "returned": {
+      "endpoints": 2,
+      "crossing_witnesses": 1,
+      "endpoints_with_wrong_electron_probability_above_1e_8": 1,
+      "operator_ground_energy": -279.1376629146243,
+      "casci_energy": -279.1376629146243,
+      "operator_ground_minus_casci": 0.0,
+      "minimum_possible_abs_error_to_casci": 0.0
+    },
+    "scope": "Replay model reference, two final fits, and all four saved parameter witnesses from the 2,000-evaluation-cap pilot."
+  },
+  "native_40_evaluation_pipeline": {
+    "before": [
+      4.435346499551088,
+      4.333813249599189,
+      4.354067665990442
+    ],
+    "after": [
+      3.0095822918228805,
+      2.8983070836402476,
+      2.900357957929373
+    ],
+    "median_speedup": 1.5012173425306798,
+    "scope": "One native run_trainability call with fresh published HDF5 glycine, unreduced STO-3G, 10-parameter hardware-efficient RY, COBYLA, 40 evaluations, seed 42, all data outputs, figures disabled; imports excluded.",
+    "byte_identical_within_each_of_three_paired_before_after_runs": {
+      "inputs/gly.npz": "3f1095c4864bc97943201b383918440b45b7acebd0025d2f70b2b06af6b3a9ec",
+      "endpoints.jsonl": "13693b74eeb3c3bf6c90fc807a2a2580eb299fc665493eb8914f20b1fa903f8f",
+      "convergence_traces.csv": "c126243193d862124105b2a4f0a7bb3db1c3a6c958092a4c60246f9e2ff3bcce",
+      "eval_traces.csv": "417712f98774911019cd1f97639a62a8d07e9086efc90af27871c28447da6f52",
+      "model_reference.json": [
+        "2cf2a969581cdf571c367a1566c6b41d9184241506a3f043b63f38f3c5b02b6e",
+        "72d7c224193b5607e64c85f018726bdcbff1f176fd2d4ccd4728ca1b261e4360",
+        "68cd6b3fcb7291869c2fc83e46494a9e57c4d02db421e3dd483eb509eae163de"
+      ],
+      "run_config.json": "72e1d2c5cab20d187942e50201286501a64203f579c94d177a8bc2fd704948d6"
+    }
+  },
+  "estimated_full_budget_pilot": {
+    "scope": "Prior unreduced pilot fit and artifact output interval after runtime.json, excluding geometry preparation. No full-budget refit timed.",
+    "full_budget_cap": 2000,
+    "before_measured_seconds": 111.0540599822998,
+    "reference_and_endpoint_constructions_before": 5,
+    "after": 1,
+    "estimated_seconds_saved": 2.8993143308907747,
+    "estimated_speedup": 1.0268070930538313
+  }
+}
