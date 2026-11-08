@@ -77,6 +77,8 @@ class QubitAdaptVQE(BaseVQE):
         self.max_operators = max_operators
         self.gradient_threshold = gradient_threshold
         self.use_restricted_pool = use_restricted_pool
+        self.operator_pool_mode: Optional[str] = None
+        self.cs_forced_full_pool = False
         self.max_gradient_candidates = (
             int(max_gradient_candidates)
             if max_gradient_candidates is not None and int(max_gradient_candidates) > 0
@@ -188,12 +190,15 @@ class QubitAdaptVQE(BaseVQE):
         # Generate Pauli Pool
         # Use full pool when CS reduction is active (no meaningful occupied/virtual split)
         cs_active = getattr(self.hamiltonian, "cs_initial_state", None) is not None
+        self.cs_forced_full_pool = bool(cs_active and self.use_restricted_pool)
         if not self.use_restricted_pool or cs_active:
+            self.operator_pool_mode = "full"
             if cs_active:
                 logger.info("CS reduction active; using FULL pool (occupied/virtual split not applicable)")
             self.operator_pool = self._generate_full_pool(n_qubits)
             logger.info(f"Built FULL Pauli operator pool with {len(self.operator_pool)} operators")
         else:
+            self.operator_pool_mode = "restricted"
             n_electrons = self.hamiltonian.molecule.n_electrons
             if n_electrons is None or n_electrons >= n_qubits:
                 n_electrons = n_qubits // 2
@@ -474,6 +479,13 @@ class QubitAdaptVQE(BaseVQE):
                 "optimizer": self.optimizer_name,
                 "n_operators_selected": len(self.selected_operators),
                 "selected_operators_str": [self.operator_pool[i] for i in self.selected_operators],
+                "n_pool_operators": len(self.operator_pool),
+                "n_noncommuting_operators": len(self._noncommuting_ops or []),
+                "requested_operator_pool_mode": (
+                    "restricted" if self.use_restricted_pool else "full"
+                ),
+                "operator_pool_mode": self.operator_pool_mode,
+                "cs_forced_full_pool": self.cs_forced_full_pool,
                 "max_gradient_candidates": self.max_gradient_candidates,
                 "evaluation_budget": budget_limited,
             },

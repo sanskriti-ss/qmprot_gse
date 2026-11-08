@@ -306,7 +306,8 @@ class QubitAdaptVQE(BaseVQE):
                     self.cost_function,
                     self.parameters,
                     method=self.optimizer_name,
-                    options={"maxiter": 100}
+                    options={"maxiter": self.max_iterations},
+                    tol=self.convergence_threshold,
                 )
                 self.parameters = result.x
                 current_energy = result.fun
