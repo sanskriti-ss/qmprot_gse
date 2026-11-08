@@ -141,7 +141,7 @@ def build_qubit_hamiltonian(
     # Reference energy = CASCI energy (the best classical answer for this
     # active space).  VQE should approach this; error = VQE - CASCI.
     molecule = Molecule(
-        abbreviation=geometry.name[:3],
+        abbreviation=geometry.abbreviation or geometry.name,
         name=geometry.name,
         n_qubits=n_qubits,
         n_coefficients=len(terms),

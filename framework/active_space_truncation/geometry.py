@@ -31,6 +31,7 @@ class MoleculeGeometry:
     spin: int = 0
     name: str = ""
     formula: str = ""
+    abbreviation: str = ""
 
     ATOMIC_NUMBERS = {
         "H": 1, "He": 2, "Li": 3, "Be": 4, "B": 5, "C": 6,
@@ -101,6 +102,10 @@ def load_geometry_from_h5(path: str) -> MoleculeGeometry:
                 z = float(f["coordinates"][str(i)]["2"][()])
                 coords.append([x, y, z])
 
+    source_name = Path(path).name
+    if source_name.endswith(".gz"):
+        source_name = source_name[:-3]
+
     return MoleculeGeometry(
         atoms=atoms,
         coords=np.array(coords),
@@ -108,6 +113,7 @@ def load_geometry_from_h5(path: str) -> MoleculeGeometry:
         spin=spin,
         name=name,
         formula=formula,
+        abbreviation=Path(source_name).stem,
     )
 
 
