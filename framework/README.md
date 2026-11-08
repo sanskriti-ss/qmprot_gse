@@ -2,45 +2,31 @@
 
 A modular framework for running and benchmarking multiple VQE (Variational Quantum Eigensolver) algorithms on protein Hamiltonians from the QMProt dataset. Enables algorithm comparison, active-space benchmarking, and rapid prototyping of new ansatz.
 
-## Latest Benchmark Results (2026-03-18)
+## Latest Complete Benchmark Results (2026-04-02)
 
-Full run: **11 algorithms × 5 amino acids** (ALA, ARG, ASP, CYS, GLY), 8 qubits per molecule after contextual subspace reduction from a (10e,7o) [or (12e,7o) for CYS] active space.
+The latest complete comparison available in this checkout is [`plots/20260402_141955/run_results.csv`](plots/20260402_141955/run_results.csv): 11 algorithms across 16 amino acids and water. The CSV records 2 qubits for every row. Glutamine has two sets of algorithm rows; the table below reports its lowest error per algorithm. Errors are absolute energy differences in Hartree from the run's `reference_energy` values.
 
-![Comprehensive comparison](plots/20260318_200609/comprehensive_comparison.png)
+| Molecule | Best error (Ha) | Best algorithm |
+|----------|----------------:|----------------|
+| ALA | 0.002322 | HVA |
+| ARG | 0.000098 | HVA |
+| ASP | 0.005544 | HVA |
+| CYS | 0.001107 | CB |
+| GLU | 0.002697 | HVA |
+| GLY | 0.007332 | CB |
+| HIS | 0.000318 | HVA |
+| HYD | 0.019998 | CB |
+| ISO | 0.001040 | HVA |
+| LEU | 0.003174 | HVA |
+| LYS | 0.000665 | HVA |
+| MET | 0.000159 | CB |
+| PHE | 0.029984 | CB |
+| PRO | 0.001420 | CB |
+| THR | 0.000740 | CB |
+| VAL | 0.001514 | HVA |
+| WAT | 0.004693 | HVA |
 
-### Energy Errors vs. CASCI Reference
-
-| Molecule | CASCI Ref (Ha) | HF (Ha) | Best error (Ha) | Best algorithms |
-|----------|---------------|---------|----------------|-----------------|
-| ALA | −321.892 | −317.371 | 0.00232 | ADAPT, iQCC, UCC, NN-AE |
-| ARG | −602.934 | −600.089 | 0.000098 | ADAPT, iQCC, UCC, NN-AE |
-| ASP | −509.517 | −506.088 | 0.00554 | ADAPT, iQCC, UCC, NN-AE |
-| CYS | −719.414 | −716.732 | 0.00111 | ADAPT, iQCC, UCC, NN-AE |
-| GLY | −282.862 | −280.008 | 0.00733 | ADAPT, iQCC, UCC, NN-AE |
-
-All errors are **positive** (variational principle holds). Chemical accuracy threshold (1.6 mHa) is approached or met by ADAPT/iQCC/UCC/NN-AE on ARG.
-
-### Algorithm × Molecule Heatmap
-
-![Error heatmap](plots/20260318_200609/heatmap_error.png)
-
-![Runtime heatmap](plots/20260318_200609/heatmap_runtime_seconds.png)
-
-### HF Energy Verification
-
-![HF verification](plots/20260318_200609/hf_verification.png)
-
-### Per-Molecule Comparisons
-
-![ALA](plots/20260318_200609/molecule_ala_comparison.png)
-![ARG](plots/20260318_200609/molecule_arg_comparison.png)
-![ASP](plots/20260318_200609/molecule_asp_comparison.png)
-![CYS](plots/20260318_200609/molecule_cys_comparison.png)
-![GLY](plots/20260318_200609/molecule_gly_comparison.png)
-
-### Computation Cost vs. Error
-
-![Cost vs error](plots/20260318_200609/computation_vs_error.png)
+Nine of the 17 systems meet the 1.6 mHa chemical-accuracy threshold by their best recorded error. The later output folders in `plots/` are partial runs or exports without usable complete comparison results, so they are not used here. This summary describes the recorded run data; it does not establish that all molecules used comparable active spaces or reduction settings.
 
 ## Experiment campaigns (run from `framework/`)
 
