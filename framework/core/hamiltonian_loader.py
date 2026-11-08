@@ -1,3 +1,5 @@
+# ABOUTME: Loads QMProt Hamiltonians, metadata and ordered Pauli terms.
+# ABOUTME: Converts qubit Hamiltonians for the framework simulation backends.
 """
 Hamiltonian Loader Module
 
@@ -22,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 def parity_signs(n_qubits):
-    """Return Z-parity signs for computational-basis indices."""
+    """Signs indexed by the parity of a computational basis bitstring."""
     signs = np.ones(1 << n_qubits, dtype=np.int8)
     for bit in range(n_qubits):
         width = 1 << bit
@@ -31,12 +33,23 @@ def parity_signs(n_qubits):
 
 
 def pauli_masks(word):
-    """Return computational-basis flip and phase masks for a Pauli word."""
+    """Column flips and sign bits for the single nonzero entry of each Pauli row."""
     flip = parity = 0
     for pauli in word:
         flip = (flip << 1) | (pauli in "XY")
         parity = (parity << 1) | (pauli in "YZ")
     return flip, parity
+
+
+def pauli_product(factors):
+    """Build an ordered product of nonidentity Pauli operators."""
+    import pennylane as qml
+
+    if len(factors) == 1:
+        return factors[0]
+    if qml.operation.active_new_opmath():
+        return qml.prod(*factors)
+    return qml.operation.Tensor(*factors)
 
 
 @dataclass
@@ -193,162 +206,107 @@ class QubitHamiltonian:
             n_terms=len(truncated_coeffs),
         )
     
-    def _openfermion_to_pauli_string(self, pauli_term_str: str, n_qubits: int) -> str:
-        """
-        Convert OpenFermion format 'Z(0) X(2) Y(3)' to simple Pauli string 'ZIXIY'.
-        """
-        pauli_map = {}
-        
-        # Handle 'Identity(0)' or just 'Identity'
-        if 'Identity' in pauli_term_str:
-            return 'I' * n_qubits
-        
-        # Parse terms like 'Z(0)', 'X(1)', etc
+    @staticmethod
+    def _openfermion_to_pauli_string(pauli_term_str: str, n_qubits: int) -> str:
+        """Convert indexed X, Y and Z factors to a wire-ordered Pauli word."""
         import re
-        pattern = r'([IXYZ])\((\d+)\)'
-        matches = re.findall(pattern, pauli_term_str)
-        
-        for pauli, qubit_str in matches:
-            qubit = int(qubit_str)
-            if qubit < n_qubits:
-                pauli_map[qubit] = pauli
-        
-        # Build full string
-        result = []
-        for i in range(n_qubits):
-            result.append(pauli_map.get(i, 'I'))
-        
+        result = ['I'] * n_qubits
+        if pauli_term_str.strip() == 'Identity':
+            return ''.join(result)
+        for factor in re.split(r'\s*@\s*|\s+', pauli_term_str.strip()):
+            match = re.fullmatch(r'(?:Pauli)?([IXYZ]|Identity)\((\d+)\)', factor)
+            if match is None or int(match[2]) >= n_qubits:
+                raise ValueError(f"Invalid Pauli factor {factor!r} for {n_qubits} qubits")
+            pauli, qubit = match[1], int(match[2])
+            if pauli in ('I', 'Identity'):
+                continue
+            if result[qubit] != 'I':
+                raise ValueError(f"Repeated Pauli factor on wire {qubit} in {pauli_term_str!r}")
+            result[qubit] = pauli
         return ''.join(result)
 
     def _extend_sparse_matrix(self, H, coefficients, pauli_strings, n_qubits):
-        """Build an ordered CSR sum of Pauli terms without Kronecker temporaries."""
+        """Append the supplied Pauli terms to a CSR matrix in coefficient order."""
         from scipy.sparse import csr_matrix
 
         dimension = 1 << n_qubits
         if H is None:
             H = csr_matrix((dimension, dimension), dtype=complex)
         elif H.shape != (dimension, dimension):
-            raise ValueError(f"Incompatible matrix shape {H.shape} for {n_qubits} qubits")
+            raise ValueError(f"Incompatible initial matrix shape {H.shape} for {n_qubits} qubits")
         rows = np.arange(dimension, dtype=np.int32)
         indptr = np.arange(dimension + 1, dtype=np.int32)
         signs = parity_signs(n_qubits)
 
-        for coeff, pauli_str in zip(coefficients, pauli_strings):
+        for coeff, pauli_str in zip(coefficients, pauli_strings, strict=True):
             if not np.isfinite(coeff) or np.imag(coeff) != 0:
                 raise ValueError(f"Expected a finite real Pauli coefficient, got {coeff!r}")
-            pauli_str = str(pauli_str)
             if '(' in pauli_str or pauli_str == 'Identity':
                 pauli_str = self._openfermion_to_pauli_string(pauli_str, n_qubits)
             if len(pauli_str) != n_qubits or set(pauli_str).difference('IXYZ'):
                 raise ValueError(f"Invalid Pauli word {pauli_str!r} for {n_qubits} qubits")
             if abs(coeff) < 1e-12:
                 continue
+
+            # A Pauli word has one nonzero per row. X/Y flip the column bits.
+            # Y/Z set the row parity sign, with a factor of -i for each Y.
             flip, parity = pauli_masks(pauli_str)
             phase = (-1j) ** (pauli_str.count('Y') % 4)
-            op = csr_matrix(
-                (phase * signs[rows & parity], rows ^ flip, indptr),
-                shape=H.shape,
-            )
+            op = csr_matrix((phase * signs[rows & parity], rows ^ flip, indptr), shape=H.shape)
             H = H + coeff * op
+
         return H
 
     def ordered_sparse_matrix(self):
-        """Return a CSR matrix for the current ordered Hamiltonian terms."""
+        """Read-only CSR for this operator, retaining one ordered term snapshot per prepared input."""
+        n_qubits = self.n_qubits
         words = tuple(self.pauli_strings)
         coefficients = np.asarray(self.coefficients)
         cached = getattr(self, "_ordered_sparse_cache", None)
         if cached is not None:
             count, saved_words, saved_coefficients, matrix = cached
-            if (self.n_qubits == count and words == saved_words
-                    and coefficients.dtype == saved_coefficients.dtype
+            if (n_qubits == count and words == saved_words and coefficients.dtype == saved_coefficients.dtype
                     and np.array_equal(coefficients, saved_coefficients)):
                 return matrix
+
         saved_coefficients = coefficients.copy()
-        matrix = self._extend_sparse_matrix(None, saved_coefficients, words, self.n_qubits)
+        matrix = self._extend_sparse_matrix(None, saved_coefficients, words, n_qubits)
+        self._retain_ordered_matrix(matrix, words, saved_coefficients)
+        return matrix
+
+    def _retain_ordered_matrix(self, matrix, words, coefficients):
         for array in (matrix.data, matrix.indices, matrix.indptr):
             array.flags.writeable = False
-        self._ordered_sparse_cache = self.n_qubits, words, saved_coefficients, matrix
-        return matrix
+        self._ordered_sparse_cache = self.n_qubits, words, coefficients, matrix
 
     @staticmethod
     def _sparse_ground_state_energy(H, n_qubits):
-        """Return the minimum eigenvalue of a Hermitian sparse operator."""
+        """Diagonalize the complete prefix using the solver for this qubit count."""
         from scipy.sparse.linalg import eigsh
 
         if H.nnz == 0:
             return 0.0
+        # Diagonalize — use sparse eigsh for large systems, dense for small
         if n_qubits <= 10:
-            return float(np.linalg.eigvalsh(H.toarray())[0])
-        eigenvalues, _ = eigsh(H, k=1, which='SA')
-        return float(eigenvalues[0])
-    
-    def _calculate_ground_state_energy(self, coefficients, pauli_strings, n_qubits):
-        """
-        Estimate ground state energy of the Hamiltonian.
-        
-        For small systems (n_qubits <= 10), uses exact diagonalization.
-        For larger systems, uses a lower bound estimate.
-        """
-        try:
-            if n_qubits > 18:
-                # For large systems, use a lower bound: sum of negative terms
-                logger.info(f"System too large for exact diagonalization ({n_qubits} qubits). Using lower bound.")
-                negative_sum = sum(c for c in coefficients if c < 0)
-                return negative_sum if negative_sum < 0 else min(coefficients)
+            eigenvalues = np.linalg.eigvalsh(H.toarray())
+            ground_state_energy = float(eigenvalues[0])
+        else:
+            eigenvalues, _ = eigsh(H, k=1, which='SA')
+            ground_state_energy = float(eigenvalues[0])
 
-            import numpy as np
-            from scipy.sparse import csr_matrix
-            from scipy.sparse.linalg import eigsh
+        return ground_state_energy
 
-            hilbert_dim = 2 ** n_qubits
-
-            # Sparse Pauli matrices
-            I2 = csr_matrix(np.eye(2, dtype=complex))
-            pauli_sparse = {
-                'I': I2,
-                'X': csr_matrix(np.array([[0, 1], [1, 0]], dtype=complex)),
-                'Y': csr_matrix(np.array([[0, -1j], [1j, 0]], dtype=complex)),
-                'Z': csr_matrix(np.array([[1, 0], [0, -1]], dtype=complex)),
-            }
-            from scipy.sparse import kron as sp_kron
-
-            # Build sparse Hamiltonian
-            from scipy.sparse import csr_matrix as _csr
-            H = _csr((hilbert_dim, hilbert_dim), dtype=complex)
-
-            for coeff, pauli_str in zip(coefficients, pauli_strings):
-                if abs(coeff) < 1e-12:
-                    continue
-
-                # Convert OpenFermion format if needed
-                if '(' in str(pauli_str):
-                    pauli_str = self._openfermion_to_pauli_string(pauli_str, n_qubits)
-
-                # Build Kronecker product of single-qubit Pauli matrices (sparse)
-                op = pauli_sparse[pauli_str[0]]
-                for i in range(1, len(pauli_str)):
-                    op = sp_kron(op, pauli_sparse[pauli_str[i]], format='csr')
-
-                H = H + coeff * op
-
-            # Diagonalize — use sparse eigsh for large systems, dense for small
-            if n_qubits <= 10:
-                eigenvalues = np.linalg.eigvalsh(H.toarray())
-                ground_state_energy = float(eigenvalues[0])
-            else:
-                eigenvalues, _ = eigsh(H, k=1, which='SA')
-                ground_state_energy = float(eigenvalues[0])
-            
-            logger.info(f"Ground state energy of {n_qubits}-qubit truncated system: {ground_state_energy:.6f}")
-            return ground_state_energy
-            
-        except Exception as e:
-            logger.warning(f"Could not calculate ground state energy: {e}. Using sum of negative coefficients as lower bound.")
-            try:
-                negative_sum = sum(c for c in coefficients if c < 0)
-                return negative_sum if negative_sum < 0 else min(coefficients)
-            except:
-                return 0.0
+    def _calculate_ground_state_energy(self, coefficients, pauli_strings, n_qubits) -> Optional[float]:
+        """Diagonalize a supported truncated Hamiltonian, recording larger references as unavailable."""
+        if n_qubits > 18:
+            logger.info("Truncated ground-state reference unavailable for %d qubits (limit 18)", n_qubits)
+            return None
+        H = self._extend_sparse_matrix(None, coefficients, pauli_strings, n_qubits)
+        energy = self._sparse_ground_state_energy(H, n_qubits)
+        if not np.isfinite(energy):
+            raise ValueError("Nonfinite truncated ground-state reference")
+        logger.info("Ground state energy of %d-qubit truncated system: %.6f", n_qubits, energy)
+        return energy
     
     def to_pennylane(self):
         """Convert to PennyLane Hamiltonian format"""
@@ -387,13 +345,7 @@ class QubitHamiltonian:
                         pauli_ops.append(pauli_map[p](i))
 
             if pauli_ops:
-                if len(pauli_ops) == 1:
-                    ops.append(pauli_ops[0])
-                else:
-                    op = pauli_ops[0]
-                    for extra in pauli_ops[1:]:
-                        op = op @ extra
-                    ops.append(op)
+                ops.append(pauli_product(pauli_ops))
             else:
                 # All identity
                 ops.append(qml.Identity(0))
@@ -682,19 +634,10 @@ class HamiltonianLoader:
 
         pauli_strings = []
         for op_str in raw_ops:
-            if 'Identity' in op_str:
-                pauli_strings.append('I' * n_qubits)
-                continue
-            if '(' not in op_str:
+            if '(' in op_str or op_str == 'Identity':
+                pauli_strings.append(QubitHamiltonian._openfermion_to_pauli_string(op_str, n_qubits))
+            else:
                 pauli_strings.append(op_str)
-                continue
-
-            chars = ['I'] * n_qubits
-            for m in re.finditer(r'([IXYZ])\((\d+)\)', op_str):
-                p, q = m.group(1), int(m.group(2))
-                if q < n_qubits:
-                    chars[q] = p
-            pauli_strings.append(''.join(chars))
 
         return coefficients, pauli_strings
     

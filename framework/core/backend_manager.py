@@ -1,3 +1,5 @@
+# ABOUTME: Selects simulation devices and noise channels for variational circuits.
+# ABOUTME: Provides bounded reuse of repeated energies on deterministic analytic devices.
 """
 Backend Manager Module
 
@@ -18,6 +20,10 @@ Usage:
 """
 
 import logging
+import os
+from collections import OrderedDict
+
+import numpy as np
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
@@ -25,6 +31,116 @@ logger = logging.getLogger(__name__)
 
 
 _LIGHTNING_AVAILABLE: Optional[bool] = None
+
+
+def cached_analytic_energy(circuit):
+    """Retain four recent binary parameter vectors for a fixed deterministic scalar circuit."""
+    recent = OrderedDict()
+
+    def evaluate(parameters):
+        vector = np.asarray(parameters)
+        if vector.dtype.hasobject:
+            return float(circuit(parameters))
+        key = (vector.dtype.str, vector.shape, vector.tobytes())
+        if key in recent:
+            recent.move_to_end(key)
+        else:
+            recent[key] = float(circuit(parameters))
+            if len(recent) > 4:
+                recent.popitem(last=False)
+        return recent[key]
+
+    return evaluate
+
+
+def analytic_energy(circuit, observable=None, *, measure_state=None):
+    """Measure a fixed molecular observable with Lightning's original device operations and reduction."""
+    import pennylane as qml
+
+    device = circuit.device
+    if device.name != "lightning.qubit" or device.shots:
+        return circuit
+    if tuple(device.wires) != tuple(range(len(device.wires))) or device.c_dtype != np.complex128:
+        return circuit
+
+    from pennylane_lightning.core._serialize import QuantumScriptSerializer
+    from pennylane_lightning.lightning_qubit_ops import MeasurementsC128
+
+    # Keep the QNode's device-level decomposition, including its adjoint-specific gate expansions.
+    state = device._statevector
+    measurement = MeasurementsC128(state.state_vector)
+    serialized_observable = serialized = None
+    rotation_layout = getattr(circuit.func, "rotation_layout", None)
+    if measure_state is None:
+        measure_state = getattr(circuit.func, "state_measurement", None)
+    rotations = None
+
+    def evaluate(parameters):
+        nonlocal serialized, serialized_observable, rotations
+        if device.tracker.active or type(parameters) is not np.ndarray or parameters.ndim != 1:
+            return circuit(parameters)
+        layout = None
+        if (rotation_layout and parameters.dtype == np.float64 and circuit.device is device
+                and not circuit.transform_program and circuit.expansion_strategy == "gradient"
+                and circuit.diff_method in (None, "best") and circuit.interface in (None, "auto")
+                and getattr(circuit.func, "rotation_layout", None) is rotation_layout):
+            reference = rotation_layout()
+            if reference is not None:
+                layout = (reference, parameters.size, circuit.diff_method, circuit.interface)
+        if rotations is not None and layout == rotations[0]:
+            _, template, rotation_indices, finish = rotations
+            tape = template.bind_new_parameters(parameters, rotation_indices)
+            circuit._tape = tape
+            circuit._qfunc_output = tape.measurements[0]
+        else:
+            circuit.construct((parameters,), {})
+            circuit._update_gradient_fn(tape=circuit.qtape)
+            program = qml.workflow.get_transform_program(circuit, level="device")
+            tapes, finish = program((circuit.qtape,))
+            if len(tapes) != 1 or len(tapes[0].measurements) != 1:
+                return circuit(parameters)
+            tape = tapes[0]
+            if layout is not None and tape is circuit.qtape and not tape.trainable_params:
+                # The rotation-layout contract uses each vector element in one native RX, RY or RZ, in order.
+                indices = [i for i, p in enumerate(tape.par_info) if type(p["op"]) in (qml.RX, qml.RY, qml.RZ)]
+                if (len(indices) == len(parameters) and
+                        all(tape.par_info[i]["op"].data[0].tobytes() == x.tobytes()
+                            for i, x in zip(indices, parameters))):
+                    rotations = layout, tape, indices, finish
+        terminal = tape.measurements[0]
+        if (type(terminal) is not qml.measurements.ExpectationMP
+                or not isinstance(terminal.obs, qml.ops.LinearCombination)
+                or (observable is not None and terminal.obs is not observable)):
+            return circuit(parameters)
+        if serialized_observable is not terminal.obs:
+            serialized = QuantumScriptSerializer(device.name, False)._ob(terminal.obs)
+            serialized_observable = terminal.obs
+        state.reset_state()
+        state.get_final_state(tape)
+        if measure_state is None:
+            energy = measurement.expval(serialized)
+        else:
+            energy = measure_state(state.state, measurement.expval, serialized)
+        return finish((energy,))[0]
+
+    return evaluate
+
+
+def fixed_circuit_energy(circuit, observable):
+    """Reuse deterministic energies of a fixed statevector ansatz across optimizer callbacks."""
+    device = circuit.device
+    if device.shots or device.name not in ("default.qubit", "lightning.qubit"):
+        return circuit
+    energy = analytic_energy(circuit, observable)
+    if device.name == "default.qubit":
+        return cached_analytic_energy(energy)
+    from core.pauli_measurement import lightning_thread_count
+
+    threads = lightning_thread_count()
+    if threads is None or os.environ.get("OMP_NUM_THREADS") != "1":
+        return energy
+    cached = cached_analytic_energy(energy)
+    return lambda parameters: cached(parameters) if threads() == 1 else energy(parameters)
 
 
 def _detect_lightning_qubit() -> bool:
@@ -202,12 +318,17 @@ def create_device(config: BackendConfig):
 
     device_name = config.device_name
     try:
-        dev = qml.device(
-            device_name,
-            wires=config.n_qubits,
-            shots=shots,
-            **config.extra,
-        )
+        if device_name == "default.mixed" and config.is_noisy and shots is None and not config.extra:
+            from core.mixed_measurements import GroupedMixedState
+
+            dev = qml.devices.LegacyDeviceFacade(GroupedMixedState(wires=config.n_qubits))
+        else:
+            dev = qml.device(
+                device_name,
+                wires=config.n_qubits,
+                shots=shots,
+                **config.extra,
+            )
     except Exception as exc:
         if device_name == "lightning.qubit":
             logger.warning(

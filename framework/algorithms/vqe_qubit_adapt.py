@@ -1,3 +1,5 @@
+# ABOUTME: Grows a variational circuit by screening and refitting Pauli rotations.
+# ABOUTME: Tracks operator selection, energy evaluations and convergence on a molecular Hamiltonian.
 """
 QUBIT-ADAPT-VQE Implementation
 
@@ -16,8 +18,11 @@ from core.base_vqe import (
     VQEResult,
     incumbent_history,
     inner_solve_iteration_cap,
+    pool_probe_energy,
+    record_operator_fit,
 )
 from core.hamiltonian_loader import QubitHamiltonian
+from core.pauli_measurement import adaptive_state_measurement
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +52,8 @@ class QubitAdaptVQE(BaseVQE):
     from a pool based on their gradient magnitudes.
     """
     
+    parameter_period = 2 * np.pi
+
     def __init__(self,
                  hamiltonian: QubitHamiltonian,
                  max_operators: int = 20,
@@ -61,8 +68,8 @@ class QubitAdaptVQE(BaseVQE):
             hamiltonian: QubitHamiltonian object
             max_operators: Maximum number of operators to add
             gradient_threshold: Minimum gradient to add an operator
-            use_restricted_pool: If False (default), generate all odd-Y Pauli strings
-                           over all qubit combinations. If True, restrict to
+            use_restricted_pool: If False, generate all odd-Y Pauli strings
+                           over pairs and quartets. If True (default), restrict to
                            occupied->virtual excitations based on n_electrons
                            (smaller pool, faster gradient screening).
             max_gradient_candidates: If set, evaluate gradients on at most this
@@ -92,6 +99,7 @@ class QubitAdaptVQE(BaseVQE):
         # Operators that fail to commute with H.  Exact on every state, so
         # it can be cached.  Gradients of this set are recomputed each iteration.
         self._noncommuting_ops: Optional[List[int]] = None
+        self._screen_sampled = False
         self._rng = np.random.default_rng(kwargs.get("random_seed", None))
         
         # Will be set in build_ansatz
@@ -178,12 +186,15 @@ class QubitAdaptVQE(BaseVQE):
 
     def build_ansatz(self) -> Any:
         """Build the Pauli operator pool"""
-        from core.backend_manager import create_device
+        from core.backend_manager import analytic_energy, create_device
         
         n_qubits = self.n_qubits
         
         # Create device via backend manager
         self.device = create_device(self.backend_config)
+        self._energy_observable = None
+        if self.backend_config.backend_type == "statevector" and self.backend_config.n_shots == 0:
+            self._energy_observable = self.hamiltonian.to_pennylane()
         self.cost_fn = None
         self._cost_fn_signature = None
         
@@ -212,6 +223,11 @@ class QubitAdaptVQE(BaseVQE):
         self.parameters = np.array([])
         self.n_parameters = 0
         self._noncommuting_ops = None
+        self._measure_energy = None
+        if self._energy_observable is not None and type(self)._build_circuit is QubitAdaptVQE._build_circuit:
+            self.cost_fn = self._build_circuit()
+            self._measure_energy = analytic_energy(self.cost_fn, self._energy_observable,
+                                                   measure_state=adaptive_state_measurement(n_qubits, self._energy_observable))
         
         return self.operator_pool
     
@@ -265,13 +281,17 @@ class QubitAdaptVQE(BaseVQE):
                 # Apply noise
                 insert_noise()
             
-            H = self.hamiltonian.to_pennylane()
+            H = self._energy_observable
+            if H is None:
+                H = self.hamiltonian.to_pennylane()
             return qml.expval(H)
         
         return circuit
     
     def cost_function(self, parameters: np.ndarray) -> float:
         """Evaluate the cost function"""
+        if self._measure_energy is not None:
+            return float(self._measure_energy(parameters))
         signature = tuple(self.selected_operators)
         if self.cost_fn is None or self._cost_fn_signature != signature:
             self.cost_fn = self._build_circuit()
@@ -334,10 +354,11 @@ class QubitAdaptVQE(BaseVQE):
             len(self.parameters),
         )
 
-        if (
+        self._screen_sampled = (
             self.max_gradient_candidates is not None
             and len(viable_ops) > self.max_gradient_candidates
-        ):
+        )
+        if self._screen_sampled:
             n_total = len(viable_ops)
             viable_ops = self._rng.choice(
                 viable_ops,
@@ -352,19 +373,19 @@ class QubitAdaptVQE(BaseVQE):
         
         for op_idx in viable_ops:
             # Temporarily add operator at the END of the ansatz
-            self.selected_operators.append(op_idx)
             test_params = np.append(self.parameters, delta)
-            
-            # Compute gradient via finite difference at theta=0
-            energy_plus = self.cost_function(test_params)
-            
-            test_params[-1] = -delta
-            energy_minus = self.cost_function(test_params)
-            
+            self.selected_operators.append(op_idx)
+            try:
+                # Compute gradient via finite difference at theta=0
+                energy_plus = pool_probe_energy(self, test_params)
+                test_params[-1] = -delta
+                energy_minus = pool_probe_energy(self, test_params)
+            finally:
+                # Remove operator
+                self.selected_operators.pop()
+
             gradient = (energy_plus - energy_minus) / (2 * delta)
             gradients[op_idx] = abs(gradient)
-
-            self.selected_operators.pop()
         
         return gradients
     
@@ -391,6 +412,7 @@ class QubitAdaptVQE(BaseVQE):
         # is removed again: theta=0 would have left the state unchanged,
         # and the partial COBYLA point is not a finished solve.
         grad_converged = False
+        stopped_on_sample = False
         budget_limited = None
         for iteration in range(self.max_operators):
             try:
@@ -399,15 +421,15 @@ class QubitAdaptVQE(BaseVQE):
                 budget_limited = "gradient screening"
                 logger.info("Evaluation budget exhausted during gradient screening")
                 break
-            max_grad_idx = np.argmax(gradients)
-            max_grad = gradients[max_grad_idx]
-            
-            logger.debug(f"Iter {iteration}: Max grad {max_grad:.6f} for op {self.operator_pool[max_grad_idx]}")
-            
-            if max_grad < self.gradient_threshold:
-                logger.info(f"Converged at iteration {iteration} (gradient {max_grad:.2e} < {self.gradient_threshold})")
-                grad_converged = True
+            max_grad = gradients.max(initial=0.0)
+            if max_grad == 0 or max_grad < self.gradient_threshold:
+                stopped_on_sample = self._screen_sampled
+                grad_converged = not stopped_on_sample
+                logger.info("Stopped at iteration %d: maximum %s gradient %.2e (threshold %.2e)",
+                            iteration, "sampled" if stopped_on_sample else "pool", max_grad, self.gradient_threshold)
                 break
+            max_grad_idx = np.argmax(gradients)
+            logger.debug(f"Iter {iteration}: Max grad {max_grad:.6f} for op {self.operator_pool[max_grad_idx]}")
 
             operators_left = self.max_operators - len(self.selected_operators)
             step_cap = inner_solve_iteration_cap(
@@ -442,7 +464,7 @@ class QubitAdaptVQE(BaseVQE):
                 break
             finally:
                 self.max_iterations = saved_max
-            self.convergence_history.append(float(current_energy))
+            record_operator_fit(self, current_energy)
             logger.info(f"Iter {iteration}: Energy = {current_energy:.8f}, Added {self.operator_pool[max_grad_idx]}")
         
         runtime = time.time() - start_time
@@ -487,6 +509,7 @@ class QubitAdaptVQE(BaseVQE):
                 "operator_pool_mode": self.operator_pool_mode,
                 "cs_forced_full_pool": self.cs_forced_full_pool,
                 "max_gradient_candidates": self.max_gradient_candidates,
+                "stopped_on_sample": stopped_on_sample,
                 "evaluation_budget": budget_limited,
             },
             backend_type=self.backend_config.backend_type,

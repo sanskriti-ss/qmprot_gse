@@ -1,3 +1,5 @@
+# ABOUTME: Reports evaluations needed to match Hartree–Fock and reach specified CASCI accuracies.
+# ABOUTME: Summarizes threshold crossings, censored runs and endpoint-only bounds.
 """
 Cost-to-accuracy analysis for the trainability experiment
 ==========================================================
@@ -16,7 +18,7 @@ the problem.  This module turns trainability rows into
   energies (``analyze_existing``): there the cost is an UPPER bound (the
   run total, when the final error is under the threshold) or censored.
 
-Threshold semantics: error = E - E_CASCI (Ha); chemical accuracy = 1.6 mHa.
+Thresholds use |E - E_CASCI| (Ha); chemical accuracy = 1.6 mHa.
 Molecules where HF is already within 1.6 mHa of CASCI are flagged
 (``hf_trivial``) and excluded from the headline statistics, because there
 is nothing for an ansatz to demonstrate.
@@ -35,6 +37,7 @@ import numpy as np
 from experiments._common import (
     ACCURACY_LADDER_HA,
     CHEMICAL_ACCURACY_HA,
+    HF_TOLERANCE_HA,
     threshold_label,
 )
 
@@ -48,11 +51,13 @@ ALGO_STYLE = {
 
 BASE_FIELDS = [
     "molecule", "algorithm", "target_n_params", "actual_n_params", "param_match",
-    "n_outer_iters", "n_cost_evals", "n_callback_evals", "eval_budget",
+    "n_outer_iters", "n_cost_evals", "n_callback_evals", "n_reused_reference_probes", "eval_budget",
     "runtime_seconds", "final_energy", "error_vs_casci", "best_error_vs_casci",
     "error_vs_operator_ground", "operator_ground_energy",
-    "hf_error_vs_casci", "hf_trivial", "converged_below_threshold",
-    "stopped_at_accuracy", "init_label", "bounds_only", "notes",
+    "best_abs_error_vs_casci", "hf_error_vs_casci", "hf_trivial", "hf_tolerance_ha",
+    "evals_to_hf", "reached_hf", "converged_below_threshold",
+    "stopped_at_accuracy", "optimizer_success", "stop_reason", "wrong_electron_probability",
+    "attainment_recorded", "init_label", "bounds_only", "notes",
 ]
 
 
@@ -66,6 +71,7 @@ def record_fields(thresholds: Sequence[float] = ACCURACY_LADDER_HA) -> List[str]
         BASE_FIELDS[:-1]
         + [f"evals_to_{l}" for l in labels]
         + [f"reached_{l}" for l in labels]
+        + [f"{kind}_evals_to_{l}" for kind in ("accepted", "probe") for l in ("hf", *labels)]
         + ["notes"]
     )
 
@@ -86,22 +92,25 @@ def make_record(
         "n_outer_iters": row.n_outer_iters,
         "n_cost_evals": row.n_cost_evals,
         "n_callback_evals": row.n_callback_evals,
+        "n_reused_reference_probes": row.n_reused_reference_probes,
         "eval_budget": row.eval_budget,
         "runtime_seconds": f"{row.runtime_seconds:.4f}",
         "final_energy": f"{row.final_energy:.10f}",
         "error_vs_casci": f"{row.error_vs_casci:.10f}",
         "best_error_vs_casci": f"{row.best_error_vs_casci:.10f}",
-        "error_vs_operator_ground": (
-            "" if getattr(row, "error_vs_operator_ground", None) is None
-            else f"{row.error_vs_operator_ground:.10f}"
-        ),
-        "operator_ground_energy": (
-            "" if getattr(row, "operator_ground_energy", None) is None
-            else f"{row.operator_ground_energy:.10f}"
-        ),
+        "error_vs_operator_ground": row.error_vs_operator_ground,
+        "operator_ground_energy": row.operator_ground_energy,
+        "best_abs_error_vs_casci": row.best_abs_error_vs_casci,
         "hf_error_vs_casci": f"{hf_err:.10f}",
-        "hf_trivial": int(bool(np.isfinite(hf_err) and abs(hf_err) < CHEMICAL_ACCURACY_HA)),
-        "converged_below_threshold": int(row.converged_below_threshold),
+        "hf_trivial": int(bool(np.isfinite(hf_err) and abs(hf_err) <= CHEMICAL_ACCURACY_HA)),
+        "hf_tolerance_ha": HF_TOLERANCE_HA,
+        "evals_to_hf": "" if row.evals_to_hf is None else row.evals_to_hf,
+        "reached_hf": int(row.evals_to_hf is not None),
+        "converged_below_threshold": "" if row.converged_below_threshold is None else int(row.converged_below_threshold),
+        "optimizer_success": "" if row.optimizer_success is None else int(row.optimizer_success),
+        "stop_reason": row.stop_reason,
+        "wrong_electron_probability": row.endpoint.get("wrong_electron_probability"),
+        "attainment_recorded": int(bool(row.accepted_evals_to)),
         "stopped_at_accuracy": int(row.stopped_at_accuracy),
         "init_label": row.init_label,
         "bounds_only": int(row.bounds_only),
@@ -112,6 +121,10 @@ def make_record(
         v = row.evals_to_threshold.get(lab)
         rec[f"evals_to_{lab}"] = "" if v is None else int(v)
         rec[f"reached_{lab}"] = int(v is not None)
+    for kind, crossings in (("accepted", row.accepted_evals_to), ("probe", row.probe_evals_to)):
+        for label in ("hf", *label_list(thresholds)):
+            count = crossings.get(label)
+            rec[f"{kind}_evals_to_{label}"] = "" if count is None else count
     return rec
 
 
@@ -129,7 +142,7 @@ def write_eval_traces_csv(path: Path, traces: Sequence[Dict[str, object]]) -> No
     with open(path, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=[
             "molecule", "algorithm", "target_n_params", "eval_index",
-            "best_error_vs_casci",
+            "best_error_vs_casci", "best_abs_error_vs_casci",
         ])
         w.writeheader()
         for t in traces:
@@ -139,11 +152,12 @@ def write_eval_traces_csv(path: Path, traces: Sequence[Dict[str, object]]) -> No
 def traces_from_rows(molecule: str, rows) -> List[Dict[str, object]]:
     out = []
     for r in rows:
-        for idx, err in r.error_trace:
+        for idx, signed, absolute in r.error_trace:
             out.append({
                 "molecule": molecule, "algorithm": r.algorithm,
                 "target_n_params": r.target_n_params, "eval_index": idx,
-                "best_error_vs_casci": f"{err:.10f}",
+                "best_error_vs_casci": signed,
+                "best_abs_error_vs_casci": absolute,
             })
     return out
 
@@ -167,8 +181,14 @@ def summarize(
     """Per (algorithm, target) statistics, one row each."""
     labels = label_list(thresholds)
     groups: Dict[Tuple[str, int], List[Dict[str, object]]] = {}
+    identities = set()
     for r in records:
-        groups.setdefault((str(r["algorithm"]), int(r["target_n_params"])), []).append(r)
+        group = str(r["algorithm"]), int(r["target_n_params"])
+        identity = (r["molecule"], *group)
+        if identity in identities:
+            raise ValueError(f"Duplicate trainability observation (molecule, algorithm, target): {identity}")
+        identities.add(identity)
+        groups.setdefault(group, []).append(r)
 
     out = []
     for (algo, target), rs in sorted(groups.items(), key=lambda kv: (kv[0][1], kv[0][0])):
@@ -185,10 +205,17 @@ def summarize(
             "median_final_error_mha": float(np.median([_f(r["error_vs_casci"]) for r in used])) * 1e3 if used else float("nan"),
             "bounds_only": int(any(int(r.get("bounds_only", 0) or 0) for r in used)),
         }
-        for lab in labels:
+        tracked = [r for r in used if int(r.get("attainment_recorded") or 0)]
+        row["n_attainment_recorded"] = len(tracked)
+        for lab in ["hf", *labels]:
             hits = [_f(r[f"evals_to_{lab}"]) for r in used if str(r[f"evals_to_{lab}"]) != ""]
             row[f"n_reached_{lab}"] = len(hits)
             row[f"median_evals_to_{lab}"] = float(np.median(hits)) if hits else float("nan")
+            for kind in ("accepted", "probe"):
+                key = f"{kind}_evals_to_{lab}"
+                counts = [_f(r[key]) for r in tracked if r.get(key, "") != ""]
+                row[f"n_{kind}_reached_{lab}"] = len(counts) if tracked else ""
+                row[f"median_{key}"] = float(np.median(counts)) if counts else float("nan")
         out.append(row)
     return out
 
@@ -214,21 +241,25 @@ def render_console(summary: Sequence[Dict[str, object]],
     chem = threshold_label(CHEMICAL_ACCURACY_HA)
     bounds = any(int(s["bounds_only"]) for s in summary)
     head = (f"{'algorithm':<24}{'target':>7}{'actual':>7}{'exact':>8}"
-            f"{'evals spent':>13}{'final err mHa':>15}"
+            f"{'evals spent':>13}{'final err mHa':>15}{'reached HF':>12}{'median evals->HF':>18}"
             + "".join(f"{'reached ' + l:>18}" for l in labels)
             + f"{'median evals->' + chem:>24}")
-    lines = [head, "-" * len(head)]
+    lines = ["First crossings in any counted energy evaluation (including pool probes)", head, "-" * len(head)]
     for s in summary:
         n = s["n_molecules"]
         lines.append(
             f"{s['algorithm']:<24}{s['target_n_params']:>7}{s['median_actual_n_params']:>7.0f}"
             f"{str(s['n_param_exact']) + '/' + str(n):>8}"
             f"{_fmt_int(s['median_evals_spent']):>13}{s['median_final_error_mha']:>15.2f}"
+            f"{str(s['n_reached_hf']) + '/' + str(n):>12}{_fmt_int(s['median_evals_to_hf']):>18}"
             + "".join(f"{str(s['n_reached_' + l]) + '/' + str(n):>18}" for l in labels)
             + f"{_fmt_int(s['median_evals_to_' + chem]):>24}"
         )
-    note = ("\n(final-energy-only data: 'median evals' for reached runs is an UPPER BOUND = "
-            "run total)" if bounds else "")
+        tracked = s["n_attainment_recorded"]
+        if tracked:
+            lines.append(f"  {chem}: accepted states {s['n_accepted_reached_' + chem]}/{tracked}, "
+                         f"displaced pool probes {s['n_probe_reached_' + chem]}/{tracked}")
+    note = ("\nEndpoint-only records give upper bounds on cost. Earlier hits are unknown." if bounds else "")
     return "\n".join(lines) + note
 
 
@@ -244,40 +275,43 @@ def render_markdown(
     out = [
         f"# {title}",
         "",
-        "Error = E - E_CASCI. Chemical accuracy = 1.6 mHa. A run that never reaches a "
+        f"HF is reached when E ≤ E_HF + {HF_TOLERANCE_HA:g} Ha. CASCI accuracy uses "
+        "|E - E_CASCI|. Chemical accuracy = 1.6 mHa. A run that never reaches a "
         "threshold is *censored*: we report how many molecules reached it, and the "
         "median cost only among those that did.",
         "",
         f"Molecules where HF is already within chemical accuracy are excluded ({excl}).",
     ]
     if bounds:
-        out += ["", "> **Data note:** these results only stored final energies, so the cost "
-                    "for a run that reached a threshold is an upper bound (the run total)."]
+        out += ["", "> Endpoint-only records give upper bounds on cost. A final energy outside "
+                    "a target leaves earlier hits unknown."]
     out += ["", "| algorithm | target params | actual (median) | exact match | median evals spent | "
-                "median final error (mHa) | "
+                "median signed final error (mHa) | reached HF | median evals to HF | "
             + " | ".join(f"reached {l}" for l in labels)
             + f" | median evals to {chem} |",
-            "|" + "---|" * (7 + len(labels))]
+            "|" + "---|" * (9 + len(labels))]
     for s in summary:
         n = s["n_molecules"]
         out.append(
             f"| {s['algorithm']} | {s['target_n_params']} | {s['median_actual_n_params']:.0f} | "
             f"{s['n_param_exact']}/{n} | {_fmt_int(s['median_evals_spent'])} | "
-            f"{s['median_final_error_mha']:.2f} | "
+            f"{s['median_final_error_mha']:.2f} | {s['n_reached_hf']}/{n} | "
+            f"{_fmt_int(s['median_evals_to_hf'])} | "
             + " | ".join(f"{s['n_reached_' + l]}/{n}" for l in labels)
             + f" | {_fmt_int(s['median_evals_to_' + chem])} |"
         )
-    out += [
-        "",
-        "## How to read this",
-        "",
-        "* *median evals spent* is what the old comparison used; it is only meaningful "
-        "next to the final error column.",
-        f"* *reached {chem}* is the fair comparison: the fraction of molecules where the "
-        "algorithm actually got to chemical accuracy.",
-        f"* *median evals to {chem}* is the cost to get there (only over runs that did).",
-        "",
-    ]
+    out += ["", "The table above uses any counted energy evaluation, including displaced pool probes "
+            "and inner optimizer trials. A crossing may occur even if the accepted endpoint misses the target.",
+            "", "## Retained states and pool probes", "",
+            "An ADAPT run retains its encoded reference at cost zero and each fully fitted operator. "
+            "HE retains its initial point, reported incumbents and returned solution. Pool probes are "
+            "the displaced states used to rank candidate generators. Every measured electron sector is included.",
+            "", f"| algorithm | target params | tracked runs | accepted {chem} | pool probe {chem} |",
+            "|---|---:|---:|---:|---:|"]
+    for s in summary:
+        out.append(f"| {s['algorithm']} | {s['target_n_params']} | {s['n_attainment_recorded']} | "
+                   f"{s['n_accepted_reached_' + chem]} | {s['n_probe_reached_' + chem]} |")
+    out.append("")
     return "\n".join(out)
 
 
@@ -335,7 +369,7 @@ def plot_cost_to_accuracy_single(
         ], fontsize=7.5)
         ax.set_yscale("log")
         ax.set_ylabel("cost-function evaluations")
-        ax.set_title(f"Evals to reach error <= {lab}")
+        ax.set_title(f"Any evaluation within {lab}")
         ax.grid(True, axis="y", which="both", alpha=0.3)
         ax.margins(y=0.35)
         ax.legend(fontsize=8)
@@ -365,11 +399,11 @@ def plot_error_vs_cost(
     targets = sorted({k[1] for k in keys})
     alphas = {t: 0.45 + 0.55 * (i + 1) / len(targets) for i, t in enumerate(targets)}
     for algo, tgt in keys:
-        pts = sorted(((int(t["eval_index"]), _f(t["best_error_vs_casci"]))
+        pts = sorted(((int(t["eval_index"]), _f(t["best_abs_error_vs_casci"]))
                       for t in traces
                       if t["algorithm"] == algo and int(t["target_n_params"]) == tgt))
         xs = [p[0] for p in pts]
-        ys = [max(p[1], 1e-9) for p in pts]
+        ys = [p[1] for p in pts]
         color, _, name = _style(algo)
         ax.step(xs, ys, where="post", color=color, alpha=alphas[tgt],
                 label=f"{name}, {tgt} params")
@@ -382,11 +416,10 @@ def plot_error_vs_cost(
         ax.axhline(abs(hf), color="grey", linestyle="-.", linewidth=1.0,
                    label=f"HF error ({abs(hf) * 1e3:.1f} mHa)")
     ax.set_xscale("log")
-    ax.set_yscale("log")
+    ax.set_yscale("symlog", linthresh=1e-9)
     ax.set_xlabel("cost-function evaluations")
-    ax.set_ylabel(r"best error so far  $E - E_{CASCI}$  (Ha)")
-    ax.set_title(f"{molecule}: accuracy vs cost (curves that never cross the 1.6 mHa "
-                 "line did not reach chemical accuracy)", fontsize=9)
+    ax.set_ylabel(r"closest error so far  $|E - E_{CASCI}|$  (Ha)")
+    ax.set_title(f"{molecule}: closest evaluated energy, including pool probes", fontsize=9)
     ax.grid(True, which="both", alpha=0.25)
     ax.legend(fontsize=7, ncol=2)
     fig.tight_layout()
@@ -441,7 +474,7 @@ def plot_cost_to_accuracy_all(
     ax.set_xticklabels([f"{t} params" for t in targets])
     ax.set_yscale("log")
     ax.set_ylabel("cost-function evaluations")
-    ax.set_title(f"Cost to reach chemical accuracy ({lab} vs CASCI) across "
+    ax.set_title(f"First evaluated energy within {lab} of CASCI across "
                  f"{len({r['molecule'] for r in recs})} molecules\n"
                  "numbers on top = molecules that reached it / total; "
                  "molecules where HF is already within chemical accuracy are excluded",
@@ -506,10 +539,8 @@ def analyze_existing(
 ) -> Dict[str, object]:
     """Re-analyse a finished batch folder (``<mol>/results.csv`` + ``run_config.json``).
 
-    New-format folders (with ``evals_to_*`` columns) are used as-is.  Old folders
-    only have final energies, so a run counts as *reached* iff its final error is
-    under the threshold, and the cost reported for it is the run total (an upper
-    bound).  Everything else is censored.
+    Use recorded absolute-error crossings when available. Otherwise a qualifying
+    final energy gives the run total as an upper bound. Earlier crossings are unknown.
     """
     results_root = Path(results_root)
     out_dir = Path(out_dir) if out_dir else results_root / "reanalysis_cost_to_accuracy"
@@ -525,7 +556,11 @@ def analyze_existing(
         with open(res, newline="") as fh:
             for rec in csv.DictReader(fh):
                 err = _f(rec["error_vs_casci"])
-                has_new = f"evals_to_{labels[-1]}" in rec
+                has_crossings = ("best_abs_error_vs_casci" in rec and "evals_to_hf" in rec
+                                 and all(f"evals_to_{lab}" in rec for lab in labels))
+                spent = int(rec["n_cost_evals"])
+                hf_reached = _f(rec.get("final_energy")) <= hf + HF_TOLERANCE_HA if hf is not None else False
+                hf_hit = rec["evals_to_hf"] if has_crossings else (spent if hf_reached else "")
                 actual, target = int(rec["actual_n_params"]), int(rec["target_n_params"])
                 r: Dict[str, object] = {
                     "molecule": mol_dir.name,
@@ -536,34 +571,45 @@ def analyze_existing(
                         "exact" if actual == target else
                         ("stopped_early" if actual < target else "rounded_up")),
                     "n_outer_iters": rec.get("n_outer_iters", ""),
-                    "n_cost_evals": int(rec["n_cost_evals"]),
+                    "n_cost_evals": spent,
                     "n_callback_evals": rec.get("n_callback_evals", ""),
+                    "n_reused_reference_probes": rec.get("n_reused_reference_probes", ""),
                     "eval_budget": rec.get("eval_budget", ""),
                     "runtime_seconds": rec.get("runtime_seconds", ""),
                     "final_energy": rec.get("final_energy", ""),
                     "error_vs_casci": err,
                     "best_error_vs_casci": rec.get("best_error_vs_casci", err),
+                    "best_abs_error_vs_casci": rec.get("best_abs_error_vs_casci", ""),
                     "hf_error_vs_casci": hf_err,
-                    "hf_trivial": int(np.isfinite(hf_err) and abs(hf_err) < CHEMICAL_ACCURACY_HA),
+                    "hf_tolerance_ha": rec["hf_tolerance_ha"] if has_crossings else HF_TOLERANCE_HA,
+                    "evals_to_hf": hf_hit,
+                    "reached_hf": int(hf_hit != ""),
+                    "hf_trivial": int(np.isfinite(hf_err) and abs(hf_err) <= CHEMICAL_ACCURACY_HA),
                     "converged_below_threshold": rec.get("converged_below_threshold", ""),
                     "stopped_at_accuracy": rec.get("stopped_at_accuracy", ""),
                     "init_label": rec.get("init_label", ""),
-                    "bounds_only": 0 if has_new else 1,
+                    "bounds_only": int(rec["bounds_only"]) if has_crossings else 1,
                     "notes": rec.get("notes", ""),
                 }
                 for t, lab in zip(thresholds, labels):
-                    if has_new:
+                    if has_crossings:
                         v = rec.get(f"evals_to_{lab}", "")
                     else:
-                        v = int(rec["n_cost_evals"]) if err <= t else ""
+                        v = spent if abs(err) <= t else ""
                     r[f"evals_to_{lab}"] = v
                     r[f"reached_{lab}"] = int(v != "")
+                for name in ("optimizer_success", "stop_reason", "wrong_electron_probability", "attainment_recorded"):
+                    r[name] = rec.get(name, "")
+                for kind in ("accepted", "probe"):
+                    for lab in ("hf", *labels):
+                        key = f"{kind}_evals_to_{lab}"
+                        r[key] = rec.get(key, "")
                 records.append(r)
     if not records:
         raise FileNotFoundError(f"No <molecule>/results.csv found under {results_root}")
+    summary = summarize(records, thresholds)
     out_dir.mkdir(parents=True, exist_ok=True)
     write_records_csv(out_dir / "all_molecules_records.csv", records, thresholds)
     paths = save_cost_to_accuracy_outputs(out_dir, records, [], thresholds=thresholds,
                                           prefix="all_molecules_")
-    summary = summarize(records, thresholds)
     return {"records": records, "summary": summary, "output_dir": out_dir, **paths}

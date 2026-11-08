@@ -1,7 +1,9 @@
+# ABOUTME: Builds the generic layered PennyLane molecular VQE circuit.
+# ABOUTME: Applies three local rotations per wire and fixed nearest-neighbor CNOTs.
 """
 Pennylane VQE Implementation
 
-Standard VQE with UCCSD-like ansatz using PennyLane.
+Layered RX, RY and RZ rotations with nearest-neighbor CNOTs.
 """
 import numpy as np
 from typing import Optional, Any
@@ -17,11 +19,13 @@ logger = logging.getLogger(__name__)
 
 class PennylaneVQE(BaseVQE):
     """
-    Standard VQE implementation with UCCSD-inspired ansatz.
+    VQE with local rotations and staggered nearest-neighbor entanglers.
     
     Uses PennyLane for quantum circuit simulation.
     """
     
+    parameter_period = 2 * np.pi
+
     def __init__(self,
                  hamiltonian: QubitHamiltonian,
                  n_layers: int = 2,
@@ -37,7 +41,7 @@ class PennylaneVQE(BaseVQE):
         super().__init__(hamiltonian, **kwargs)
         
         self.name = "pennylane_vqe"
-        self.description = "Standard VQE with UCCSD-inspired ansatz"
+        self.description = "Layered rotation and CNOT VQE"
         self.n_layers = n_layers
         
         # Will be set in build_ansatz
@@ -45,14 +49,13 @@ class PennylaneVQE(BaseVQE):
         self.cost_fn = None
         
     def build_ansatz(self) -> Any:
-        """Build the UCCSD-inspired ansatz circuit"""
+        """Build the rotation and CNOT circuit"""
         import pennylane as qml
-        from core.backend_manager import create_device
+        from core.backend_manager import create_device, fixed_circuit_energy
         
         n_qubits = self.n_qubits
         n_layers = self.n_layers
         
-        # Parameters: rotations on each qubit + entangling parameters
         # 3 rotation angles per qubit per layer + CNOT structure
         self.n_parameters = n_qubits * 3 * n_layers
         
@@ -91,7 +94,9 @@ class PennylaneVQE(BaseVQE):
             
             return qml.expval(H)
         
+        circuit.func.rotation_layout = self._rotation_layout
         self.cost_fn = circuit
+        self._energy = fixed_circuit_energy(circuit, H)
         logger.info(f"Built ansatz with {self.n_parameters} parameters, {n_layers} layers, "
                    f"backend={self.backend_config.label}")
         
@@ -101,7 +106,7 @@ class PennylaneVQE(BaseVQE):
         """Evaluate the cost function"""
         if self.cost_fn is None:
             raise RuntimeError("Must call build_ansatz() first")
-        return float(self.cost_fn(parameters))
+        return float(self._energy(parameters))
     
     def get_initial_parameters(self) -> np.ndarray:
         """Get initial parameters - small random values"""

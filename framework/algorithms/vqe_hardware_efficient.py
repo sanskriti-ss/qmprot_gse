@@ -1,3 +1,5 @@
+# ABOUTME: Builds hardware-efficient variational circuits for a molecular Hamiltonian.
+# ABOUTME: Supports layered rotations, entanglers, optional reference preparation and noise.
 """
 Hardware-Efficient VQE Implementation
 
@@ -23,6 +25,8 @@ class HardwareEfficientVQE(BaseVQE):
     single-qubit rotations and entangling gates.
     """
     
+    parameter_period = 2 * np.pi
+
     def __init__(self,
                  hamiltonian: QubitHamiltonian,
                  n_layers: int = 4,
@@ -69,7 +73,7 @@ class HardwareEfficientVQE(BaseVQE):
     def build_ansatz(self) -> Any:
         """Build the hardware-efficient ansatz circuit"""
         import pennylane as qml
-        from core.backend_manager import create_device
+        from core.backend_manager import analytic_energy, cached_analytic_energy, create_device
         
         n_qubits = self.n_qubits
         n_layers = self.n_layers
@@ -149,7 +153,16 @@ class HardwareEfficientVQE(BaseVQE):
             
             return qml.expval(H)
         
+        circuit.func.rotation_layout = lambda: self._rotation_layout(self.prepare_hf, self.entangling_gate)
+        if self.rotation_gates == "RY" and self.device.name == "lightning.qubit" and not self.device.shots:
+            from core.ordered_measurement import ordered_measurement
+
+            circuit.func.state_measurement = ordered_measurement(n_qubits, H)
         self.cost_fn = circuit
+        self._energy = analytic_energy(circuit, H)
+        if (self.backend_config.backend_type == "statevector" and self.backend_config.n_shots == 0
+                and self.device.name in ("default.qubit", "lightning.qubit")):
+            self._energy = cached_analytic_energy(self._energy)
         logger.info(f"Built HW-efficient ansatz with {self.n_parameters} parameters "
                    f"({n_slots} rotation slots), "
                    f"{n_layers} layers, {self.entangling_gate} entangling, "
@@ -162,13 +175,12 @@ class HardwareEfficientVQE(BaseVQE):
         """Evaluate the cost function"""
         if self.cost_fn is None:
             raise RuntimeError("Must call build_ansatz() first")
-        return float(self.cost_fn(parameters))
+        return float(self._energy(parameters))
     
     def get_initial_parameters(self) -> np.ndarray:
         """Small random angles on ``[-π/8, π/8]``.
 
-        With the default Hartree-Fock preparation this starts near the
-        reference.  Callers that pass ``initial_parameters`` to
+        Fixed entanglers also act on the prepared state. Callers that pass ``initial_parameters`` to
         ``optimize`` replace this draw; the barren-plateau sweep does that
         so it can still compare ``random_uniform``.
         """

@@ -1,3 +1,5 @@
+# ABOUTME: Collects VQE results and writes their energies, parameters and convergence histories.
+# ABOUTME: Reads the framework's single-run, batch and plot outputs for analysis.
 """
 Results Manager Module
 
@@ -188,10 +190,10 @@ class ResultsManager:
             data = json.load(f)
         
         # Handle single result or multiple results
-        if "results" in data:
-            results_data = data["results"]
+        if isinstance(data, list):
+            results_data = data
         else:
-            results_data = [data]
+            results_data = data.get("results", [data])
         
         results = []
         for rd in results_data:

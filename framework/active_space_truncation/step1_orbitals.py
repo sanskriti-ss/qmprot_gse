@@ -1,3 +1,5 @@
+# ABOUTME: Computes molecular Hartree–Fock and MP2 orbital diagnostics.
+# ABOUTME: Ranks orbitals and sets the active electron and spatial orbital counts.
 """Step 1: Hartree-Fock + MP2 orbital analysis and diagnostics.
 
 Runs HF and MP2, computes natural orbital occupations,

@@ -1,3 +1,5 @@
+# ABOUTME: Computes CASCI and optional CASSCF energies for the selected orbital space.
+# ABOUTME: Records the electronic structure solver's convergence and energy diagnostics.
 """Step 2: Active space validation via CASCI/CASSCF."""
 
 from dataclasses import dataclass

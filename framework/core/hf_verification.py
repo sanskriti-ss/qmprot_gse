@@ -1,3 +1,5 @@
+# ABOUTME: Evaluates the molecular or projected reference state against the encoded Hamiltonian.
+# ABOUTME: Compares reference energies from matrix and circuit methods.
 """
 Hartree-Fock Energy Verification Module
 
@@ -15,7 +17,7 @@ import numpy as np
 import logging
 from typing import Optional, Tuple, Dict
 
-from .hamiltonian_loader import QubitHamiltonian
+from .hamiltonian_loader import QubitHamiltonian, parity_signs, pauli_masks
 
 logger = logging.getLogger(__name__)
 
@@ -35,50 +37,13 @@ def _parse_pauli_string(pauli_str_raw, n_qubits):
         - PennyLane style:    'PauliZ(0)' / 'Identity(0)'
         - list/tuple of the above
     """
-    import re
+    if isinstance(pauli_str_raw, (list, tuple)):
+        pauli_str_raw = ' '.join(map(str, pauli_str_raw))
+    word = str(pauli_str_raw)
+    if '(' in word or word == 'Identity':
+        return QubitHamiltonian._openfermion_to_pauli_string(word, n_qubits)
+    return word[:n_qubits].ljust(n_qubits, 'I')
 
-    # ── Fast path: simple IXYZ string ────────────────────────────────
-    if isinstance(pauli_str_raw, str) and '(' not in pauli_str_raw:
-        ps = pauli_str_raw
-        if len(ps) >= n_qubits:
-            return ps[:n_qubits]
-        return ps + 'I' * (n_qubits - len(ps))
-
-    # ── General path: parse operator(qubit) patterns ─────────────────
-    pauli_chars = ['I'] * n_qubits
-
-    if isinstance(pauli_str_raw, str):
-        pauli_ops = [pauli_str_raw]
-    elif isinstance(pauli_str_raw, (list, tuple)):
-        pauli_ops = pauli_str_raw
-    else:
-        pauli_ops = [str(pauli_str_raw)]
-
-    for op_str in pauli_ops:
-        op_str = str(op_str).strip()
-
-        # Extract operator type and qubit index
-        if 'Identity(' in op_str:
-            op_type = 'I'
-        elif 'PauliX(' in op_str:
-            op_type = 'X'
-        elif 'PauliY(' in op_str:
-            op_type = 'Y'
-        elif 'PauliZ(' in op_str:
-            op_type = 'Z'
-        else:
-            op_type = op_str[0] if op_str and op_str[0] in 'IXYZ' else 'I'
-
-        try:
-            match = re.search(r'\((\d+)\)', op_str)
-            if match:
-                qubit_idx = int(match.group(1))
-                if 0 <= qubit_idx < n_qubits:
-                    pauli_chars[qubit_idx] = op_type
-        except (ValueError, IndexError):
-            pass
-
-    return ''.join(pauli_chars)
 
 def _hf_bitstring(n_qubits: int, n_electrons: int) -> np.ndarray:
     """
@@ -103,10 +68,10 @@ def _hf_bitstring(n_qubits: int, n_electrons: int) -> np.ndarray:
 
 
 
-def _build_hamiltonian_matrix(hamiltonian: QubitHamiltonian) -> np.ndarray:
+def _build_hamiltonian_matrix(hamiltonian: QubitHamiltonian, *, row: Optional[int] = None) -> np.ndarray:
     """
-    Build the full 2^n × 2^n Hamiltonian matrix (exact diagonalisation
-    approach).  Only practical for n_qubits ≤ ~14.
+    Build the full 2^n × 2^n Hamiltonian matrix or a single computational-basis row.
+    The full matrix is only practical for n_qubits ≤ ~14.
     """
     n_qubits = hamiltonian.n_qubits
     dim = 2 ** n_qubits
@@ -118,7 +83,12 @@ def _build_hamiltonian_matrix(hamiltonian: QubitHamiltonian) -> np.ndarray:
         "Z": np.array([[1, 0], [0, -1]], dtype=complex),
     }
 
-    H = np.zeros((dim, dim), dtype=complex)
+    if row is not None and not 0 <= row < dim:
+        raise IndexError(f"Hamiltonian row {row} is outside dimension {dim}")
+    rows = np.arange(dim) if row is None else np.array([row])
+    output_rows = rows if row is None else np.array([0])
+    H = np.zeros((len(rows), dim), dtype=complex)
+    signs = parity_signs(n_qubits)
 
     for coeff, pauli_str_raw in zip(hamiltonian.coefficients, hamiltonian.pauli_strings):
         if abs(coeff) < 1e-15:
@@ -126,14 +96,19 @@ def _build_hamiltonian_matrix(hamiltonian: QubitHamiltonian) -> np.ndarray:
             
         # Parse the PennyLane format to simple format
         pauli_str = _parse_pauli_string(pauli_str_raw, n_qubits)
+        if n_qubits and np.isfinite(coeff) and all(p in pauli_mats for p in pauli_str):
+            flip, parity = pauli_masks(pauli_str)
+            values = ((-1j) ** pauli_str.count("Y")) * signs[rows & parity]
+            H[output_rows, rows ^ flip] += coeff * values
+            continue
         
         # Tensor product of single-qubit Pauli matrices
         op = pauli_mats[pauli_str[0]]
         for ch in pauli_str[1:]:
             op = np.kron(op, pauli_mats[ch])
-        H += coeff * op
+        H += coeff * (op if row is None else op[rows])
 
-    return H
+    return H if row is None else H[0]
 
 
 # ---------------------------------------------------------------------------
@@ -147,9 +122,8 @@ def compute_hf_energy(
     """
     Compute ⟨HF|H|HF⟩ for the given qubit Hamiltonian.
 
-    For small systems (n_qubits ≤ 14) this builds the full Hamiltonian
-    matrix.  For larger systems it falls back to evaluating each Pauli
-    term individually on the HF bitstring (no matrix needed).
+    A computational-basis reference uses the ordered I/Z contributions to
+    its matrix element. A contextual reference uses its prepared state.
 
     Args:
         hamiltonian: A QubitHamiltonian instance.
@@ -174,10 +148,14 @@ def compute_hf_energy(
             logger.debug(f"First pauli string: {repr(hamiltonian.pauli_strings[0])}")
             logger.debug(f"First coefficient: {hamiltonian.coefficients[0]}")
 
-        if n_qubits <= 14:
+        small = n_qubits <= 14
+        coeffs = np.asarray(hamiltonian.coefficients)
+        if small and (not n_qubits or coeffs.dtype.kind not in "fiu" or coeffs.dtype.itemsize > 8
+                      or not np.isfinite(coeffs).all()
+                      or np.max(np.abs(coeffs), initial=0.) > np.finfo(float).max / max(1, coeffs.size)):
             return _compute_hf_energy_matrix(hamiltonian, n_electrons)
-        else:
-            return _compute_hf_energy_diagonal(hamiltonian, n_electrons)
+        return _compute_hf_energy_diagonal(hamiltonian, max(0, n_electrons) if small else n_electrons,
+                                           strict=small)
     except Exception as e:
         logger.error(f"Error in compute_hf_energy: {e}")
         logger.debug(f"Hamiltonian type: {type(hamiltonian)}")
@@ -201,6 +179,7 @@ def _compute_hf_energy_matrix(
 def _compute_hf_energy_diagonal(
     hamiltonian: QubitHamiltonian,
     n_electrons: int,
+    strict: bool = False,
 ) -> float:
     """
     Efficient diagonal-only evaluation for large qubit counts.
@@ -226,6 +205,10 @@ def _compute_hf_energy_diagonal(
             
             # Parse the PennyLane format to simple format
             pauli_str = _parse_pauli_string(pauli_str_raw, n_qubits)
+            if strict:
+                for letter in pauli_str:
+                    if letter not in "IXYZ":
+                        raise KeyError(letter)
             
             # Any X or Y → off-diagonal → skip
             if "X" in pauli_str or "Y" in pauli_str:
@@ -242,6 +225,8 @@ def _compute_hf_energy_diagonal(
             energy += float(coeff) * eigenvalue
             
         except Exception as e:
+            if strict:
+                raise
             # Log the problematic term and continue
             logger.debug(f"Skipping term due to parsing error: coeff={coeff}, pauli_str={pauli_str_raw}, error={e}")
             continue
@@ -318,8 +303,8 @@ def verify_hf_energy(
 
     Returns:
         (passed, info_dict)
-        *passed* is True when no expected value was given **or** when the
-        computed energy matches.  *info_dict* contains all computed values.
+        *passed* is True when every requested comparison agrees within
+        the absolute tolerance. *info_dict* contains all computed values.
     """
     n_qubits = hamiltonian.n_qubits
     if n_electrons is None:
@@ -331,14 +316,19 @@ def verify_hf_energy(
     }
 
     # --- Compute via fast diagonal / matrix method ---
-    hf_energy = compute_hf_energy(hamiltonian, n_electrons)
+    state = hamiltonian.cs_initial_state
+    if use_pennylane and state is not None and np.linalg.norm(state) > 1e-10:
+        matrix = hamiltonian._extend_sparse_matrix(None, hamiltonian.coefficients, hamiltonian.pauli_strings, n_qubits)
+        hf_energy = float(np.vdot(state, matrix @ state).real)
+    else:
+        hf_energy = compute_hf_energy(hamiltonian, n_electrons)
     info["hf_energy"] = hf_energy
 
     # --- Optionally cross-check with PennyLane ---
     if use_pennylane:
         hf_energy_pl = compute_hf_energy_pennylane(hamiltonian, n_electrons)
         info["hf_energy_pennylane"] = hf_energy_pl
-        info["pennylane_match"] = bool(np.isclose(hf_energy, hf_energy_pl, atol=atol))
+        info["pennylane_match"] = bool(np.isclose(hf_energy, hf_energy_pl, atol=atol, rtol=0))
         if not info["pennylane_match"]:
             logger.warning(
                 f"PennyLane HF energy ({hf_energy_pl:.8f}) differs from "
@@ -351,7 +341,7 @@ def verify_hf_energy(
     if expected_hf_energy is not None:
         info["expected_hf_energy"] = expected_hf_energy
         info["hf_error"] = hf_energy - expected_hf_energy
-        passed = bool(np.isclose(hf_energy, expected_hf_energy, atol=atol))
+        passed = bool(np.isclose(hf_energy, expected_hf_energy, atol=atol, rtol=0))
         info["hf_matches_expected"] = passed
         if not passed:
             logger.warning(
@@ -369,4 +359,4 @@ def verify_hf_energy(
         f"(n_qubits={n_qubits}, n_electrons={n_electrons})"
     )
 
-    return passed, info
+    return passed and info.get("pennylane_match", True), info

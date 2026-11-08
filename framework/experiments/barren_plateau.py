@@ -1,3 +1,5 @@
+# ABOUTME: Measures gradient variance and optimization outcomes across variational circuit initializations.
+# ABOUTME: Saves per-parameter statistics and per-trial energy histories for each study.
 """
 Experiment 2 -- Barren plateaus and parameter initialisation
 ============================================================
@@ -21,9 +23,9 @@ that preparation really is Hartree--Fock.
 
 What this can and cannot show: ``random_uniform`` is the hard
 initialization (angles on ``[0, 2*pi]``).  A narrow distribution centred
-on zero stays near the prepared reference.  The reported number is the
-mean, over parameters spread through the circuit, of the sample variance
-of one parameter-shift derivative.  It is not the McClean et al. (2018)
+on zero samples near the zero-angle circuit, including its fixed CNOTs.
+The reported number is the mean, over probed parameters, of the empirical
+variance of each parameter-shift derivative. It is not the McClean et al. (2018)
 average over Haar-random circuits, and an exponential drop in that
 variance is not guaranteed for this ladder and this molecular cost.
 
@@ -37,7 +39,8 @@ For each ``n_layers`` in ``--layers`` and each initialisation strategy in
 On each vector the parameter-shift rule is applied to parameters spread
 through the circuit (every parameter, or at most ``--max-gradient-probes``,
 default 16).  The recorded variance is the mean of those per-parameter
-sample variances.  ``--gradient-index`` restricts the probe to one slot.
+variances (sum of squared deviations divided by the number of draws).
+``--gradient-index`` restricts the probe to one slot.
 
 **Part B -- optimisation convergence**
 
@@ -80,15 +83,20 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+import pennylane as qml
 
 _FW_DIR = Path(__file__).resolve().parent.parent
 if str(_FW_DIR) not in sys.path:
     sys.path.insert(0, str(_FW_DIR))
 
 from core.base_vqe import incumbent_history, is_bayesian_optimizer  # noqa: E402
-from experiments.provenance import record_runtime, save_problem  # noqa: E402
+from core.backend_manager import SUPPORTED_NOISE_MODELS
+from experiments.provenance import record_runtime, save_problem
+from experiments.endpoint_sector import summarize_endpoint
 from experiments._common import (  # noqa: E402
     INIT_STRATEGIES,
+    LAYERED_ALGORITHMS,
+    NOISE_ALGORITHMS,
     LoadedHamiltonian,
     build_vqe,
     load_small_hamiltonian,
@@ -107,6 +115,7 @@ logger = logging.getLogger(__name__)
 # variance estimate is degenerate.  ``zeros`` is still useful as a control
 # in the optimisation comparison.
 DEFAULT_BP_STRATEGIES: Tuple[str, ...] = ("random_uniform", "small_random", "near_identity")
+INITIALIZATION_ALGORITHMS = NOISE_ALGORITHMS + ("cb_vqe",)
 DEFAULT_OPT_STRATEGIES: Tuple[str, ...] = ("random_uniform", "small_random", "near_identity")
 DEFAULT_LAYERS: Tuple[int, ...] = (1, 2, 4, 6, 8, 10)
 # Same five molecules and qubit count as the main benchmark (14 -> 8 after CS).
@@ -117,6 +126,7 @@ DEFAULT_CS_TARGET_QUBITS = 8
 DEFAULT_MAX_GRADIENT_PROBES = 16
 DEFAULT_GRADIENT_STEPS = 100
 DEFAULT_LEARNING_RATE = 0.1
+TRIAL_SEED_STRIDE = 1009
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -141,12 +151,16 @@ class GradientVarianceRow:
 class OptTrialRow:
     strategy: str
     trial: int
-    n_layers: int
+    n_layers: Optional[int]
     n_parameters: int
     initial_energy: float
     final_energy: float
     n_iterations: int
     convergence_history: List[float] = field(default_factory=list)
+    initial_parameters: List[float] = field(default_factory=list)
+    optimal_parameters: List[float] = field(default_factory=list)
+    endpoint: dict = field(default_factory=dict)
+    variational_energy: Optional[float] = None
 
 
 @dataclass
@@ -175,6 +189,11 @@ class BarrenPlateauConfig:
     n_qubits_final: int
     casci_energy: Optional[float]
     hf_energy: Optional[float]
+    parameter_period: Optional[float] = None
+    bayes_bounds: Optional[Tuple[float, float]] = None
+    trace_energy: str = "variational"
+    endpoint_energy: str = "variational"
+    trial_seed_stride: int = TRIAL_SEED_STRIDE
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -213,6 +232,38 @@ def _is_gradient_optimizer(optimizer: str) -> bool:
     return key in {"gradientdescent", "gd"}
 
 
+def _require_shift_algorithm(algorithm):
+    if algorithm not in ("hardware_efficient_vqe", "pennylane_vqe"):
+        raise ValueError("The two-point parameter-shift study requires one Pauli rotation per parameter. "
+                         f"Choose hardware_efficient_vqe or pennylane_vqe, got {algorithm!r}")
+
+
+def validate_initialization_noise(noise_model, noise_strength):
+    if not 0 <= noise_strength <= 1:
+        raise ValueError("Initialization noise strength must lie between zero and one")
+    if noise_model not in (None, "", "none", *SUPPORTED_NOISE_MODELS):
+        raise ValueError(f"Unknown initialization noise model {noise_model!r}")
+    if noise_strength > 0 and noise_model in (None, "", "none"):
+        raise ValueError("A positive initialization noise strength requires a noise model")
+
+
+def _require_optimization_algorithm(algorithm, optimizer, noise_model, noise_strength):
+    validate_initialization_noise(noise_model, noise_strength)
+    if algorithm not in INITIALIZATION_ALGORITHMS:
+        raise ValueError(f"Initialization trials require a fixed ansatz from {INITIALIZATION_ALGORITHMS}")
+    if _is_gradient_optimizer(optimizer):
+        _require_shift_algorithm(algorithm)
+    if algorithm == "cb_vqe" and noise_model and noise_model != "none" and noise_strength > 0:
+        raise ValueError("Classical boosting requires an analytic pure statevector")
+
+
+def _gradient_cost(circuit):
+    """The study supplies the shifts explicitly, so the circuit only needs forward evaluations."""
+    from core.backend_manager import analytic_energy
+
+    return analytic_energy(qml.QNode(circuit.func, circuit.device, interface=None, diff_method=None))
+
+
 def resolve_iteration_budget(
     n_parameters: int,
     requested: int,
@@ -240,7 +291,9 @@ def resolve_iteration_budget(
             budget, n_parameters,
         )
         return budget
-    if requested < simplex:
+    if is_bayesian_optimizer(optimizer):
+        return max(5, requested)
+    if optimizer.strip().upper() == "COBYLA" and requested < simplex:
         logger.warning(
             "max_iterations=%d is below the COBYLA simplex size "
             "n_parameters+2=%d. Part B will stop before the optimizer can move.",
@@ -291,12 +344,14 @@ def measure_gradient_variance(
 
     Each draw evaluates the parameter-shift gradient on the probed
     indices of that same vector.  The row's ``var_grad`` is the mean of
-    the per-parameter sample variances, and ``mean_abs_grad`` is the mean
+    the per-parameter empirical variances (divisor ``n_samples``), and ``mean_abs_grad`` is the mean
     of the per-parameter mean absolute derivatives.  ``gradient_index``
     on the row is that single index, or ``-1`` when several were averaged.
     """
+    _require_shift_algorithm(algorithm)
+    if n_samples < 1:
+        raise ValueError("Gradient variance requires at least one sample")
     rows: List[GradientVarianceRow] = []
-    rng = np.random.default_rng(random_seed)
 
     for n_layers in layers:
         # Build the ansatz once per depth so we can reuse the QNode across
@@ -312,12 +367,13 @@ def measure_gradient_variance(
             random_seed=random_seed,
         )
         n_params = int(vqe.n_parameters)
-        cost_fn = vqe.cost_fn
+        cost_fn = _gradient_cost(vqe.cost_fn)
         indices = _probe_indices(n_params, gradient_index, max_gradient_probes)
 
         for strategy in strategies:
             by_index: List[List[float]] = [[] for _ in indices]
-            for _ in range(n_samples):
+            for sample in range(n_samples):
+                rng = np.random.default_rng(random_seed + TRIAL_SEED_STRIDE * sample)
                 theta = sample_initial_parameters(n_params, strategy, rng=rng)
                 grad = parameter_shift_gradient(cost_fn, theta, indices=indices)
                 for slot, value in enumerate(grad):
@@ -375,17 +431,19 @@ def run_optimization_comparison(
     optimizer is the solver attached to the ansatz, which for COBYLA
     never reads that gradient.
 
-    Each trial uses a *fresh* RNG seeded by ``random_seed + trial`` so that
+    Each trial uses a *fresh* RNG seeded by ``random_seed + 1009 * trial`` so that
     the same trial index is comparable across strategies (modulo the
     different sampling distribution).
     """
     import warnings
 
     rows: List[OptTrialRow] = []
+    gradient_descent = _is_gradient_optimizer(optimizer)
+    _require_optimization_algorithm(algorithm, optimizer, noise_model, noise_strength)
 
     for strategy in strategies:
         for trial in range(n_trials):
-            seed = random_seed + 1009 * trial  # decorrelate trials
+            seed = random_seed + TRIAL_SEED_STRIDE * trial  # decorrelate trials
             rng = np.random.default_rng(seed)
 
             bc = make_backend_config(
@@ -400,38 +458,49 @@ def run_optimization_comparison(
                 backend_config=bc,
                 optimizer=optimizer,
                 max_iterations=max_iterations,
+                supported_algorithms=INITIALIZATION_ALGORITHMS,
                 convergence_threshold=convergence_threshold,
                 random_seed=seed,
             )
             n_params = int(vqe.n_parameters)
             theta_init = sample_initial_parameters(n_params, strategy, rng=rng)
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore",
-                    category=FutureWarning,
-                    message=r"functools\.partial will be a method descriptor in future Python versions.*",
-                )
-                initial_energy = float(vqe.cost_fn(theta_init))
-            if _is_gradient_optimizer(optimizer):
+            variational_energy = None
+            if gradient_descent:
                 theta_star, e_star, history, n_steps = parameter_shift_gradient_descent(
-                    vqe.cost_fn,
-                    theta_init,
-                    max_iterations,
-                    learning_rate,
+                    _gradient_cost(vqe.cost_fn), theta_init, max_iterations, learning_rate,
                 )
+                initial_energy = history[0]
                 vqe.convergence_history = history
                 vqe.iteration_count = n_steps
             else:
-                theta_star, e_star = vqe.optimize(initial_parameters=theta_init.copy())
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore",
+                        category=FutureWarning,
+                        message=r"functools\.partial will be a method descriptor in future Python versions.*",
+                    )
+                    initial_energy = float(vqe.cost_fn(theta_init))
+                if algorithm == "cb_vqe":
+                    initial_energy = vqe._classical_boost(theta_init, initial_energy)
+                    result = vqe.run(initial_parameters=theta_init.copy())
+                    theta_star, e_star = result.optimal_parameters, result.calculated_energy
+                    variational_energy = result.metadata["vqe_energy"]
+                else:
+                    theta_star, e_star = vqe.optimize(initial_parameters=theta_init.copy())
+            endpoint = summarize_endpoint(loaded, vqe, theta_star)
             row = OptTrialRow(
                 strategy=strategy,
                 trial=trial,
-                n_layers=n_layers,
+                n_layers=n_layers if algorithm in LAYERED_ALGORITHMS + ("cb_vqe",) else None,
                 n_parameters=n_params,
                 initial_energy=initial_energy,
                 final_energy=float(e_star),
                 n_iterations=int(vqe.iteration_count),
                 convergence_history=list(vqe.convergence_history),
+                initial_parameters=theta_init.tolist(),
+                optimal_parameters=theta_star.tolist(),
+                variational_energy=variational_energy,
+                endpoint=endpoint,
             )
             rows.append(row)
             logger.info(
@@ -477,15 +546,22 @@ def run_barren_plateau(
     """
     if not skip_part_a:
         validate_study_axes(layers=layers, bp_strategies=bp_strategies)
+        _require_shift_algorithm(algorithm)
     if not skip_part_b:
         validate_study_axes(opt_strategies=opt_strategies)
+        _require_optimization_algorithm(algorithm, optimizer, noise_model, noise_strength)
+    if (not skip_part_a and n_samples < 1) or (not skip_part_b and n_trials < 1):
+        raise ValueError("Each requested study needs a positive number of samples or trials")
     loaded = load_small_hamiltonian(
         molecule=molecule, basis=basis, cs_target_qubits=cs_target_qubits,
     )
     reference_state = (
         "contextual_subspace" if loaded.cs_reduced else "hartree_fock"
     )
+    if algorithm == "qaoa_inspired_vqe":
+        reference_state = "uniform_product"
     part_b_iterations = max_iterations
+    probe = None
     if not skip_part_b:
         probe = build_vqe(
             loaded.hamiltonian,
@@ -494,6 +570,7 @@ def run_barren_plateau(
             backend_config=make_backend_config(loaded.hamiltonian.n_qubits),
             optimizer=optimizer,
             max_iterations=1,
+            supported_algorithms=INITIALIZATION_ALGORITHMS,
             random_seed=random_seed,
         )
         part_b_iterations = resolve_iteration_budget(
@@ -508,6 +585,9 @@ def run_barren_plateau(
         n_samples=n_samples, gradient_index=gradient_index,
         max_gradient_probes=max_gradient_probes,
         reference_state=reference_state,
+        parameter_period=probe.parameter_period if probe is not None else None,
+        bayes_bounds=probe.bayesian_bounds() if probe is not None and is_bayesian_optimizer(optimizer) else None,
+        endpoint_energy="two_state_ritz" if algorithm == "cb_vqe" else "variational",
         opt_layers=opt_layers, opt_strategies=tuple(opt_strategies),
         n_trials=n_trials, max_iterations=part_b_iterations,
         convergence_threshold=convergence_threshold,
@@ -632,14 +712,19 @@ def _save_outputs(
             w = csv.writer(f)
             w.writerow([
                 "strategy", "trial", "n_layers", "n_parameters",
-                "initial_energy", "final_energy", "n_iterations",
+                "initial_energy", "final_energy", "n_iterations", "wrong_electron_probability",
             ])
             for r in opt_rows:
                 w.writerow([
                     r.strategy, r.trial, r.n_layers, r.n_parameters,
                     f"{r.initial_energy:.10f}", f"{r.final_energy:.10f}",
-                    r.n_iterations,
+                    r.n_iterations, r.endpoint.get("wrong_electron_probability"),
                 ])
+
+        trials = [dict(strategy=r.strategy, trial=r.trial, seed=cfg.random_seed + cfg.trial_seed_stride * r.trial,
+                       initial_parameters=r.initial_parameters, optimal_parameters=r.optimal_parameters,
+                       variational_energy=r.variational_energy, endpoint=r.endpoint) for r in opt_rows]
+        (out_dir / "trial_endpoints.json").write_text(json.dumps(trials, indent=2, allow_nan=False) + "\n")
 
         # Long-format convergence traces, in case downstream analysis wants them
         with open(out_dir / "convergence_traces.csv", "w", newline="") as f:
@@ -730,7 +815,7 @@ def _save_outputs(
             ax.fill_between(xs, mean - std, mean + std,
                             alpha=0.15, color=line.get_color())
         ax.set_xlabel("Optimizer iteration")
-        ax.set_ylabel("Energy (Ha)")
+        ax.set_ylabel("Variational fit energy (Ha)" if cfg.algorithm == "cb_vqe" else "Energy (Ha)")
         ax.set_title(
             f"Convergence | {cfg.molecule} | {cfg.algorithm} | "
             f"L={cfg.opt_layers}, n={cfg.n_trials}"

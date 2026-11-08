@@ -1,3 +1,5 @@
+# ABOUTME: Builds qubit Hamiltonians and molecular metadata from active-space integrals.
+# ABOUTME: Preserves the source molecule identifier alongside the CASCI reference energy.
 """Step 3: Build qubit Hamiltonian using OpenFermion.
 
 Produces a QubitHamiltonian compatible with the existing VQE framework

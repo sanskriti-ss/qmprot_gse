@@ -85,6 +85,8 @@ logs/
 # Large Hamiltonian files (download separately)
 data/hamiltonians/*.txt
 *.h5
+!smoke/geometries/**/*.h5
+!smoke/tiny_geometries/**/*.h5
 !data/hamiltonians/.gitkeep
 !data/hamiltonians/README.md
 

@@ -1,3 +1,5 @@
+# ABOUTME: Defines shared VQE optimization, state preparation, result records and convergence metrics.
+# ABOUTME: Runs the selected optimizer and captures evaluation history for the circuit objective.
 """
 Base VQE Class
 
@@ -29,9 +31,7 @@ BAYESIAN_OPTIMIZER_NAMES = frozenset({
     "GP_MINIMIZE",
 })
 
-# How many trailing incumbent values must stay flat before a run is converged.
-# A one-step check marks almost every Bayesian run converged, because the
-# incumbent only changes when a sample sets a new record.
+# Lookback for the independent best-energy plateau diagnostic.
 INCUMBENT_CONVERGENCE_WINDOW = 10
 
 
@@ -109,6 +109,23 @@ def recent_state_energies(n_qubits):
     return measure
 
 
+def pool_probe_energy(vqe, parameters):
+    """Evaluate one displaced pool candidate and notify an attached study."""
+    energy = vqe.cost_function(parameters)
+    observe = vqe.kwargs.get("on_pool_probe")
+    if observe is not None:
+        observe(float(energy))
+    return energy
+
+
+def record_operator_fit(vqe, energy):
+    """Record a completed adaptive inner fit and its accepted operator list."""
+    vqe.convergence_history.append(float(energy))
+    observe = vqe.kwargs.get("on_operator_fit")
+    if observe is not None:
+        observe(vqe, float(energy))
+
+
 def incumbent_history(history: List[float]) -> List[float]:
     """Best energy at or before each sample. Empty input stays empty."""
     if not history:
@@ -140,28 +157,17 @@ def wrap_parameters_into_bounds(
     theta: np.ndarray,
     low: float,
     high: float,
+    period: float = 2 * np.pi,
 ) -> np.ndarray:
-    """Shift each angle by multiples of 2π into ``[low, high)``.
-
-    The box must be one full period wide.  A shorter or longer box cannot
-    represent every initialisation without clipping or expanding, which would
-    make the search domain depend on the init strategy.
-    """
+    """Represent each periodic coordinate in the fixed, one-period search interval."""
     width = float(high) - float(low)
-    if not np.isclose(width, 2.0 * np.pi):
-        raise ValueError(
-            "bayes_bounds must cover one full 2π period so every "
-            "initialisation searches the same domain; "
-            f"got [{low}, {high}] (width {width})."
-        )
+    if not np.isclose(width, period, atol=8*np.finfo(float).eps*period, rtol=0):
+        raise ValueError(f"bayes_bounds width {width} must match the circuit parameter period {period}")
     theta = np.asarray(theta, dtype=float)
     wrapped = float(low) + np.mod(theta - float(low), width)
-    # ``mod`` maps exact multiples of the period onto ``high``; that angle
-    # is the same as ``low`` and must sit inside a closed lower edge.
-    on_upper = np.isclose(wrapped, high) | (wrapped >= high)
-    wrapped = np.where(on_upper, float(low), wrapped)
-    wrapped = np.where(wrapped < float(low), float(low), wrapped)
-    return np.asarray(wrapped, dtype=float)
+    # Floating-point addition can round a wrapped angle to the excluded upper endpoint.
+    wrapped = np.where(wrapped >= high, low, wrapped)
+    return np.where((theta >= low) & (theta < high), theta, wrapped)
 
 
 @dataclass
@@ -242,6 +248,20 @@ class BaseVQE(ABC):
     the required abstract methods.
     """
     
+    # A shared period must preserve the circuit state up to global phase for every coordinate.
+    parameter_period: Optional[float] = None
+
+    def bayesian_bounds(self) -> Tuple[float, float]:
+        """Return one fixed search box for all seeds and initialization strategies."""
+        half_width = self.parameter_period / 2 if self.parameter_period is not None else 2*np.pi
+        bounds = self.kwargs.get("bayes_bounds", (-half_width, half_width))
+        if not isinstance(bounds, (tuple, list)) or len(bounds) != 2:
+            raise ValueError("bayes_bounds must be a pair of finite, increasing numbers")
+        low, high = map(float, bounds)
+        if not np.all(np.isfinite([low, high])) or low >= high:
+            raise ValueError("bayes_bounds must be a pair of finite, increasing numbers")
+        return low, high
+
     def __init__(self,
                  hamiltonian: QubitHamiltonian,
                  optimizer: str = "COBYLA",
@@ -314,6 +334,7 @@ class BaseVQE(ABC):
         # Results tracking
         self.convergence_history: List[float] = []
         self.iteration_count: int = 0
+        self.optimizer_outcome: Dict[str, Any] = {}
         self.optimal_parameters: Optional[np.ndarray] = None
         self.optimal_energy: Optional[float] = None
         self.progress_bar: Optional[tqdm] = None
@@ -325,6 +346,19 @@ class BaseVQE(ABC):
         self.n_qubits = hamiltonian.n_qubits
         self.n_parameters: int = 0
         
+    def _rotation_layout(self, prepare=True, entangler=None):
+        """Identify the live reference used by a circuit with literal rotation angles."""
+        if not prepare:
+            return (False, entangler)
+        if getattr(self._prepare_initial_state, "__func__", None) is not BaseVQE._prepare_initial_state:
+            return None
+        state = self.hamiltonian.cs_initial_state
+        if state is None:
+            return (True, entangler, self.n_qubits, self.hamiltonian.molecule.n_electrons)
+        if type(state) is not np.ndarray or state.ndim != 1 or not np.linalg.norm(state) > 1e-10:
+            return None
+        return (True, entangler, self.n_qubits, state.dtype.str, state.shape, state.tobytes())
+
     def _prepare_initial_state(self):
         """Prepare the initial state inside a QNode circuit.
 
@@ -450,6 +484,7 @@ class BaseVQE(ABC):
             self.convergence_history = []
         self.iteration_count = 0
 
+        self.optimizer_outcome.clear()
         optimizer_key = str(self.optimizer_name).strip().upper()
         if optimizer_key in BAYESIAN_OPTIMIZER_NAMES:
             return self._optimize_bayesian(
@@ -482,20 +517,28 @@ class BaseVQE(ABC):
 
             callback = tqdm_callback
 
-        result = minimize(
-            self.cost_function,
-            initial_parameters,
-            method=method,
-            callback=callback,
-            options={
-                "maxiter": self.max_iterations,
-                "disp": False,
-            },
-            tol=self.convergence_threshold,
-        )
-        if pbar is not None:
-            pbar.close()
+        try:
+            result = minimize(
+                self.cost_function,
+                initial_parameters,
+                method=method,
+                callback=callback,
+                options={
+                    "maxiter": self.max_iterations,
+                    "disp": False,
+                },
+                tol=self.convergence_threshold,
+            )
+        finally:
+            if pbar is not None:
+                pbar.close()
 
+        self.optimizer_outcome = {
+            "optimizer_success": bool(result.success),
+            "optimizer_status": int(result.status),
+            "optimizer_message": str(result.message),
+            "optimizer_evaluations": int(result.nfev),
+        }
         self.optimal_parameters = result.x
         self.optimal_energy = result.fun
 
@@ -509,11 +552,10 @@ class BaseVQE(ABC):
     ) -> Tuple[np.ndarray, float]:
         """Run Bayesian optimization using a Gaussian-process surrogate.
 
-        This path requires ``scikit-optimize``. The search space defaults to
-        ``[-pi, pi]`` for each parameter and can be overridden by passing
-        ``bayes_bounds=(lower, upper)`` via algorithm kwargs.  The interval
-        must be one full 2π period.  Initial parameters outside it are
-        wrapped by 2π; the box is never widened to fit them.
+        Periodic circuits use one full parameter period. Evolution times
+        without a common period use literal coordinates in a fixed default
+        interval [-2π, 2π], covering all study initialization distributions.
+        The bayes_bounds keyword sets a common box for every trial.
 
         For high-dimensional ansatze, a Gaussian-process surrogate can become
         prohibitively expensive as observations accumulate. We therefore support
@@ -536,15 +578,7 @@ class BaseVQE(ABC):
         if self.n_parameters <= 0:
             raise ValueError("Cannot run Bayesian optimization with n_parameters <= 0")
 
-        bounds = self.kwargs.get("bayes_bounds", (-np.pi, np.pi))
-        if not isinstance(bounds, (tuple, list)) or len(bounds) != 2:
-            raise ValueError(
-                "bayes_bounds must be a 2-tuple/list like (lower, upper)"
-            )
-        low, high = float(bounds[0]), float(bounds[1])
-        if low >= high:
-            raise ValueError("bayes_bounds must satisfy lower < upper")
-
+        low, high = self.bayesian_bounds()
         theta0 = np.asarray(initial_parameters, dtype=float).reshape(-1)
         if theta0.size != self.n_parameters:
             raise ValueError(
@@ -552,19 +586,12 @@ class BaseVQE(ABC):
                 f"{theta0.size} != {self.n_parameters}"
             )
 
-        # Every init strategy searches this same box.  Angles outside it are
-        # shifted by 2π rather than widening the box, which would confound
-        # the initialisation comparison (random_uniform on [0, 2π] used to
-        # expand [-π, π] into a seed-dependent interval about [-π, 2π]).
-        wrapped = wrap_parameters_into_bounds(theta0, low, high)
-        if not np.allclose(wrapped, theta0):
-            logger.info(
-                "Wrapped Bayesian x0 into [%.4f, %.4f] by multiples of 2π. "
-                "Search bounds are not expanded to fit the initial sample.",
-                low,
-                high,
-            )
-        theta0 = wrapped
+        if not np.all(np.isfinite(theta0)):
+            raise ValueError("Bayesian initial parameters must be finite")
+        if self.parameter_period is not None:
+            theta0 = wrap_parameters_into_bounds(theta0, low, high, self.parameter_period)
+        elif np.any(theta0 < low) or np.any(theta0 > high):
+            raise ValueError(f"Initial evolution times outside the fixed Bayesian bounds [{low}, {high}]")
 
         n_calls = max(5, int(self.max_iterations))
         n_initial_points = min(
@@ -638,7 +665,7 @@ class BaseVQE(ABC):
                         )
                     ),
                     "n_restarts_optimizer": int(
-                        self.kwargs.get("bayes_n_restarts_optimizer", 0)
+                        self.kwargs.get("bayes_n_restarts_optimizer", 1)
                     ),
                 }
             )
@@ -652,7 +679,12 @@ class BaseVQE(ABC):
                     category=FutureWarning,
                     message=r"functools\.partial will be a method descriptor in future Python versions.*",
                 )
-                return fn(objective, **minimize_kwargs)
+                options = minimize_kwargs
+                if fn is forest_minimize:
+                    from core.forest import forest_search_options
+
+                    options = {**minimize_kwargs, **forest_search_options(dimensions, self.random_seed)}
+                return fn(objective, **options)
 
         try:
             try:
@@ -670,10 +702,24 @@ class BaseVQE(ABC):
         finally:
             pbar.close()
 
+        self.optimizer_outcome = {
+            "optimizer_success": None,
+            "optimizer_message": "Bayesian evaluation budget completed",
+            "optimizer_evaluations": len(result.func_vals),
+            "optimizer_backend": backend,
+            "bayes_bounds": [low, high],
+            "parameter_period": self.parameter_period,
+        }
         self.optimal_parameters = np.asarray(result.x, dtype=float)
         self.optimal_energy = float(result.fun)
         return self.optimal_parameters, self.optimal_energy
     
+    def fit_diagnostics(self) -> Dict[str, Any]:
+        """Return optimizer termination and the independent callback-energy plateau."""
+        return {**self.optimizer_outcome, "incumbent_stalled": incumbent_converged(
+            self.convergence_history, self.convergence_threshold
+        )}
+
     def run(self) -> VQEResult:
         """
         Run the full VQE algorithm.
@@ -706,13 +752,8 @@ class BaseVQE(ABC):
         error = optimal_energy - ref_energy
         relative_error = abs(error / ref_energy) if ref_energy != 0 else 0.0
         
-        # The raw trace records every sample.  Convergence is whether the
-        # best-so-far energy has stopped improving, not whether two
-        # consecutive (possibly exploratory) samples happened to be close.
         best_so_far = incumbent_history(self.convergence_history)
-        converged = incumbent_converged(
-            self.convergence_history, self.convergence_threshold
-        )
+        converged = bool(self.optimizer_outcome["optimizer_success"])
         
         result = VQEResult(
             molecule_abbrev=self.hamiltonian.molecule.abbreviation,
@@ -731,6 +772,7 @@ class BaseVQE(ABC):
             converged=converged,
             best_so_far_history=best_so_far,
             metadata={
+                **self.fit_diagnostics(),
                 "optimizer": self.optimizer_name,
                 "max_iterations": self.max_iterations,
                 "n_shots": self.n_shots,

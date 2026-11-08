@@ -16,7 +16,10 @@ from experiments.provenance import load_problem
 
 
 def _close(actual, expected, description):
-    if expected is None or actual is None:
+    if isinstance(actual, str) or isinstance(expected, str):
+        if actual != expected:
+            raise ValueError(f"Value differs for {description}")
+    elif expected is None or actual is None:
         if expected is not actual:
             raise ValueError(f"Unavailable value differs for {description}")
     elif not np.isclose(actual, expected, rtol=0., atol=1e-8):
@@ -150,7 +153,7 @@ def _replay_batch(directory, batch):
     resumed = batch["molecules_resumed"]
     if len(set(resumed)) != len(resumed) or set(resumed) - set(molecules):
         raise ValueError("Trainability batch lists duplicate or unselected resumed molecules")
-    molecule_fields = {"molecule", "geometry_sha256", "n_qubits_active", "n_qubits_final", "hf_energy", "casci_energy"}
+    molecule_fields = {"molecule", "geometry_sha256", "n_qubits_active", "n_qubits_final", "hf_energy", "casci_energy", "encoded_reference_energy"}
     reports = {}
     for name in molecules:
         cfg = json.loads((directory / name / "run_config.json").read_text())

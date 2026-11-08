@@ -1,3 +1,5 @@
+# ABOUTME: Measures ADAPT energy and cumulative cost as the ansatz gains operators.
+# ABOUTME: Reports the molecules reaching each requested size and their spread in accuracy.
 """
 Experiment 4 -- Accuracy as a function of the number of parameters
 ==================================================================
@@ -20,13 +22,10 @@ We default to ``qubit_adapt_vqe`` (Pauli-string operator pool with
 ``adapt_vqe`` give zero finite-difference gradient at theta=0 by
 parameterisation symmetry on these small Hamiltonians.
 
-We also default to ``cs_target_qubits=None`` (no contextual-subspace
-reduction).  CS is excellent for cheap statevector verification, but
-it places the initial state at the noncontextual ground state -- which
-is by construction a stationary point of the noncontextual sub-
-Hamiltonian, so all greedy operators look like zero-gradient additions
-and ADAPT exits at k=0.  Leaving CS off means the ansatz starts from
-HF and ADAPT can grow towards CASCI.
+With the default ``cs_target_qubits=None``, the ansatz starts from the
+molecular HF determinant. Contextual reduction changes the operator and
+initial state. The encoded reference can already be stationary for the
+chosen pool, in which case ADAPT exits at k=0.
 
 Key efficiency trick
 ~~~~~~~~~~~~~~~~~~~~
@@ -47,22 +46,23 @@ and slice the result.
 What we measure (per k)
 -----------------------
 
-* ``energy``                 -- ADAPT energy after exactly ``k`` operators.
+* ``k``, ``attained_k``         -- requested and attained operator counts.
+* ``status``                 -- ``ok`` when the target was reached, otherwise ``stopped_early``.
+* ``energy``                 -- ADAPT energy after ``attained_k`` operators.
 * ``error_vs_casci``         -- ``energy - CASCI`` (positive when above CI).
 * ``error_vs_hf``            -- ``energy - HF``     (negative when below HF,
   which is the variational improvement over Hartree-Fock).
-* ``cumulative_cost_evals``  -- total cost-fn evals consumed by ADAPT to
-  reach this k (so we get a free trainability signal too).
-* ``cumulative_runtime``     -- approximate runtime to reach this k.
+* ``cumulative_cost_evals`` and ``cumulative_runtime_s`` -- work at the
+  attained operator addition, or at termination if no operator was accepted.
 
 Outputs
 -------
 ``framework/experiments/results/accuracy_vs_params/<timestamp>_<molecule>_adapt_vqe/``
 
-* ``run_config.json``
+* ``run_config.json``                -- settings and total solver cost, including the final screen.
 * ``results.csv``                    -- one row per k.
-* ``full_convergence.csv``           -- the entire ADAPT trace (one row per op).
-* ``energy_vs_n_params.png``         -- log-y absolute |error vs CASCI|.
+* ``full_convergence.csv``           -- each accepted generator, all refitted angles, energy and cumulative cost.
+* ``energy_vs_n_params.png``         -- absolute |error vs CASCI|, linear below 1e-12 Ha.
 * ``energy_vs_n_params_linear.png``  -- linear energy axis with HF/CASCI lines.
 
 Batch Outputs
@@ -71,7 +71,8 @@ Batch Outputs
 
 * ``run_config.json``
 * ``batch_all_results.csv``
-* ``summary_by_k.csv``
+* ``summary_by_k.csv`` -- mean and population SD across molecules reaching each k,
+  with counts of requested, contributing, stopped and failed molecules.
 * ``mean_abs_error_vs_k.png``
 * ``mean_cost_evals_vs_k.png``
 
@@ -104,7 +105,9 @@ if str(_FW_DIR) not in sys.path:
     sys.path.insert(0, str(_FW_DIR))
 
 from algorithms import get_algorithm  # noqa: E402
+from experiments.endpoint_sector import model_reference, summarize_endpoint  # noqa: E402
 
+from experiments.provenance import record_runtime, save_problem
 from experiments._common import (  # noqa: E402
     CostEvalCounter,
     LoadedHamiltonian,
@@ -115,20 +118,6 @@ from experiments._common import (  # noqa: E402
 from experiments.noise_resilience import DATASETS2_AMINO_ACIDS  # noqa: E402
 
 logger = logging.getLogger(__name__)
-
-
-def _display_lower_band(mean: np.ndarray, std: np.ndarray, min_fraction: float = 0.55) -> np.ndarray:
-    """Return a positive lower envelope suitable for log-scale plotting.
-
-    The batch plots are meant to show uncertainty visually, not collapse
-    to a near-zero band when mean - std becomes very small. This keeps
-    the band anchored to a reasonable fraction of the mean while still
-    reflecting the variability in the data.
-    """
-    mean = np.asarray(mean, dtype=float)
-    std = np.asarray(std, dtype=float)
-    raw_lower = mean - std
-    return np.maximum(raw_lower, mean * float(min_fraction))
 
 
 DEFAULT_K_LIST: Tuple[int, ...] = (1, 2, 3, 5, 10)
@@ -144,11 +133,17 @@ DEFAULT_MOLECULES: Tuple[str, ...] = DATASETS2_AMINO_ACIDS
 @dataclass
 class AccuracyRow:
     k: int                         # requested operator count
-    energy: float                  # ADAPT energy after k operators
+    attained_k: int
+    status: str
+    energy: float                  # ADAPT energy after attained_k operators
     error_vs_casci: float          # energy - CASCI
     error_vs_hf: float             # energy - HF (negative => improvement)
     cumulative_cost_evals: int     # total cost-fn calls to reach this k
     cumulative_runtime_s: float    # approximate runtime to reach this k
+    rescored_energy: float
+    wrong_electron_probability: Optional[float]
+    error_vs_operator_ground: Optional[float] = None
+    operator_ground_energy: Optional[float] = None
 
 
 @dataclass
@@ -157,6 +152,8 @@ class AccuracyConfig:
     basis: str
     cs_target_qubits: Optional[int]
     algorithm: str
+    qubit_adapt_pool: str
+    qubit_adapt_pool_effective: str
     gradient_threshold: float
     k_list: Tuple[int, ...]
     optimizer: str
@@ -167,14 +164,19 @@ class AccuracyConfig:
     n_qubits_final: int
     casci_energy: Optional[float]
     hf_energy: Optional[float]
+    encoded_reference_energy: Optional[float]
     n_pool_operators: int          # populated after the ADAPT run
+    n_screenable_operators: int    # pool size after exact commutator screening
     actual_max_k: int              # ADAPT may exit early if pool exhausted
+    total_cost_evals: int
+    solver_runtime_s: float
 
 
 @dataclass
 class AccuracyBatchRow:
     molecule: str
     k: int
+    attained_k: Optional[int]
     energy: float
     error_vs_casci: float
     error_vs_hf: float
@@ -182,9 +184,15 @@ class AccuracyBatchRow:
     cumulative_runtime_s: float
     n_qubits_final: int
     n_pool_operators: int
+    n_screenable_operators: int
+    qubit_adapt_pool_effective: str
     actual_max_k: int
     status: str = "ok"
     notes: str = ""
+    rescored_energy: Optional[float] = None
+    wrong_electron_probability: Optional[float] = None
+    error_vs_operator_ground: Optional[float] = None
+    operator_ground_energy: Optional[float] = None
 
 
 @dataclass
@@ -193,6 +201,7 @@ class AccuracyBatchConfig:
     basis: str
     cs_target_qubits: Optional[int]
     algorithm: str
+    qubit_adapt_pool: str
     gradient_threshold: float
     k_list: Tuple[int, ...]
     optimizer: str
@@ -210,6 +219,7 @@ def run_accuracy_vs_params(
     basis: str = "sto-3g",
     cs_target_qubits: Optional[int] = None,
     algorithm: str = DEFAULT_ALGORITHM,
+    qubit_adapt_pool: str = "full",
     k_list: Tuple[int, ...] = DEFAULT_K_LIST,
     gradient_threshold: float = DEFAULT_GRADIENT_THRESHOLD,
     optimizer: str = "COBYLA",
@@ -233,11 +243,23 @@ def run_accuracy_vs_params(
     k_sorted = tuple(sorted(set(int(k) for k in k_list if k >= 1)))
     if not k_sorted:
         raise ValueError("k_list must contain at least one k >= 1")
+    if qubit_adapt_pool not in ("full", "restricted"):
+        raise ValueError("qubit_adapt_pool must be 'full' or 'restricted'")
+    if algorithm != "qubit_adapt_vqe" and qubit_adapt_pool != "full":
+        raise ValueError("qubit_adapt_pool only applies to qubit_adapt_vqe")
     max_k = k_sorted[-1]
 
     loaded = load_small_hamiltonian(
         molecule=molecule, basis=basis, cs_target_qubits=cs_target_qubits,
     )
+    reference_summary = model_reference(loaded)
+
+    out_dir = output_dir or make_run_dir(
+        "accuracy_vs_params", molecule, algorithm,
+    )
+    record_runtime(out_dir)
+    save_problem(loaded, Path(out_dir) / "inputs")
+    logger.info("Output dir: %s", out_dir)
 
     # ── Build adaptive VQE capped at max_k operators ────────────────────
     if algorithm not in ("adapt_vqe", "qubit_adapt_vqe"):
@@ -249,8 +271,21 @@ def run_accuracy_vs_params(
         )
     AlgorithmCls = get_algorithm(algorithm)
     bc = make_backend_config(loaded.hamiltonian.n_qubits)
+    algo_kwargs = ({"use_restricted_pool": qubit_adapt_pool == "restricted"}
+                   if algorithm == "qubit_adapt_vqe" else {})
+    counter = CostEvalCounter()
+    per_op_cost_evals: List[int] = []
+    per_op_timestamps: List[float] = []
+    fitted_steps = []
+
+    def record_fit(solver, energy):
+        per_op_cost_evals.append(int(counter.count))
+        per_op_timestamps.append(time.perf_counter() - t_start)
+        fitted_steps.append((list(solver.selected_operators), solver.parameters.tolist()))
+
     vqe = AlgorithmCls(
         loaded.hamiltonian,
+        on_operator_fit=record_fit,
         max_operators=max_k,
         gradient_threshold=gradient_threshold,
         optimizer=optimizer,
@@ -258,75 +293,42 @@ def run_accuracy_vs_params(
         convergence_threshold=convergence_threshold,
         random_seed=random_seed,
         backend_config=bc,
+        **algo_kwargs,
     )
 
-    # ── Wrap with cost-eval counter and a per-iteration timestamp hook ──
-    counter = CostEvalCounter()
     counter.attach(vqe)
-
-    # We piggy-back on ADAPT's append-after-each-operator pattern to
-    # capture the cumulative cost-eval count at the moment each operator
-    # is added.  Two complications:
-    #
-    #   1.  ``list.append`` is a slot and cannot be monkey-patched on an
-    #       instance.  We therefore use a ``list`` subclass with an
-    #       overridden ``append``.
-    #   2.  Both ADAPT implementations begin ``run()`` with
-    #       ``self.convergence_history = []``, which would *replace* our
-    #       wrapped list with a plain one.  We install a class-level
-    #       property whose setter rewraps any assignment in our snapshot
-    #       list, so the hook survives that reset.
-    per_op_cost_evals: List[int] = []
-    per_op_timestamps: List[float] = []
-    t_start = time.time()
-
-    class _SnapshottingList(list):
-        def append(self, value):
-            per_op_cost_evals.append(int(counter.count))
-            per_op_timestamps.append(time.time() - t_start)
-            super().append(value)
-
-    # Build a subclass of the algorithm class with a property that re-wraps
-    # any assignment to ``convergence_history``.
-    OriginalCls = vqe.__class__
-
-    class _PatchedCls(OriginalCls):
-        @property
-        def convergence_history(self):
-            return self._snapshotting_history
-
-        @convergence_history.setter
-        def convergence_history(self, value):
-            self._snapshotting_history = _SnapshottingList(value)
-
-    # Seed the underlying storage and switch class.
-    vqe._snapshotting_history = _SnapshottingList(
-        getattr(vqe, "convergence_history", [])
-    )
-    vqe.__class__ = _PatchedCls
-
+    t_start = time.perf_counter()
     try:
         result = vqe.run()
+        runtime = time.perf_counter() - t_start
     finally:
         counter.detach(vqe)
-        # Restore original class so the algorithm instance is "clean" if
-        # the caller wants to inspect it after the run.
-        vqe.__class__ = OriginalCls
 
     full_history = list(result.convergence_history)
     n_pool = len(vqe.operator_pool)
+    n_screenable_operators = int(
+        result.metadata.get("n_noncommuting_operators", 0)
+    )
+    effective_pool_mode = (
+        str(result.metadata.get("operator_pool_mode", qubit_adapt_pool))
+        if algorithm == "qubit_adapt_vqe"
+        else "not_applicable"
+    )
     actual_max_k = result.n_parameters
+    diagnostics = [summarize_endpoint(loaded, vqe, angles, selected) for selected, angles in fitted_steps]
+    if not actual_max_k:
+        diagnostics.append(summarize_endpoint(loaded, vqe, [], []))
+    for energy, state in zip(full_history or [result.calculated_energy], diagnostics, strict=True):
+        if not np.isclose(energy, state["rescored_energy"], atol=1e-8, rtol=0):
+            raise ValueError(f"{algorithm} milestone does not reproduce its reported energy")
 
-    if actual_max_k == 0:
-        raise RuntimeError(
-            "ADAPT added no operators -- is the operator pool empty or did "
-            "the gradient threshold trigger immediately?"
-        )
-
+    endpoint_diagnostics = diagnostics
     cfg = AccuracyConfig(
         molecule=molecule, basis=basis,
         cs_target_qubits=cs_target_qubits,
         algorithm=algorithm,
+        qubit_adapt_pool=qubit_adapt_pool,
+        qubit_adapt_pool_effective=effective_pool_mode,
         gradient_threshold=gradient_threshold,
         k_list=k_sorted,
         optimizer=optimizer,
@@ -337,45 +339,45 @@ def run_accuracy_vs_params(
         n_qubits_final=loaded.n_qubits_final,
         casci_energy=loaded.casci_energy,
         hf_energy=loaded.hf_energy,
+        encoded_reference_energy=loaded.encoded_reference_energy,
         n_pool_operators=n_pool,
+        n_screenable_operators=n_screenable_operators,
         actual_max_k=actual_max_k,
+        total_cost_evals=counter.count,
+        solver_runtime_s=runtime,
     )
 
-    out_dir = output_dir or make_run_dir(
-        "accuracy_vs_params", molecule, algorithm,
-    )
-    logger.info("Output dir: %s", out_dir)
 
     casci = loaded.casci_energy if loaded.casci_energy is not None else float("nan")
     hf = loaded.hf_energy if loaded.hf_energy is not None else float("nan")
 
     rows: List[AccuracyRow] = []
     for k in k_sorted:
-        if k > actual_max_k:
-            logger.warning(
-                "Requested k=%d exceeds actual_max_k=%d (ADAPT ended early). "
-                "Reporting energy at actual_max_k.", k, actual_max_k,
-            )
-            idx = actual_max_k - 1
-            k_use = actual_max_k
-        else:
-            idx = k - 1
-            k_use = k
-        e = float(full_history[idx])
+        attained_k = min(k, actual_max_k)
+        idx = attained_k - 1
+        e = float(full_history[idx] if attained_k else result.calculated_energy)
         rows.append(AccuracyRow(
-            k=k_use,
+            k=k,
+            attained_k=attained_k,
+            status="ok" if k == attained_k else "stopped_early",
             energy=e,
+            rescored_energy=diagnostics[idx]["rescored_energy"],
+            wrong_electron_probability=diagnostics[idx]["wrong_electron_probability"],
+            operator_ground_energy=reference_summary["operator_ground_energy"],
+            error_vs_operator_ground=(None if reference_summary["operator_ground_energy"] is None
+                                      else e - reference_summary["operator_ground_energy"]),
             error_vs_casci=e - casci,
             error_vs_hf=e - hf,
-            cumulative_cost_evals=int(per_op_cost_evals[idx])
-                if idx < len(per_op_cost_evals) else int(counter.count),
-            cumulative_runtime_s=float(per_op_timestamps[idx])
-                if idx < len(per_op_timestamps) else float(time.time() - t_start),
+            cumulative_cost_evals=per_op_cost_evals[idx] if attained_k else counter.count,
+            cumulative_runtime_s=per_op_timestamps[idx] if attained_k else runtime,
         ))
 
     _save_outputs(
-        cfg, rows, full_history, per_op_cost_evals, per_op_timestamps,
+        cfg, rows, full_history, per_op_cost_evals, per_op_timestamps, fitted_steps,
+        vqe.operator_pool, diagnostics,
         out_dir, save_plots=save_plots,
+        reference_summary=reference_summary,
+        endpoint_diagnostics=endpoint_diagnostics,
     )
 
     return {
@@ -384,6 +386,8 @@ def run_accuracy_vs_params(
         "full_history": full_history,
         "per_step_cost_evals": per_op_cost_evals,
         "per_step_runtime": per_op_timestamps,
+        "endpoint_diagnostics": endpoint_diagnostics,
+        "model_reference": reference_summary,
         "output_dir": out_dir,
     }
 
@@ -393,6 +397,7 @@ def run_accuracy_vs_params_batch(
     basis: str = "sto-3g",
     cs_target_qubits: Optional[int] = None,
     algorithm: str = DEFAULT_ALGORITHM,
+    qubit_adapt_pool: str = "full",
     k_list: Tuple[int, ...] = DEFAULT_K_LIST,
     gradient_threshold: float = DEFAULT_GRADIENT_THRESHOLD,
     optimizer: str = "COBYLA",
@@ -408,8 +413,14 @@ def run_accuracy_vs_params_batch(
     k_sorted = tuple(sorted(set(int(k) for k in k_list if k >= 1)))
     if not k_sorted:
         raise ValueError("k_list must contain at least one k >= 1")
+    if qubit_adapt_pool not in ("full", "restricted"):
+        raise ValueError("qubit_adapt_pool must be 'full' or 'restricted'")
+    if algorithm != "qubit_adapt_vqe" and qubit_adapt_pool != "full":
+        raise ValueError("qubit_adapt_pool only applies to qubit_adapt_vqe")
 
     molecule_list = tuple(m.strip().lower() for m in molecules)
+    if len(set(molecule_list)) != len(molecule_list):
+        raise ValueError("Each molecule must be requested once per batch")
 
     ts = time.strftime("%Y%m%d_%H%M%S")
     if output_dir is None:
@@ -430,6 +441,7 @@ def run_accuracy_vs_params_batch(
         basis=basis,
         cs_target_qubits=cs_target_qubits,
         algorithm=algorithm,
+        qubit_adapt_pool=qubit_adapt_pool,
         gradient_threshold=gradient_threshold,
         k_list=k_sorted,
         optimizer=optimizer,
@@ -451,6 +463,7 @@ def run_accuracy_vs_params_batch(
         w.writerow([
             "molecule",
             "k",
+            "attained_k",
             "energy",
             "error_vs_casci",
             "error_vs_hf",
@@ -458,12 +471,15 @@ def run_accuracy_vs_params_batch(
             "cumulative_runtime_s",
             "n_qubits_final",
             "n_pool_operators",
+            "n_screenable_operators",
+            "qubit_adapt_pool_effective",
             "actual_max_k",
             "status",
             "notes",
+            "rescored_energy", "wrong_electron_probability", "error_vs_operator_ground", "operator_ground_energy",
         ])
 
-        for mol_index, mol in enumerate(molecule_list):
+        for mol in molecule_list:
             subdir = output_dir / f"{mol}_{algorithm}"
             try:
                 out = run_accuracy_vs_params(
@@ -471,12 +487,13 @@ def run_accuracy_vs_params_batch(
                     basis=basis,
                     cs_target_qubits=cs_target_qubits,
                     algorithm=algorithm,
+                    qubit_adapt_pool=qubit_adapt_pool,
                     k_list=k_sorted,
                     gradient_threshold=gradient_threshold,
                     optimizer=optimizer,
                     inner_max_iter=inner_max_iter,
                     convergence_threshold=convergence_threshold,
-                    random_seed=random_seed + 31 * mol_index,
+                    random_seed=random_seed,
                     output_dir=subdir,
                     save_plots=save_plots,
                 )
@@ -486,6 +503,7 @@ def run_accuracy_vs_params_batch(
                     row = AccuracyBatchRow(
                         molecule=mol,
                         k=int(r.k),
+                        attained_k=r.attained_k,
                         energy=float(r.energy),
                         error_vs_casci=float(r.error_vs_casci),
                         error_vs_hf=float(r.error_vs_hf),
@@ -493,24 +511,34 @@ def run_accuracy_vs_params_batch(
                         cumulative_runtime_s=float(r.cumulative_runtime_s),
                         n_qubits_final=int(mol_cfg.n_qubits_final),
                         n_pool_operators=int(mol_cfg.n_pool_operators),
+                        n_screenable_operators=int(mol_cfg.n_screenable_operators),
+                        qubit_adapt_pool_effective=mol_cfg.qubit_adapt_pool_effective,
                         actual_max_k=int(mol_cfg.actual_max_k),
-                        status="ok",
+                        status=r.status,
                         notes="",
+                        rescored_energy=r.rescored_energy,
+                        wrong_electron_probability=r.wrong_electron_probability,
+                        error_vs_operator_ground=r.error_vs_operator_ground,
+                        operator_ground_energy=r.operator_ground_energy,
                     )
                     rows.append(row)
                     w.writerow([
                         row.molecule,
                         row.k,
-                        f"{row.energy:.10f}",
-                        f"{row.error_vs_casci:.10f}",
-                        f"{row.error_vs_hf:.10f}",
+                        row.attained_k,
+                        row.energy,
+                        row.error_vs_casci,
+                        row.error_vs_hf,
                         row.cumulative_cost_evals,
                         f"{row.cumulative_runtime_s:.4f}",
                         row.n_qubits_final,
                         row.n_pool_operators,
+                        row.n_screenable_operators,
+                        row.qubit_adapt_pool_effective,
                         row.actual_max_k,
                         row.status,
                         row.notes,
+                        row.rescored_energy, row.wrong_electron_probability, row.error_vs_operator_ground, row.operator_ground_energy,
                     ])
             except Exception as exc:
                 logger.exception("Batch accuracy_vs_params failed for %s", mol)
@@ -519,6 +547,7 @@ def run_accuracy_vs_params_batch(
                     row = AccuracyBatchRow(
                         molecule=mol,
                         k=int(k),
+                        attained_k=None,
                         energy=float("nan"),
                         error_vs_casci=float("nan"),
                         error_vs_hf=float("nan"),
@@ -526,6 +555,8 @@ def run_accuracy_vs_params_batch(
                         cumulative_runtime_s=0.0,
                         n_qubits_final=0,
                         n_pool_operators=0,
+                        n_screenable_operators=0,
+                        qubit_adapt_pool_effective="unknown",
                         actual_max_k=0,
                         status="failed",
                         notes=str(exc),
@@ -534,6 +565,7 @@ def run_accuracy_vs_params_batch(
                     w.writerow([
                         row.molecule,
                         row.k,
+                        row.attained_k,
                         "",
                         "",
                         "",
@@ -541,14 +573,16 @@ def run_accuracy_vs_params_batch(
                         f"{row.cumulative_runtime_s:.4f}",
                         row.n_qubits_final,
                         row.n_pool_operators,
+                        row.n_screenable_operators,
+                        row.qubit_adapt_pool_effective,
                         row.actual_max_k,
                         row.status,
                         row.notes,
+                        row.rescored_energy, row.wrong_electron_probability, row.error_vs_operator_ground, row.operator_ground_energy,
                     ])
 
-    if failures:
-        with open(failures_json, "w") as f:
-            json.dump(failures, f, indent=2)
+    with open(failures_json, "w") as f:
+        json.dump(failures, f, indent=2)
 
     _write_accuracy_batch_summary(summary_csv, rows)
     if save_plots:
@@ -576,8 +610,13 @@ def _save_outputs(
     full_history: List[float],
     per_op_cost_evals: List[int],
     per_op_timestamps: List[float],
+    fitted_steps: list,
+    operator_pool: list,
+    diagnostics: list,
     out_dir: Path,
     save_plots: bool = True,
+    reference_summary: Optional[dict] = None,
+    endpoint_diagnostics: Optional[List[dict]] = None,
 ) -> None:
     import csv
 
@@ -587,30 +626,39 @@ def _save_outputs(
     cfg_dict["k_list"] = list(cfg.k_list)
     with open(out_dir / "run_config.json", "w") as f:
         json.dump(cfg_dict, f, indent=2)
+    if reference_summary is not None:
+        with open(out_dir / "model_reference.json", "w") as f:
+            json.dump(reference_summary, f, indent=2, allow_nan=False)
+    if endpoint_diagnostics is not None:
+        with open(out_dir / "endpoint_diagnostics.json", "w") as f:
+            json.dump(endpoint_diagnostics, f, indent=2, allow_nan=False)
 
     with open(out_dir / "results.csv", "w", newline="") as f:
         w = csv.writer(f)
         w.writerow([
-            "k", "energy", "error_vs_casci", "error_vs_hf",
-            "cumulative_cost_evals", "cumulative_runtime_s",
+            "k", "attained_k", "status", "energy", "error_vs_casci", "error_vs_hf",
+            "cumulative_cost_evals", "cumulative_runtime_s", "rescored_energy", "wrong_electron_probability",
+            "error_vs_operator_ground", "operator_ground_energy",
         ])
         for r in rows:
             w.writerow([
-                r.k, f"{r.energy:.10f}", f"{r.error_vs_casci:.10f}",
-                f"{r.error_vs_hf:.10f}", r.cumulative_cost_evals,
-                f"{r.cumulative_runtime_s:.4f}",
+                r.k, r.attained_k, r.status, r.energy, r.error_vs_casci,
+                r.error_vs_hf, r.cumulative_cost_evals,
+                f"{r.cumulative_runtime_s:.4f}", r.rescored_energy, r.wrong_electron_probability,
+                r.error_vs_operator_ground, r.operator_ground_energy,
             ])
 
     # Save the full ADAPT trace at every operator addition (not just at k_list)
     with open(out_dir / "full_convergence.csv", "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["k", "energy", "cumulative_cost_evals", "cumulative_runtime_s"])
-        for i, e in enumerate(full_history):
-            k = i + 1
-            cev = per_op_cost_evals[i] if i < len(per_op_cost_evals) else ""
-            ts = per_op_timestamps[i] if i < len(per_op_timestamps) else ""
-            w.writerow([k, f"{e:.10f}", cev,
-                        f"{ts:.4f}" if isinstance(ts, float) else ""])
+        w.writerow(["k", "energy", "cumulative_cost_evals", "cumulative_runtime_s", "added_generator", "parameters",
+                    "rescored_energy", "wrong_electron_probability"])
+        for k, (e, cev, ts, (selected, angles)) in enumerate(
+            zip(full_history, per_op_cost_evals, per_op_timestamps, fitted_steps, strict=True), start=1,
+        ):
+            state = diagnostics[k - 1]
+            w.writerow([k, e, cev, f"{ts:.4f}", json.dumps(operator_pool[selected[-1]]), json.dumps(angles),
+                        state["rescored_energy"], state["wrong_electron_probability"]])
 
     if not save_plots:
         return
@@ -629,10 +677,11 @@ def _save_outputs(
     # ── Plot 1: linear energy vs n_params ────────────────────────────────
     fig, ax = plt.subplots(figsize=(8, 4.5))
     full_xs = np.arange(1, len(full_history) + 1)
+    reached = [r for r in rows if r.status == "ok"]
     ax.plot(full_xs, full_history, color="tab:blue", linewidth=1, alpha=0.5,
             label="ADAPT (every operator)")
     ax.plot(
-        [r.k for r in rows], [r.energy for r in rows],
+        [r.k for r in reached], [r.energy for r in reached],
         marker="o", linestyle="", color="tab:blue",
         label="reported k values",
     )
@@ -645,8 +694,11 @@ def _save_outputs(
     ax.set_xlabel("k = # ADAPT-selected operators (= # parameters)")
     ax.set_ylabel("energy (Ha)")
     ax.set_title(
-        f"Accuracy vs n_parameters (ADAPT-VQE)\n"
-        f"{cfg.molecule}, {cfg.n_qubits_final} qubits, pool={cfg.n_pool_operators}"
+        f"Exp 4 - Accuracy vs ADAPT operator count (ADAPT-VQE)\n"
+        f"{cfg.molecule}, {cfg.n_qubits_final} qubits, "
+        f"pool={cfg.n_pool_operators}, screenable={cfg.n_screenable_operators} "
+        f"pool mode requested={cfg.qubit_adapt_pool}, effective="
+        f"{cfg.qubit_adapt_pool_effective}"
     )
     ax.grid(True, alpha=0.3)
     ax.legend(fontsize=8)
@@ -658,24 +710,25 @@ def _save_outputs(
     if casci is not None:
         fig, ax = plt.subplots(figsize=(8, 4.5))
         full_err = np.abs(np.asarray(full_history) - casci)
-        # Use a tiny floor so log scale doesn't blow up at zero
-        full_err = np.where(full_err < 1e-12, 1e-12, full_err)
         ax.plot(full_xs, full_err, color="tab:red", linewidth=1, alpha=0.5,
                 label="ADAPT (every operator)")
         ax.plot(
-            [r.k for r in rows], [abs(r.error_vs_casci) for r in rows],
+            [r.k for r in reached], [abs(r.error_vs_casci) for r in reached],
             marker="o", linestyle="", color="tab:red",
             label="reported k values",
         )
         # Chemical accuracy line: 1.6 mHa
         ax.axhline(1.6e-3, color="green", linestyle="--", linewidth=1,
                    label="chemical accuracy = 1.6 mHa")
-        ax.set_yscale("log")
+        ax.set_yscale("symlog", linthresh=1e-12)
         ax.set_xlabel("k = # ADAPT-selected operators (= # parameters)")
         ax.set_ylabel(r"$|E_\mathrm{ADAPT}(k) - E_\mathrm{CASCI}|$ (Ha)")
         ax.set_title(
-            f"Energy error vs n_parameters (ADAPT-VQE)\n"
-            f"{cfg.molecule}, {cfg.n_qubits_final} qubits, pool={cfg.n_pool_operators}"
+            f"Exp 4 - Energy error vs ADAPT operator count (ADAPT-VQE)\n"
+            f"{cfg.molecule}, {cfg.n_qubits_final} qubits, "
+            f"pool={cfg.n_pool_operators}, screenable={cfg.n_screenable_operators} "
+            f"pool mode requested={cfg.qubit_adapt_pool}, effective="
+            f"{cfg.qubit_adapt_pool_effective}"
         )
         ax.grid(True, which="both", alpha=0.3)
         ax.legend(fontsize=8)
@@ -692,7 +745,7 @@ def _save_outputs(
         ax.set_ylabel("cumulative # cost-fn evaluations")
         ax.set_yscale("log")
         ax.set_title(
-            f"ADAPT cost-fn evaluations to reach k operators\n"
+            f"Exp 4 - ADAPT cost evaluations vs operator count\n"
             f"{cfg.molecule}, {cfg.n_qubits_final} qubits"
         )
         ax.grid(True, which="both", alpha=0.3)
@@ -708,8 +761,6 @@ def _write_accuracy_batch_summary(path: Path, rows: Sequence[AccuracyBatchRow]) 
 
     grouped: Dict[int, List[AccuracyBatchRow]] = {}
     for row in rows:
-        if row.status != "ok" or not np.isfinite(row.error_vs_casci):
-            continue
         grouped.setdefault(row.k, []).append(row)
 
     with open(path, "w", newline="") as f:
@@ -717,23 +768,43 @@ def _write_accuracy_batch_summary(path: Path, rows: Sequence[AccuracyBatchRow]) 
         w.writerow([
             "k",
             "n_molecules",
+            "n_requested",
+            "n_stopped_early",
+            "n_failed",
             "mean_abs_error_vs_casci",
             "std_abs_error_vs_casci",
             "mean_cost_evals",
             "std_cost_evals",
         ])
         for k in sorted(grouped.keys()):
-            group = grouped[k]
+            requested = grouped[k]
+            group = [r for r in requested if r.status == "ok"]
             abs_err = np.array([abs(r.error_vs_casci) for r in group], dtype=float)
             cost_evals = np.array([r.cumulative_cost_evals for r in group], dtype=float)
             w.writerow([
                 k,
                 len(group),
-                f"{float(np.mean(abs_err)):.10f}",
-                f"{float(np.std(abs_err)):.10f}",
-                f"{float(np.mean(cost_evals)):.4f}",
-                f"{float(np.std(cost_evals)):.4f}",
+                len(requested),
+                sum(r.status == "stopped_early" for r in requested),
+                sum(r.status == "failed" for r in requested),
+                np.mean(abs_err) if group else "",
+                np.std(abs_err) if group else "",
+                np.mean(cost_evals) if group else "",
+                np.std(cost_evals) if group else "",
             ])
+
+
+def _plot_cohort_mean(ax, summary: np.ndarray, field: str, color: str) -> None:
+    """Show mean and population SD for the molecules attaining each requested count."""
+    ks = summary["k"].astype(int)
+    mean = summary[f"mean_{field}"]
+    std = summary[f"std_{field}"]
+    ax.errorbar(ks, mean, yerr=std, marker="o", capsize=4, linewidth=2.0,
+                color=color, label="mean ±1 SD across molecules")
+    counts = zip(ks, summary["n_molecules"].astype(int), summary["n_requested"].astype(int))
+    ax.set_xticks(ks, [f"{k}\n({reached}/{requested})" for k, reached, requested in counts])
+    ax.set_xlabel("# ADAPT-selected operators (molecules reaching k / requested)")
+    ax.legend(fontsize=9)
 
 
 def _plot_accuracy_batch_summary(summary_csv: Path, output_dir: Path) -> None:
@@ -745,47 +816,23 @@ def _plot_accuracy_batch_summary(summary_csv: Path, output_dir: Path) -> None:
         logger.warning("matplotlib unavailable: %s", exc)
         return
 
-    data = np.genfromtxt(summary_csv, delimiter=",", names=True, dtype=None, encoding=None)
-    if data.size == 0:
+    data = np.genfromtxt(summary_csv, delimiter=",", names=True, ndmin=1)
+    if not data.size:
         return
 
-    if data.ndim == 0:
-        data = np.array([data])
-
-    ks = np.array(data["k"], dtype=int)
-    mean_err = np.array(data["mean_abs_error_vs_casci"], dtype=float)
-    std_err = np.array(data["std_abs_error_vs_casci"], dtype=float)
-    mean_cost = np.array(data["mean_cost_evals"], dtype=float)
-    std_cost = np.array(data["std_cost_evals"], dtype=float)
-
     fig, ax = plt.subplots(figsize=(8, 4.5))
-    ax.plot(ks, mean_err, marker="o", linewidth=2.0, color="tab:red")
-    lower_err = _display_lower_band(mean_err, std_err)
-    upper_err = mean_err + std_err
-    ax.fill_between(ks, lower_err, upper_err,
-                    color="tab:red", alpha=0.15)
-    ax.set_yscale("log")
-    y_low = max(float(np.min(lower_err)) * 0.85, 1e-12)
-    y_high = float(np.max(upper_err)) * 1.30
-    ax.set_ylim(y_low, y_high)
-    ax.set_xlabel("k = # ADAPT-selected operators")
+    _plot_cohort_mean(ax, data, "abs_error_vs_casci", "tab:red")
     ax.set_ylabel("mean |error vs CASCI| (Ha)")
-    ax.set_title("Accuracy vs parameters (batch mean)")
+    ax.set_title("Exp 4 - Accuracy vs ADAPT operator count (batch mean)")
     ax.grid(True, which="both", alpha=0.3)
     fig.tight_layout()
     fig.savefig(output_dir / "mean_abs_error_vs_k.png", dpi=150)
     plt.close(fig)
 
     fig, ax = plt.subplots(figsize=(8, 4.5))
-    ax.plot(ks, mean_cost, marker="o", linewidth=2.0, color="tab:blue")
-    lower_cost = _display_lower_band(mean_cost, std_cost)
-    upper_cost = mean_cost + std_cost
-    ax.fill_between(ks, lower_cost, upper_cost,
-                    color="tab:blue", alpha=0.15)
-    ax.set_yscale("log")
-    ax.set_xlabel("k = # ADAPT-selected operators")
+    _plot_cohort_mean(ax, data, "cost_evals", "tab:blue")
     ax.set_ylabel("mean cumulative cost evals")
-    ax.set_title("ADAPT cost evaluations vs k (batch mean)")
+    ax.set_title("Exp 4 - ADAPT cost evaluations vs operator count (batch mean)")
     ax.grid(True, which="both", alpha=0.3)
     fig.tight_layout()
     fig.savefig(output_dir / "mean_cost_evals_vs_k.png", dpi=150)
@@ -805,82 +852,32 @@ def _plot_accuracy_batch_overview(
         logger.warning("matplotlib unavailable: %s", exc)
         return
 
-    batch = np.genfromtxt(batch_csv, delimiter=",", names=True, dtype=None, encoding=None)
-    summary = np.genfromtxt(summary_csv, delimiter=",", names=True, dtype=None, encoding=None)
-    if batch.size == 0 or summary.size == 0:
+    import csv
+
+    with batch_csv.open(newline="") as stream:
+        reached = [row for row in csv.DictReader(stream) if row["status"] == "ok"]
+    summary = np.genfromtxt(summary_csv, delimiter=",", names=True, ndmin=1)
+    if not summary.size:
         return
-
-    if batch.ndim == 0:
-        batch = np.array([batch])
-    if summary.ndim == 0:
-        summary = np.array([summary])
-
-    # Explicitly filter out failed runs so no numeric points from failed
-    # rows are plotted. Some CSVs contain empty fields for failures which
-    # can produce NaNs; build a mask that requires finite error and
-    # status == 'ok' when available.
-    ks = np.array(batch["k"], dtype=int)
-
-    # Extract error_vs_casci safely from the structured array if present,
-    # otherwise produce an empty array.
-    if "error_vs_casci" in batch.dtype.names:
-        with np.errstate(invalid="ignore"):
-            abs_err = np.abs(np.array(batch["error_vs_casci"], dtype=float))
-    else:
-        abs_err = np.array([])
-
-    status = None
-    if "status" in batch.dtype.names:
-        status = np.array(batch["status"]).astype(str)
-
-    finite_mask = np.isfinite(abs_err) if abs_err.size else np.zeros(ks.shape, dtype=bool)
-    if status is not None:
-        ok_mask = finite_mask & (status == "ok")
-    else:
-        ok_mask = finite_mask
-
-    if not np.any(ok_mask):
-        return
-
+    ks = np.array([int(row["k"]) for row in reached])
+    errors = np.array([abs(float(row["error_vs_casci"])) for row in reached])
     rng = np.random.default_rng(123)
-    jitter = rng.uniform(-0.12, 0.12, size=np.count_nonzero(ok_mask))
-    ks_ok = ks[ok_mask]
-    err_ok = abs_err[ok_mask]
-
-    ks_summary = np.array(summary["k"], dtype=int)
-    mean_err = np.array(summary["mean_abs_error_vs_casci"], dtype=float)
-    std_err = np.array(summary["std_abs_error_vs_casci"], dtype=float)
+    jitter = rng.uniform(-0.12, 0.12, size=len(reached))
 
     fig, ax = plt.subplots(figsize=(8.5, 5.0))
     ax.scatter(
-        ks_ok + jitter,
-        np.where(err_ok < 1e-12, 1e-12, err_ok),
+        ks + jitter,
+        errors,
         s=20,
         alpha=0.55,
         color="tab:gray",
         edgecolors="none",
         label="molecule runs",
     )
-    lower_err = _display_lower_band(mean_err, std_err)
-    upper_err = mean_err + std_err
-    ax.plot(ks_summary, mean_err, color="tab:red", linewidth=2.0, label="mean")
-    ax.fill_between(
-        ks_summary,
-        lower_err,
-        upper_err,
-        color="tab:red",
-        alpha=0.2,
-        label="±1 std",
-    )
-    ax.set_yscale("log")
-    y_low = max(float(np.min(lower_err)) * 0.85, 1e-12)
-    y_high = float(np.max(upper_err)) * 1.30
-    ax.set_ylim(y_low, y_high)
-    ax.set_xlabel("k = # ADAPT-selected operators")
+    _plot_cohort_mean(ax, summary, "abs_error_vs_casci", "tab:red")
     ax.set_ylabel("|error vs CASCI| (Ha)")
-    ax.set_title("Accuracy vs parameters (all molecules)")
+    ax.set_title("Exp 4 - Accuracy vs ADAPT operator count (all molecules)")
     ax.grid(True, which="both", alpha=0.3)
-    ax.legend(fontsize=9, loc="best")
     fig.tight_layout()
     fig.savefig(output_dir / "overview_all_molecules.png", dpi=200)
     plt.close(fig)
@@ -898,18 +895,21 @@ def _build_argparser() -> argparse.ArgumentParser:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     p.add_argument("--molecule", "-m", default="water")
+    p.add_argument("--output-dir", type=Path, default=None)
     p.add_argument("--batch-amino-acids", action="store_true",
                    help="Run all amino acids in datasets2/.")
     p.add_argument("--molecules", nargs="+", default=None,
                    help="Explicit molecule list from datasets2/ (overrides --batch-amino-acids).")
     p.add_argument("--basis", default="sto-3g")
     p.add_argument("--cs-target-qubits", type=int, default=0,
-                   help="<=0 to skip CS reduction (recommended -- CS places "
-                        "the start state at the noncontextual GS, which is a "
-                        "stationary point of the simplified pool operators "
-                        "and makes ADAPT terminate at k=0)")
+                   help="<=0 to retain the molecular HF starting determinant. "
+                        "With CS the projected reference can already be stationary for the pool.")
     p.add_argument("--algorithm", default=DEFAULT_ALGORITHM,
                    choices=["adapt_vqe", "qubit_adapt_vqe"])
+    p.add_argument("--qubit-adapt-pool", choices=["full", "restricted"],
+                   default="full",
+                   help="Qubit-ADAPT pool: all supported odd-Y Pauli strings, "
+                        "or occupied-to-virtual singles/doubles.")
     p.add_argument("--k-list", nargs="+", type=int, default=list(DEFAULT_K_LIST),
                    help="Operator-count values at which to report energy. "
                         "Pass any list, e.g. '1 2 3 5 10 30 100'.")
@@ -954,12 +954,14 @@ def main() -> None:
             basis=args.basis,
             cs_target_qubits=cs_target,
             algorithm=args.algorithm,
+            qubit_adapt_pool=args.qubit_adapt_pool,
             k_list=tuple(args.k_list),
             gradient_threshold=args.gradient_threshold,
             optimizer=args.optimizer,
             inner_max_iter=args.inner_max_iter,
             convergence_threshold=args.convergence_threshold,
             random_seed=args.seed,
+            output_dir=args.output_dir,
             save_plots=not args.no_plots,
         )
         cfg: AccuracyBatchConfig = out["config"]
@@ -971,18 +973,22 @@ def main() -> None:
         print(f"Batch CSV: {out['batch_csv']}")
         print(f"Summary CSV: {out['summary_csv']}")
         print(f"Output folder: {out['output_dir']}")
+        if out["failures"]:
+            raise SystemExit(1)
     else:
         out = run_accuracy_vs_params(
             molecule=args.molecule,
             basis=args.basis,
             cs_target_qubits=cs_target,
             algorithm=args.algorithm,
+            qubit_adapt_pool=args.qubit_adapt_pool,
             k_list=tuple(args.k_list),
             gradient_threshold=args.gradient_threshold,
             optimizer=args.optimizer,
             inner_max_iter=args.inner_max_iter,
             convergence_threshold=args.convergence_threshold,
             random_seed=args.seed,
+            output_dir=args.output_dir,
             save_plots=not args.no_plots,
         )
 
@@ -994,14 +1000,17 @@ def main() -> None:
         print("=" * 60)
         print(f"HF energy:     {cfg.hf_energy}")
         print(f"CASCI energy:  {cfg.casci_energy}")
-        print(f"Pool size:     {cfg.n_pool_operators} operators")
+        print(f"Pool mode:     {cfg.qubit_adapt_pool}")
+        print(f"Effective pool: {cfg.qubit_adapt_pool_effective}")
+        print(f"Generated pool: {cfg.n_pool_operators} operators")
+        print(f"After commutator screen: {cfg.n_screenable_operators} operators")
         print(f"Reached k:     {cfg.actual_max_k} operators")
         print()
-        print(f"{'k':>4} {'energy':>14} {'err_vs_CASCI':>14} {'err_vs_HF':>14} "
+        print(f"{'k':>4} {'attained':>8} {'status':>14} {'energy':>14} {'err_vs_CASCI':>14} {'err_vs_HF':>14} "
               f"{'cum_cost_evals':>15} {'cum_runtime_s':>14}")
         print("-" * 80)
         for r in rows:
-            print(f"{r.k:>4d} {r.energy:>14.6f} {r.error_vs_casci:>14.6f} "
+            print(f"{r.k:>4d} {r.attained_k:>8d} {r.status:>14} {r.energy:>14.6f} {r.error_vs_casci:>14.6f} "
                   f"{r.error_vs_hf:>14.6f} {r.cumulative_cost_evals:>15d} "
                   f"{r.cumulative_runtime_s:>14.2f}")
 

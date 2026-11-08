@@ -1,3 +1,5 @@
+# ABOUTME: Builds a Hamiltonian variational ansatz from commuting groups of Pauli terms.
+# ABOUTME: Evolves the Hartree–Fock state and optimizes the resulting molecular energy.
 """
 Hamiltonian Variational Ansatz (HVA) VQE Implementation
 
@@ -29,8 +31,8 @@ import logging
 
 import sys
 sys.path.append('..')
-from core.base_vqe import BaseVQE, VQEResult, incumbent_converged, incumbent_history
-from core.hamiltonian_loader import QubitHamiltonian
+from core.base_vqe import BaseVQE, VQEResult, incumbent_history
+from core.hamiltonian_loader import QubitHamiltonian, pauli_product
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +191,7 @@ class HamiltonianVariationalVQE(BaseVQE):
             3. One parameter per (group, rep) pair.
         """
         import pennylane as qml
-        from core.backend_manager import create_device
+        from core.backend_manager import create_device, fixed_circuit_energy
 
         n_qubits = self.n_qubits
         n_layers = self.n_layers
@@ -224,10 +226,7 @@ class HamiltonianVariationalVQE(BaseVQE):
                     elif p == 'Z':
                         pauli_ops.append(qml.PauliZ(i))
                 if pauli_ops:
-                    op = pauli_ops[0]
-                    for extra in pauli_ops[1:]:
-                        op = op @ extra
-                    ops.append(op)
+                    ops.append(pauli_product(pauli_ops))
                 else:
                     ops.append(qml.Identity(0))
                 coeffs.append(coeff)
@@ -259,6 +258,7 @@ class HamiltonianVariationalVQE(BaseVQE):
             return qml.expval(H_full)
 
         self.cost_fn = circuit
+        self._energy = fixed_circuit_energy(circuit, H_full)
         logger.info(
             f"HVA ansatz built: {self.n_parameters} params "
             f"({n_groups} groups x {n_layers} layers), "
@@ -273,7 +273,7 @@ class HamiltonianVariationalVQE(BaseVQE):
     def cost_function(self, parameters: np.ndarray) -> float:
         if self.cost_fn is None:
             raise RuntimeError("Must call build_ansatz() first")
-        return float(self.cost_fn(parameters))
+        return float(self._energy(parameters))
 
     def get_initial_parameters(self) -> np.ndarray:
         """All zeros -> HF reference state (evolutions = identity)."""
@@ -318,9 +318,7 @@ class HamiltonianVariationalVQE(BaseVQE):
         error = optimal_energy - ref_energy
         relative_error = abs(error / ref_energy) if ref_energy != 0 else 0.0
 
-        converged = incumbent_converged(
-            self.convergence_history, self.convergence_threshold
-        )
+        converged = bool(self.optimizer_outcome["optimizer_success"])
 
         result = VQEResult(
             molecule_abbrev=self.hamiltonian.molecule.abbreviation,
@@ -339,6 +337,7 @@ class HamiltonianVariationalVQE(BaseVQE):
             optimal_parameters=optimal_params,
             converged=converged,
             metadata={
+                **self.fit_diagnostics(),
                 "optimizer": self.optimizer_name,
                 "max_iterations": self.max_iterations,
                 "n_shots": self.n_shots,

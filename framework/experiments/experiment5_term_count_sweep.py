@@ -1,3 +1,5 @@
+# ABOUTME: Sweeps ordered prefixes of each molecular Hamiltonian across the selected VQE solvers.
+# ABOUTME: Compares each solver with the full-molecule reference and the exact prefix ground energy.
 """
 Experiment 5 -- Hamiltonian term-count sweep
 ===========================================
@@ -15,8 +17,10 @@ the full-molecule CASCI reference energy.
 
 What we measure
 ---------------
-For each (molecule, algorithm, term-count) triple we record:
+For each molecule, algorithm, term count and trial seed we record:
 
+* ``random_seed``            -- the same trial seed at every molecule, algorithm and prefix.
+* ``wrong_electron_probability`` -- probability outside the specified physical electron sector, when known.
 * ``n_parameters``           -- number of Hamiltonian terms kept in the prefix.
 * ``algorithm_n_parameters``  -- number of variational parameters used by the
   VQE algorithm itself.
@@ -26,8 +30,13 @@ For each (molecule, algorithm, term-count) triple we record:
   Hamiltonian used in that run.
 * ``error_vs_prefix_reference`` -- energy minus the prefix-Hamiltonian
   ground-state energy.
-* ``n_cost_evals``           -- actual cost-function evaluations consumed.
-* ``runtime_seconds``        -- wall-clock runtime.
+* ``n_cost_evals``           -- logical molecular objective calls. Adaptive screening and angle-observable costs are separate.
+* ``parameter_update_policy`` -- optimizer or analytic angle selection specified by the solver.
+* ``runtime_seconds``        -- fit wall time. Endpoint replay is timed outside the fit.
+
+Summary means weight each contributing molecule equally after averaging its available trial seeds.
+The population standard deviation is taken across those molecule means. Completion counts and the
+individual contributing seeds are included for each point.
 
 Outputs
 -------
@@ -51,14 +60,17 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import logging
 import os
 import sys
 import time
 from collections import defaultdict
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime
+from itertools import product
+from operator import index
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -71,11 +83,13 @@ if str(_FW_DIR) not in sys.path:
 from algorithms import get_algorithm, list_algorithms  # noqa: E402
 from core.base_vqe import VQEResult  # noqa: E402
 from core.hamiltonian_loader import Molecule, QubitHamiltonian  # noqa: E402
+from experiments.provenance import load_problem, record_runtime, save_problem
 from experiments._common import (  # noqa: E402
     CostEvalCounter,
     LoadedHamiltonian,
     load_small_hamiltonian,
     make_backend_config,
+    validate_study_axes,
 )
 from experiments.noise_resilience import DATASETS2_AMINO_ACIDS  # noqa: E402
 
@@ -115,6 +129,9 @@ class TermCountRow:
     converged: bool
     status: str = "ok"
     notes: str = ""
+    random_seed: int = 42
+    parameter_update_policy: str = ""
+    wrong_electron_probability: Optional[float] = None
 
 
 @dataclass
@@ -130,61 +147,76 @@ class TermCountConfig:
     optimizer: str
     max_iterations: int
     convergence_threshold: float
-    random_seed: int
-    n_qubits_active: int = 0
-    n_qubits_final: int = 0
-    n_terms_available: int = 0
+    trial_seeds: Tuple[int, ...]
+    models: Dict[str, Dict[str, int]] = field(default_factory=dict)
 
 
 # ──────────────────────────────────────────────────────────────────────────
 # Hamiltonian helpers
 # ──────────────────────────────────────────────────────────────────────────
 
+class _HamiltonianPrefixes:
+    """Build successive prefixes for one molecule, retaining only its latest sparse sum."""
+
+    def __init__(self, full_hamiltonian: QubitHamiltonian):
+        self.full_hamiltonian = full_hamiltonian
+        self.term_count = 0
+        self.matrix = None
+
+    def at(self, n_terms: int) -> QubitHamiltonian:
+        full_hamiltonian = self.full_hamiltonian
+        if n_terms < 1:
+            raise ValueError("n_terms must be at least 1")
+        n_terms = min(int(n_terms), int(full_hamiltonian.n_terms))
+        if n_terms < self.term_count:
+            raise ValueError("Hamiltonian prefixes must be requested in increasing order")
+        n_qubits = full_hamiltonian.n_qubits
+        if n_qubits > 18:
+            raise ValueError(f"Exact prefix references support at most 18 qubits (requested {n_qubits})")
+
+        added = slice(self.term_count, n_terms)
+        self.matrix = full_hamiltonian._extend_sparse_matrix(
+            self.matrix, full_hamiltonian.coefficients[added], full_hamiltonian.pauli_strings[added], n_qubits
+        )
+        self.term_count = n_terms
+        energy = full_hamiltonian._sparse_ground_state_energy(self.matrix, n_qubits)
+        if not np.isfinite(energy):
+            raise ValueError(f"Nonfinite reference energy for the {n_terms}-term prefix")
+        coeffs = np.array(full_hamiltonian.coefficients[:n_terms], copy=True)
+        pauli_strings = list(full_hamiltonian.pauli_strings[:n_terms])
+
+        prefix_molecule = Molecule(
+            abbreviation=full_hamiltonian.molecule.abbreviation,
+            name=full_hamiltonian.molecule.name,
+            n_qubits=full_hamiltonian.n_qubits,
+            n_coefficients=n_terms,
+            reference_energy=energy,
+            truncated_ground_state_energy=energy,
+            hamiltonian_file=full_hamiltonian.molecule.hamiltonian_file,
+            n_electrons=full_hamiltonian.molecule.n_electrons,
+            n_orbitals=full_hamiltonian.molecule.n_orbitals,
+            charge=full_hamiltonian.molecule.charge,
+            spin=full_hamiltonian.molecule.spin,
+            basis=full_hamiltonian.molecule.basis,
+            coordinates=full_hamiltonian.molecule.coordinates,
+            molecular_formula=full_hamiltonian.molecule.molecular_formula,
+        )
+
+        prefix = QubitHamiltonian(
+            molecule=prefix_molecule,
+            coefficients=coeffs,
+            pauli_strings=pauli_strings,
+            n_qubits=full_hamiltonian.n_qubits,
+            n_terms=n_terms,
+            cs_initial_state=full_hamiltonian.cs_initial_state,
+        )
+        prefix._retain_ordered_matrix(self.matrix, tuple(pauli_strings), coeffs.copy())
+        return prefix
+
+
 def _prefix_hamiltonian(full_hamiltonian: QubitHamiltonian, n_terms: int) -> QubitHamiltonian:
-    """Return a Hamiltonian built from the first ``n_terms`` terms.
-
-    The returned object preserves the original qubit count and carries the
-    exact ground-state energy of the prefix Hamiltonian in the molecule's
-    ``reference_energy`` field.
-    """
-    if n_terms < 1:
-        raise ValueError("n_terms must be at least 1")
-
-    n_terms = min(int(n_terms), int(full_hamiltonian.n_terms))
-    coeffs = np.array(full_hamiltonian.coefficients[:n_terms], copy=True)
-    pauli_strings = list(full_hamiltonian.pauli_strings[:n_terms])
-
-    prefix_molecule = Molecule(
-        abbreviation=full_hamiltonian.molecule.abbreviation,
-        name=full_hamiltonian.molecule.name,
-        n_qubits=full_hamiltonian.n_qubits,
-        n_coefficients=n_terms,
-        reference_energy=full_hamiltonian.molecule.reference_energy,
-        hamiltonian_file=full_hamiltonian.molecule.hamiltonian_file,
-        n_electrons=full_hamiltonian.molecule.n_electrons,
-        n_orbitals=full_hamiltonian.molecule.n_orbitals,
-        charge=full_hamiltonian.molecule.charge,
-        spin=full_hamiltonian.molecule.spin,
-        basis=full_hamiltonian.molecule.basis,
-        coordinates=full_hamiltonian.molecule.coordinates,
-        molecular_formula=full_hamiltonian.molecule.molecular_formula,
-    )
-
-    prefix_ham = QubitHamiltonian(
-        molecule=prefix_molecule,
-        coefficients=coeffs,
-        pauli_strings=pauli_strings,
-        n_qubits=full_hamiltonian.n_qubits,
-        n_terms=n_terms,
-        cs_initial_state=full_hamiltonian.cs_initial_state,
-    )
-
-    prefix_energy = prefix_ham._calculate_ground_state_energy(
-        coeffs, pauli_strings, full_hamiltonian.n_qubits
-    )
-    prefix_ham.molecule.reference_energy = prefix_energy
-    prefix_ham.molecule.truncated_ground_state_energy = prefix_energy
-    return prefix_ham
+    """Build a standalone prefix including its ground-state reference."""
+    return _HamiltonianPrefixes(full_hamiltonian).at(n_terms)
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -203,6 +235,7 @@ def _run_algorithm_on_hamiltonian(
     max_iterations: int,
     convergence_threshold: float,
     random_seed: int,
+    loaded: Optional[LoadedHamiltonian] = None,
 ) -> Tuple[VQEResult, int, float]:
     """Instantiate and run one algorithm on one Hamiltonian."""
     AlgorithmCls = get_algorithm(algorithm)
@@ -228,6 +261,14 @@ def _run_algorithm_on_hamiltonian(
     finally:
         counter.detach(vqe)
     runtime = time.time() - t0
+    if loaded is not None:
+        from experiments.endpoint_sector import summarize_endpoint
+
+        sector = summarize_endpoint(loaded, vqe, result.optimal_parameters)
+        if not np.isclose(sector["rescored_energy"], result.calculated_energy, rtol=0., atol=1e-8):
+            raise ValueError(f"{algorithm} endpoint disagrees with the returned energy: "
+                             f'{sector["rescored_energy"]} vs {result.calculated_energy}')
+        result.metadata["endpoint_sector"] = sector
     return result, int(counter.count), runtime
 
 
@@ -248,17 +289,27 @@ def run_term_count_sweep(
     optimizer: str = "COBYLA",
     max_iterations: int = 200,
     convergence_threshold: float = 1e-10,
-    random_seed: int = 42,
+    random_seed: Optional[int] = None,
     output_dir: Optional[Path] = None,
     save_plots: bool = True,
+    prepared_inputs: Optional[Path] = None,
+    trial_seeds: Optional[Sequence[int]] = None,
 ) -> Dict[str, object]:
     """Run the batch experiment across many molecules and algorithms."""
-    term_counts_sorted = tuple(sorted({int(t) for t in term_counts if int(t) >= 1}))
-    if not term_counts_sorted:
-        raise ValueError("term_counts must contain at least one positive integer")
-
+    if random_seed is not None and trial_seeds is not None:
+        raise ValueError("Choose a single random_seed or a sequence of trial_seeds")
+    if trial_seeds is None:
+        trial_seeds = (42 if random_seed is None else random_seed,)
+    seeds = tuple(index(seed) for seed in trial_seeds)
+    term_counts_sorted = tuple(sorted(index(k) for k in term_counts))
     molecule_list = tuple(m.strip().lower() for m in molecules)
-    algorithm_list = tuple(dict.fromkeys(algorithms))
+    algorithm_list = tuple(algorithms)
+    validate_study_axes(seeds=seeds, term_counts=term_counts_sorted,
+                        molecules=molecule_list, algorithms=algorithm_list)
+    if any(seed < 0 or seed >= 2**32 for seed in seeds):
+        raise ValueError("Trial seeds must be integers from 0 to 2**32 - 1")
+    if term_counts_sorted[0] < 1:
+        raise ValueError("Each term count must be positive")
 
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     if output_dir is None:
@@ -275,7 +326,7 @@ def run_term_count_sweep(
     failures_json = output_dir / "batch_failures.json"
     config_json = output_dir / "run_config.json"
 
-    total_rows_estimate = len(molecule_list) * len(term_counts_sorted) * len(algorithm_list)
+    total_rows_estimate = len(molecule_list) * len(term_counts_sorted) * len(algorithm_list) * len(seeds)
 
     cfg = TermCountConfig(
         molecules=molecule_list,
@@ -289,19 +340,27 @@ def run_term_count_sweep(
         optimizer=optimizer,
         max_iterations=max_iterations,
         convergence_threshold=convergence_threshold,
-        random_seed=random_seed,
+        trial_seeds=seeds,
     )
 
     rows: List[TermCountRow] = []
-    failures: List[Dict[str, str]] = []
+    failures: List[Dict[str, object]] = []
+    skipped = []
 
-    with open(config_json, "w") as f:
+    if batch_csv.exists():
+        raise FileExistsError(f"Prefix results already exist in {output_dir}; use a fresh directory")
+    with open(config_json, "x") as f:
         json.dump(asdict(cfg), f, indent=2)
+
+    record_runtime(output_dir)
 
     def _write_progress_tracker(*, completed: int, status: str, current: Optional[Dict[str, object]] = None) -> None:
         tracker = {
             "timestamp": datetime.now().isoformat(timespec="seconds"),
             "completed_rows": completed,
+            "successful_rows": completed - len(failures) - len(skipped),
+            "failed_cases": len(failures),
+            "skipped_cases": len(skipped),
             "estimated_total_rows": total_rows_estimate,
             "remaining_rows_estimate": max(total_rows_estimate - completed, 0),
             "status": status,
@@ -327,47 +386,29 @@ def run_term_count_sweep(
         mol_iter = _tqdm(list(molecule_list), desc="experiment5 batch")
 
     completed_rows = 0
-    batch_exists = batch_csv.exists() and batch_csv.stat().st_size > 0
-    with open(batch_csv, "a", newline="", buffering=1) as batch_file:
-        writer = csv.writer(batch_file)
-        if not batch_exists:
-            writer.writerow([
-                "molecule",
-                "algorithm",
-                "n_parameters",
-                "algorithm_n_parameters",
-                "n_qubits",
-                "n_terms_available",
-                "energy",
-                "full_reference_energy",
-                "prefix_reference_energy",
-                "error_vs_full_reference",
-                "abs_error_vs_full_reference",
-                "error_vs_prefix_reference",
-                "abs_error_vs_prefix_reference",
-                "n_iterations",
-                "n_cost_evals",
-                "runtime_seconds",
-                "converged",
-                "status",
-                "notes",
-            ])
-            batch_file.flush()
-            os.fsync(batch_file.fileno())
+    with open(batch_csv, "x", newline="", buffering=1) as batch_file, (output_dir / "cases.jsonl").open("x", buffering=1) as cases:
+        writer = csv.DictWriter(batch_file, fieldnames=[f.name for f in fields(TermCountRow)])
+        writer.writeheader()
+        batch_file.flush()
+        os.fsync(batch_file.fileno())
         _write_progress_tracker(completed=0, status="starting")
 
         try:
-            for mol_index, mol in enumerate(mol_iter):
+            for mol in mol_iter:
                 try:
-                    loaded = load_small_hamiltonian(
-                        molecule=mol,
-                        basis=basis,
-                        cs_target_qubits=cs_target_qubits,
-                    )
+                    if prepared_inputs is None:
+                        loaded = load_small_hamiltonian(molecule=mol, basis=basis, cs_target_qubits=cs_target_qubits)
+                    else:
+                        loaded = load_problem(Path(prepared_inputs) / f"{mol}.npz")
+                        if (loaded.molecule != mol or loaded.basis != basis or
+                                loaded.preparation["cs_target_qubits"] != cs_target_qubits):
+                            raise ValueError(f"Prepared model does not match the requested settings for {mol}")
                 except Exception as exc:
                     logger.exception("Failed to load molecule %s: %s", mol, exc)
-                    failures.append({"molecule": mol, "algorithm": "<load>", "error": str(exc)})
-                    completed_rows += len(term_counts_sorted) * len(algorithm_list)
+                    failures.extend({"molecule": mol, "algorithm": algo, "term_count": str(k),
+                                     "random_seed": seed, "error": str(exc)}
+                                    for k, algo, seed in product(term_counts_sorted, algorithm_list, seeds))
+                    completed_rows += len(term_counts_sorted) * len(algorithm_list) * len(seeds)
                     _write_progress_tracker(
                         completed=completed_rows,
                         status="load_failed",
@@ -375,13 +416,22 @@ def run_term_count_sweep(
                     )
                     continue
 
+                snapshot = save_problem(loaded, output_dir / "inputs")
+                cfg.models[mol] = dict(n_qubits_active=int(loaded.n_qubits_active),
+                                       n_qubits_final=int(loaded.n_qubits_final),
+                                       n_terms_available=int(loaded.hamiltonian.n_terms))
+                input_sha256 = hashlib.sha256(snapshot.read_bytes()).hexdigest()
+                prefixes = _HamiltonianPrefixes(loaded.hamiltonian)
                 for term_count in term_counts_sorted:
                     if term_count > loaded.hamiltonian.n_terms:
                         logger.warning(
                             "Skipping %s at n_terms=%d because only %d terms are available",
                             mol, term_count, loaded.hamiltonian.n_terms,
                         )
-                        completed_rows += len(algorithm_list)
+                        skipped.extend({"molecule": mol, "algorithm": algo, "term_count": term_count,
+                                        "n_terms_available": loaded.hamiltonian.n_terms, "random_seed": seed}
+                                       for algo, seed in product(algorithm_list, seeds))
+                        completed_rows += len(algorithm_list) * len(seeds)
                         _write_progress_tracker(
                             completed=completed_rows,
                             status="skipped_term_count",
@@ -389,16 +439,21 @@ def run_term_count_sweep(
                         )
                         continue
 
-                    prefix_ham = _prefix_hamiltonian(loaded.hamiltonian, term_count)
+                    try:
+                        prefix_ham = prefixes.at(term_count)
+                    except Exception as exc:
+                        _write_progress_tracker(completed=completed_rows, status="prefix_reference_failed",
+                                                current={"molecule": mol, "n_parameters": term_count})
+                        raise RuntimeError(f"Exact reference failed for {mol} at {term_count} terms: {exc}") from exc
                     prefix_reference = float(prefix_ham.molecule.reference_energy)
                     full_reference = float(loaded.casci_energy) if loaded.casci_energy is not None else float("nan")
 
-                    for algo_index, algo in enumerate(algorithm_list):
-                        run_seed = random_seed + 10007 * mol_index + 101 * term_count + 17 * algo_index
+                    for algo, run_seed in product(algorithm_list, seeds):
                         current_meta = {
                             "molecule": mol,
                             "algorithm": algo,
                             "n_parameters": term_count,
+                            "random_seed": run_seed,
                         }
                         try:
                             result, n_cost_evals, runtime = _run_algorithm_on_hamiltonian(
@@ -411,13 +466,20 @@ def run_term_count_sweep(
                                 max_iterations=max_iterations,
                                 convergence_threshold=convergence_threshold,
                                 random_seed=run_seed,
+                                loaded=loaded,
                             )
+                            sector = result.metadata.pop("endpoint_sector")
+                            if algo == "iqcc_true_vqe":
+                                update_policy = "analytic Pauli angle selection"
+                            else:
+                                update_policy = result.metadata.get("inner_optimizer", result.metadata.get("optimizer"))
                             energy = float(result.calculated_energy)
                             error_vs_full = energy - full_reference
                             error_vs_prefix = energy - prefix_reference
                             row = TermCountRow(
                                 molecule=mol,
                                 algorithm=algo,
+                                random_seed=run_seed,
                                 n_parameters=term_count,
                                 algorithm_n_parameters=int(result.n_parameters),
                                 n_qubits=int(result.n_qubits),
@@ -433,33 +495,21 @@ def run_term_count_sweep(
                                 n_cost_evals=int(n_cost_evals),
                                 runtime_seconds=float(runtime),
                                 converged=bool(result.converged),
+                                parameter_update_policy=update_policy,
+                                wrong_electron_probability=sector["wrong_electron_probability"],
                                 status="ok",
-                                notes="",
+                                notes=(result.metadata or {}).get("excitation_implementation", ""),
                             )
-                            rows.append(row)
-                            writer.writerow([
-                                row.molecule,
-                                row.algorithm,
-                                row.n_parameters,
-                                row.algorithm_n_parameters,
-                                row.n_qubits,
-                                row.n_terms_available,
-                                f"{row.energy:.10f}",
-                                f"{row.full_reference_energy:.10f}",
-                                f"{row.prefix_reference_energy:.10f}",
-                                f"{row.error_vs_full_reference:.10f}",
-                                f"{row.abs_error_vs_full_reference:.10f}",
-                                f"{row.error_vs_prefix_reference:.10f}",
-                                f"{row.abs_error_vs_prefix_reference:.10f}",
-                                row.n_iterations,
-                                row.n_cost_evals,
-                                f"{row.runtime_seconds:.4f}",
-                                int(row.converged),
-                                row.status,
-                                row.notes,
-                            ])
-                            batch_file.flush()
-                            os.fsync(batch_file.fileno())
+                            cases.write(json.dumps(dict(
+                                molecule=mol, prefix_terms=term_count, algorithm=algo, random_seed=run_seed,
+                                input_sha256=input_sha256, endpoint_sector=sector,
+                                optimizer_requested=optimizer, parameter_update_policy=update_policy,
+                                backend=result.backend_type, energy=energy, prefix_reference=prefix_reference,
+                                full_casci=full_reference, solver_name=result.algorithm_name,
+                                parameters=np.asarray(result.optimal_parameters).tolist() if result.optimal_parameters is not None else None,
+                                history=[float(e) for e in result.convergence_history], cost_evaluations=n_cost_evals,
+                                notes=row.notes, metadata=result.metadata,
+                            ), default=lambda obj: obj.tolist() if isinstance(obj, (np.generic, np.ndarray)) else str(obj)) + "\n")
                         except Exception as exc:
                             logger.exception(
                                 "Experiment 5 failed for molecule=%s algorithm=%s term_count=%d",
@@ -469,11 +519,13 @@ def run_term_count_sweep(
                                 "molecule": mol,
                                 "algorithm": algo,
                                 "term_count": str(term_count),
+                                "random_seed": run_seed,
                                 "error": str(exc),
                             })
                             row = TermCountRow(
                                 molecule=mol,
                                 algorithm=algo,
+                                random_seed=run_seed,
                                 n_parameters=term_count,
                                 algorithm_n_parameters=0,
                                 n_qubits=int(loaded.hamiltonian.n_qubits),
@@ -492,30 +544,10 @@ def run_term_count_sweep(
                                 status="failed",
                                 notes=str(exc),
                             )
-                            rows.append(row)
-                            writer.writerow([
-                                row.molecule,
-                                row.algorithm,
-                                row.n_parameters,
-                                row.algorithm_n_parameters,
-                                row.n_qubits,
-                                row.n_terms_available,
-                                "",
-                                f"{row.full_reference_energy:.10f}",
-                                f"{row.prefix_reference_energy:.10f}",
-                                "",
-                                "",
-                                "",
-                                "",
-                                row.n_iterations,
-                                row.n_cost_evals,
-                                f"{row.runtime_seconds:.4f}",
-                                int(row.converged),
-                                row.status,
-                                row.notes,
-                            ])
-                            batch_file.flush()
-                            os.fsync(batch_file.fileno())
+                        rows.append(row)
+                        writer.writerow(_csv_row(row))
+                        batch_file.flush()
+                        os.fsync(batch_file.fileno())
                         completed_rows += 1
                         _write_progress_tracker(
                             completed=completed_rows,
@@ -523,19 +555,19 @@ def run_term_count_sweep(
                             current=current_meta,
                         )
 
-                cfg.n_qubits_active = int(loaded.n_qubits_active)
-                cfg.n_qubits_final = int(loaded.n_qubits_final)
-                cfg.n_terms_available = int(loaded.hamiltonian.n_terms)
         finally:
             batch_file.flush()
             os.fsync(batch_file.fileno())
 
+    config_json.write_text(json.dumps(asdict(cfg), indent=2) + "\n")
     _write_summary_csv(summary_csv, rows)
     if failures:
         with open(failures_json, "w") as f:
             json.dump(failures, f, indent=2)
 
-    _write_progress_tracker(completed=completed_rows, status="finished")
+    if skipped:
+        (output_dir / "skipped_cases.json").write_text(json.dumps(skipped, indent=2) + "\n")
+    _write_progress_tracker(completed=completed_rows, status="finished" if rows and not failures else "failed")
 
     if save_plots:
         _plot_aggregate_trend(summary_csv, output_dir)
@@ -550,7 +582,8 @@ def run_term_count_sweep(
         "summary_csv": summary_csv,
         "failures": failures,
         "n_ok": sum(1 for row in rows if row.status == "ok"),
-        "n_fail": sum(1 for row in rows if row.status != "ok"),
+        "n_fail": len(failures),
+        "n_skipped": len(skipped),
     }
 
 
@@ -559,52 +592,21 @@ def run_term_count_sweep(
 # ──────────────────────────────────────────────────────────────────────────
 
 
+def _csv_row(row: TermCountRow) -> dict:
+    values = asdict(row)
+    for key, value in values.items():
+        if isinstance(value, float):
+            precision = 4 if key == "runtime_seconds" else 10
+            values[key] = f"{value:.{precision}f}" if np.isfinite(value) else ""
+    values["converged"] = int(row.converged)
+    return values
+
+
 def _write_long_csv(path: Path, rows: Sequence[TermCountRow]) -> None:
     with open(path, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow([
-            "molecule",
-            "algorithm",
-            "n_parameters",
-            "algorithm_n_parameters",
-            "n_qubits",
-            "n_terms_available",
-            "energy",
-            "full_reference_energy",
-            "prefix_reference_energy",
-            "error_vs_full_reference",
-            "abs_error_vs_full_reference",
-            "error_vs_prefix_reference",
-            "abs_error_vs_prefix_reference",
-            "n_iterations",
-            "n_cost_evals",
-            "runtime_seconds",
-            "converged",
-            "status",
-            "notes",
-        ])
-        for row in rows:
-            writer.writerow([
-                row.molecule,
-                row.algorithm,
-                row.n_parameters,
-                row.algorithm_n_parameters,
-                row.n_qubits,
-                row.n_terms_available,
-                f"{row.energy:.10f}" if np.isfinite(row.energy) else "",
-                f"{row.full_reference_energy:.10f}" if np.isfinite(row.full_reference_energy) else "",
-                f"{row.prefix_reference_energy:.10f}" if np.isfinite(row.prefix_reference_energy) else "",
-                f"{row.error_vs_full_reference:.10f}" if np.isfinite(row.error_vs_full_reference) else "",
-                f"{row.abs_error_vs_full_reference:.10f}" if np.isfinite(row.abs_error_vs_full_reference) else "",
-                f"{row.error_vs_prefix_reference:.10f}" if np.isfinite(row.error_vs_prefix_reference) else "",
-                f"{row.abs_error_vs_prefix_reference:.10f}" if np.isfinite(row.abs_error_vs_prefix_reference) else "",
-                row.n_iterations,
-                row.n_cost_evals,
-                f"{row.runtime_seconds:.4f}",
-                int(row.converged),
-                row.status,
-                row.notes,
-            ])
+        writer = csv.DictWriter(f, fieldnames=[f.name for f in fields(TermCountRow)])
+        writer.writeheader()
+        writer.writerows(_csv_row(row) for row in rows)
 
 
 def _write_summary_csv(path: Path, rows: Sequence[TermCountRow]) -> None:
@@ -616,33 +618,42 @@ def _write_summary_csv(path: Path, rows: Sequence[TermCountRow]) -> None:
 
     summary_rows = []
     for (algorithm, n_parameters), group in sorted(grouped.items()):
-        abs_errors = np.array([r.abs_error_vs_full_reference for r in group], dtype=float)
-        signed_errors = np.array([r.error_vs_full_reference for r in group], dtype=float)
-        runtimes = np.array([r.runtime_seconds for r in group], dtype=float)
-        cost_evals = np.array([r.n_cost_evals for r in group], dtype=float)
-        iterations = np.array([r.n_iterations for r in group], dtype=float)
-        summary_rows.append({
-            "algorithm": algorithm,
-            "n_parameters": n_parameters,
-            "n_samples": int(len(group)),
-            "mean_abs_error_vs_full_reference": float(np.mean(abs_errors)),
-            "std_abs_error_vs_full_reference": float(np.std(abs_errors)),
-            "mean_error_vs_full_reference": float(np.mean(signed_errors)),
-            "std_error_vs_full_reference": float(np.std(signed_errors)),
-            "mean_runtime_seconds": float(np.mean(runtimes)),
-            "mean_cost_evals": float(np.mean(cost_evals)),
-            "mean_n_iterations": float(np.mean(iterations)),
-        })
+        by_molecule = defaultdict(list)
+        for row in group:
+            by_molecule[row.molecule].append(row)
+        observables = ("abs_error_vs_full_reference", "error_vs_full_reference",
+                       "abs_error_vs_prefix_reference", "error_vs_prefix_reference",
+                       "runtime_seconds", "n_cost_evals", "n_iterations")
+        seed_map = {mol: sorted(r.random_seed for r in trials) for mol, trials in sorted(by_molecule.items())}
+        summary = {
+            "algorithm": algorithm, "n_parameters": n_parameters, "n_samples": len(group),
+            "n_molecules": len(by_molecule), "molecules": json.dumps(sorted(by_molecule)),
+            "trial_seeds_by_molecule": json.dumps(seed_map),
+        }
+        for name in observables:
+            means = [np.mean([getattr(r, name) for r in trials]) for trials in by_molecule.values()]
+            label = "cost_evals" if name == "n_cost_evals" else name
+            summary[f"mean_{label}"] = float(np.mean(means))
+            if "error" in name:
+                summary[f"std_{label}"] = float(np.std(means))
+        summary_rows.append(summary)
 
     with open(path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=[
             "algorithm",
             "n_parameters",
             "n_samples",
+            "n_molecules",
+            "molecules",
+            "trial_seeds_by_molecule",
             "mean_abs_error_vs_full_reference",
             "std_abs_error_vs_full_reference",
             "mean_error_vs_full_reference",
             "std_error_vs_full_reference",
+            "mean_abs_error_vs_prefix_reference",
+            "std_abs_error_vs_prefix_reference",
+            "mean_error_vs_prefix_reference",
+            "std_error_vs_prefix_reference",
             "mean_runtime_seconds",
             "mean_cost_evals",
             "mean_n_iterations",
@@ -657,7 +668,51 @@ def _write_summary_csv(path: Path, rows: Sequence[TermCountRow]) -> None:
 # ──────────────────────────────────────────────────────────────────────────
 
 
-def _plot_aggregate_trend(summary_csv: Path, output_dir: Path) -> None:
+def _prefix_figure(rows, *, exclude_qaoa):
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Patch
+    from matplotlib.ticker import MaxNLocator
+
+    by_algo = defaultdict(list)
+    for row in rows:
+        by_algo[row["algorithm"]].append(row)
+
+    fig, ax = plt.subplots(figsize=(14, 7) if exclude_qaoa else (9.5, 5.0))
+    colors = plt.get_cmap("tab20")
+    for idx, (algorithm, algo_rows) in enumerate(sorted(by_algo.items())):
+        if exclude_qaoa and algorithm == "qaoa_inspired_vqe":
+            continue
+        algo_rows.sort(key=lambda r: int(r["n_parameters"]))
+        xs = [int(r["n_parameters"]) for r in algo_rows]
+        ys = np.array([float(r["mean_abs_error_vs_full_reference"]) for r in algo_rows])
+        stds = np.array([float(r["std_abs_error_vs_full_reference"]) for r in algo_rows])
+        color = colors(idx % colors.N)
+        ax.plot(xs, ys, marker="o", linewidth=1.8, label=algorithm, color=color)
+        ax.fill_between(xs, np.maximum(ys - stds, 0.), ys + stds, color=color, alpha=0.15)
+
+    title = "Exp 5 - Energy error vs Hamiltonian term count"
+    if exclude_qaoa:
+        title += "\nQAOA-inspired VQE excluded"
+    ax.set_title(title)
+    ax.set_xlabel("Number of retained Hamiltonian terms")
+    ax.set_ylabel("Mean |energy − full CASCI| (Ha)")
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.set_yscale("symlog", linthresh=1e-12)
+    if ax.get_ylim()[0] < 0.:
+        ax.set_ylim(bottom=0.)
+    ax.grid(True, which="both", alpha=0.3)
+    handles, _ = ax.get_legend_handles_labels()
+    if handles:
+        handles.append(Patch(facecolor="gray", alpha=0.15, label="±1 population SD of molecule means, clipped at zero"))
+        ax.legend(handles=handles, fontsize=8, ncol=2)
+    else:
+        ax.text(0.5, 0.5, "No contributing algorithms in this view",
+                transform=ax.transAxes, ha="center", va="center")
+    fig.tight_layout()
+    return fig
+
+
+def _plot_aggregate_trend(summary_csv: Path, output_dir: Path, *, exclude_qaoa=False) -> None:
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -666,91 +721,19 @@ def _plot_aggregate_trend(summary_csv: Path, output_dir: Path) -> None:
         logger.warning("matplotlib unavailable: %s", exc)
         return
 
-    import csv as _csv
-
-    by_algo: Dict[str, List[Dict[str, str]]] = defaultdict(list)
     with open(summary_csv, newline="") as f:
-        reader = _csv.DictReader(f)
-        for row in reader:
-            by_algo[row["algorithm"]].append(row)
-
-    if not by_algo:
+        rows = list(csv.DictReader(f))
+    if not rows:
         logger.warning("No summary rows available for plotting")
         return
-
-    fig, ax = plt.subplots(figsize=(9.5, 5.0))
-    colors = plt.get_cmap("tab20")
-
-    for idx, (algorithm, algo_rows) in enumerate(sorted(by_algo.items())):
-        algo_rows.sort(key=lambda r: int(r["n_parameters"]))
-        xs = np.array([int(r["n_parameters"]) for r in algo_rows], dtype=float)
-        ys = np.array([float(r["mean_abs_error_vs_full_reference"]) for r in algo_rows], dtype=float)
-        stds = np.array([float(r["std_abs_error_vs_full_reference"]) for r in algo_rows], dtype=float)
-        color = colors(idx % colors.N)
-        ax.plot(xs, ys, marker="o", linewidth=1.8, label=algorithm, color=color)
-        ax.fill_between(xs, np.maximum(ys - stds, 1e-12), ys + stds, color=color, alpha=0.15)
-
-    ax.set_yscale("log")
-    ax.set_xlabel("n_parameters = number of Hamiltonian prefix terms")
-    ax.set_ylabel("mean |energy error| vs full CASCI (Ha)")
-    ax.set_title("Experiment 5: mean energy error vs Hamiltonian term count")
-    ax.grid(True, which="both", alpha=0.3)
-    ax.legend(fontsize=8, ncol=2)
-    fig.tight_layout()
-    fig.savefig(output_dir / "mean_absolute_error_vs_term_count.png", dpi=150)
+    fig = _prefix_figure(rows, exclude_qaoa=exclude_qaoa)
+    suffix = "_filtered" if exclude_qaoa else ""
+    fig.savefig(output_dir / f"mean_absolute_error_vs_term_count{suffix}.png", dpi=150)
     plt.close(fig)
 
 
 def _plot_aggregate_trend_filtered(summary_csv: Path, output_dir: Path) -> None:
-    """
-    Plot aggregate trend excluding qaoa_inspired_vqe (has anomalous spike at 4 prefix terms),
-    with better scaling and larger figure for visibility of data points.
-    """
-    try:
-        import matplotlib
-        matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
-    except Exception as exc:  # pragma: no cover
-        logger.warning("matplotlib unavailable: %s", exc)
-        return
-
-    import csv as _csv
-
-    by_algo: Dict[str, List[Dict[str, str]]] = defaultdict(list)
-    with open(summary_csv, newline="") as f:
-        reader = _csv.DictReader(f)
-        for row in reader:
-            # Filter out qaoa_inspired_vqe (has anomaly at n_parameters=4)
-            if row["algorithm"] == "qaoa_inspired_vqe":
-                continue
-            by_algo[row["algorithm"]].append(row)
-
-    if not by_algo:
-        logger.warning("No summary rows available for filtered plotting")
-        return
-
-    fig, ax = plt.subplots(figsize=(14, 7))
-    colors = plt.get_cmap("tab20")
-
-    for idx, (algorithm, algo_rows) in enumerate(sorted(by_algo.items())):
-        algo_rows.sort(key=lambda r: int(r["n_parameters"]))
-        xs = np.array([int(r["n_parameters"]) for r in algo_rows], dtype=float)
-        ys = np.array([float(r["mean_abs_error_vs_full_reference"]) for r in algo_rows], dtype=float)
-        stds = np.array([float(r["std_abs_error_vs_full_reference"]) for r in algo_rows], dtype=float)
-        color = colors(idx % colors.N)
-        ax.plot(xs, ys, marker="o", linewidth=2.0, markersize=8, label=algorithm, color=color)
-        ax.fill_between(xs, np.maximum(ys - stds, 1e-12), ys + stds, color=color, alpha=0.15)
-
-    ax.set_yscale("log")
-    ax.set_xlabel("n_parameters = number of Hamiltonian prefix terms", fontsize=12)
-    ax.set_ylabel("mean |energy error| vs full CASCI (Ha)", fontsize=12)
-    ax.set_title("Experiment 5: mean energy error vs Hamiltonian term count (outlier filtered)", fontsize=14)
-    ax.grid(True, which="both", alpha=0.3)
-    ax.legend(fontsize=10, ncol=2, loc="best")
-    ax.set_xlim(0.5, 10.5)  # Better x-axis scaling
-    fig.tight_layout()
-    fig.savefig(output_dir / "mean_absolute_error_vs_term_count_filtered.png", dpi=150)
-    plt.close(fig)
+    _plot_aggregate_trend(summary_csv, output_dir, exclude_qaoa=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -780,9 +763,13 @@ def _build_argparser() -> argparse.ArgumentParser:
     p.add_argument("--optimizer", default="COBYLA")
     p.add_argument("--max-iter", type=int, default=200)
     p.add_argument("--convergence-threshold", type=float, default=1e-10)
-    p.add_argument("--seed", type=int, default=42)
+    trials = p.add_mutually_exclusive_group()
+    trials.add_argument("--seed", type=int, help="One matched trial seed (default 42).")
+    trials.add_argument("--seeds", type=int, nargs="+",
+                        help="Distinct trial seeds shared across every molecule, prefix and algorithm.")
     p.add_argument("--no-plots", action="store_true")
     p.add_argument("--output-dir", type=Path, default=None)
+    p.add_argument("--prepared-inputs", type=Path, help="Replay the saved inputs/ directory from a sweep")
     p.add_argument("-v", "--verbose", action="store_true")
     return p
 
@@ -821,8 +808,10 @@ def main() -> None:
         max_iterations=args.max_iter,
         convergence_threshold=args.convergence_threshold,
         random_seed=args.seed,
+        trial_seeds=args.seeds,
         output_dir=args.output_dir,
         save_plots=not args.no_plots,
+        prepared_inputs=args.prepared_inputs,
     )
 
     cfg: TermCountConfig = out["config"]
@@ -836,6 +825,8 @@ def main() -> None:
     print(f"Batch CSV: {out['batch_csv']}")
     print(f"Summary CSV: {out['summary_csv']}")
     print(f"Output folder: {out['output_dir']}")
+    if out["n_fail"] or not out["n_ok"]:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

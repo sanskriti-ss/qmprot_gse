@@ -1,3 +1,5 @@
+# ABOUTME: Constructs noncontextual Pauli models and selects candidate sectors.
+# ABOUTME: Diagonalizes their generators and rotates Hamiltonian terms.
 """
 Contextual Subspace VQE - Core Implementation
 
@@ -9,7 +11,8 @@ Reference: https://arxiv.org/pdf/2002.05693.pdf
 import numpy as np
 import scipy as sp
 from scipy.optimize import minimize_scalar
-from scipy.sparse import coo_matrix
+from scipy.sparse import csr_matrix
+from core.hamiltonian_loader import parity_signs, pauli_masks
 import itertools
 from functools import reduce
 from copy import deepcopy
@@ -466,18 +469,13 @@ def apply_rotation(rotation: List, p: str) -> Dict[str, float]:
 
 def pauli_to_sparse(P: str):
     """Pauli string to sparse matrix (scipy csr)."""
-    x = ''.join('0' if P[i] in ('I', 'Z') else '1' for i in range(len(P)))
-    x = int(x, 2)
-    z = ''.join('0' if P[i] in ('I', 'X') else '1' for i in range(len(P)))
-    z = int(z, 2)
-    y = sum(1 for i in range(len(P)) if P[i] == 'Y')
-    rows = list(range(2 ** len(P)))
-    cols = [r ^ x for r in rows]
-    vals = []
-    for r in range(2 ** len(P)):
-        sgn = bin(r & z)
-        vals.append(((-1.0) ** sum(int(sgn[i]) for i in range(2, len(sgn)))) * ((-1j) ** y))
-    return coo_matrix((vals, (rows, cols))).tocsr()
+    if not P or set(P).difference("IXYZ"):
+        raise ValueError(f"Expected a nonempty Pauli word, got {P!r}")
+    flip, parity = pauli_masks(P)
+    dim = 1 << len(P)
+    rows = np.arange(dim, dtype=np.int32)
+    values = parity_signs(len(P))[rows & parity] * ((-1j) ** P.count("Y"))
+    return csr_matrix((values, rows ^ flip, np.arange(dim + 1, dtype=np.int32)), shape=(dim, dim))
 
 
 

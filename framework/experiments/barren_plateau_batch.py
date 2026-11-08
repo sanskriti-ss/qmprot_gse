@@ -1,3 +1,5 @@
+# ABOUTME: Combines per-molecule initialization gradients and optimization traces in a batch.
+# ABOUTME: Draws trial-level and shared-step summaries across ansatz depths and initializations.
 """
 Barren plateau study across multiple molecules
 ==============================================
@@ -161,6 +163,7 @@ def run_barren_plateau_batch(
                 max_iterations=max_iterations,
                 optimizer=optimizer,
                 random_seed=random_seed,
+                output_dir=out_dir / molecule,
                 skip_part_a=False,
                 skip_part_b=False,
                 save_plots=False,  # Skip per-molecule plots
@@ -197,7 +200,7 @@ def run_barren_plateau_batch(
                 "hf_energy": cfg_result.hf_energy,
                 "casci_energy": cfg_result.casci_energy,
                 "n_opt_trials": len(result.get("opt_rows", [])),
-                "n_gradient_samples": len(result.get("grad_rows", [])),
+                "n_gradient_samples": sum(row.n_samples for row in result["grad_rows"]),
             })
             
         except Exception as exc:
@@ -219,6 +222,9 @@ def run_barren_plateau_batch(
     logger.info("Wrote %d gradient rows to %s", len(all_grad_rows), gradients_csv)
     logger.info("Wrote %d convergence trace rows to %s", len(all_opt_trace_rows), convergence_traces_csv)
     logger.info("Wrote %d molecule summaries to %s", len(mol_summaries), summary_csv)
+    failed = [row["molecule"] for row in mol_summaries if "error" in row]
+    if failed:
+        raise RuntimeError(f"Incomplete initialization cohort: {', '.join(failed)}. See {summary_csv}")
     
     # Generate batch plots
     if save_plots:
@@ -391,6 +397,25 @@ def _plot_strategy_comparison(csv_path: Path, output_dir: Path) -> None:
     logger.info("Saved strategy comparison plot to %s", out_path)
 
 
+def _plot_strategy_trials(ax, rows, strategy, color):
+    """Draw each recorded trial and the mean where all trials have a sample."""
+    by_trial = {}
+    for row in sorted(rows, key=lambda r: int(r["iteration"])):
+        by_trial.setdefault(int(row["trial"]), []).append(row)
+
+    traces = []
+    for trial in by_trial.values():
+        iterations = [int(row["iteration"]) for row in trial]
+        energies = [float(row["energy"]) for row in trial]
+        if iterations != list(range(len(trial))):
+            raise ValueError(f"Incomplete or duplicate iterations for {strategy}, trial {trial[0]['trial']}")
+        ax.plot(iterations, energies, color=color, alpha=0.2, linewidth=0.5)
+        traces.append(energies)
+    length = min(map(len, traces))
+    mean = np.mean([trace[:length] for trace in traces], axis=0)
+    ax.plot(range(length), mean, marker="o", color=color, linewidth=2.5, label=strategy, markersize=4)
+
+
 def _plot_convergence_comparison(csv_path: Path, output_dir: Path) -> None:
     """Plot convergence curves grouped by molecule."""
     try:
@@ -452,44 +477,8 @@ def _plot_convergence_comparison(csv_path: Path, output_dir: Path) -> None:
         
         # Plot convergence for each strategy
         for strat_idx, (strategy, strat_rows) in enumerate(sorted(by_strategy.items())):
-            # Sort by trial and iteration
-            strat_rows_sorted = sorted(
-                strat_rows,
-                key=lambda r: (int(r.get("trial_idx", 0)), int(r.get("iteration", 0)))
-            )
-            
-            # Group by trial
-            by_trial: Dict[int, List] = {}
-            for row in strat_rows_sorted:
-                trial_idx = int(row.get("trial_idx", 0))
-                if trial_idx not in by_trial:
-                    by_trial[trial_idx] = []
-                by_trial[trial_idx].append(row)
-            
-            # Plot each trial lightly, then mean
-            color = colors(strat_idx % colors.N)
-            energies_by_iter: Dict[int, List[float]] = {}
-            
-            for trial_idx, trial_rows in by_trial.items():
-                iterations = np.array([float(r["iteration"]) for r in trial_rows], dtype=float)
-                energies = np.array([float(r["energy"]) for r in trial_rows], dtype=float)
-                
-                ax.plot(iterations, energies, color=color, alpha=0.2, linewidth=0.5)
-                
-                # Accumulate energies for mean
-                for it, en in zip(iterations, energies):
-                    it_int = int(it)
-                    if it_int not in energies_by_iter:
-                        energies_by_iter[it_int] = []
-                    energies_by_iter[it_int].append(en)
-            
-            # Plot mean
-            if energies_by_iter:
-                mean_iters = sorted(energies_by_iter.keys())
-                mean_energies = [np.mean(energies_by_iter[it]) for it in mean_iters]
-                ax.plot(mean_iters, mean_energies, marker="o", color=color, 
-                       linewidth=2.5, label=strategy, markersize=4)
-        
+            _plot_strategy_trials(ax, strat_rows, strategy, colors(strat_idx % colors.N))
+
         ax.set_xlabel("Iteration", fontsize=10)
         ax.set_ylabel("Energy (Ha)", fontsize=10)
         ax.set_title(f"{mol}", fontsize=11, fontweight="bold")

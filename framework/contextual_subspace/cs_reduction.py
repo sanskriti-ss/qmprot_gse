@@ -1,3 +1,5 @@
+# ABOUTME: Projects qubit Hamiltonians into selected contextual-subspace sectors.
+# ABOUTME: Rotates the molecular reference into the same projected basis as the operator.
 """
 Contextual Subspace Reduction
 

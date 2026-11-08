@@ -1,3 +1,5 @@
+# ABOUTME: Plots the recorded energies, histories and costs of VQE molecular benchmarks.
+# ABOUTME: Groups completed solver results by molecule, algorithm and backend.
 """
 VQE Visualization Module
 
@@ -885,13 +887,14 @@ class VQEVisualizer:
             vqe_energies.append(float(sub["calculated_energy"].min()))
 
         ax.bar(x - width, ref_energies, width, label="Reference (exact)", color="#7f7f7f", alpha=0.8)
-        ax.bar(x, hf_energies, width, label="⟨HF|H|HF⟩", color="#ff7f0e", alpha=0.8)
+        hf_label = r"$\langle \mathrm{HF}|H|\mathrm{HF}\rangle$"
+        ax.bar(x, hf_energies, width, label=hf_label, color="#ff7f0e", alpha=0.8)
         ax.bar(x + width, vqe_energies, width, label="Best VQE", color="#1f77b4", alpha=0.8)
 
         ax.set_xticks(x)
         ax.set_xticklabels(molecules, rotation=30, ha="right")
         ax.set_ylabel("Energy (Hartree)")
-        ax.set_title("Hartree-Fock Verification: Reference vs ⟨HF|H|HF⟩ vs VQE")
+        ax.set_title(f"Hartree-Fock Verification: Reference vs {hf_label} vs VQE")
         ax.legend()
 
         plt.tight_layout()

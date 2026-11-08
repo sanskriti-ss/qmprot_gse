@@ -1,3 +1,5 @@
+# ABOUTME: Optimizes a variational circuit and measures its overlap with classical determinants.
+# ABOUTME: Solves the projected energy problem for the Hartree–Fock and variational states.
 """
 Classically-Boosted VQE (CB-VQE) Implementation
 
@@ -9,81 +11,39 @@ Reference tutorial:
     https://pennylane.ai/qml/demos/tutorial_classically_boosted_vqe
 
 The idea: solve a generalized eigenvalue problem in a 2D subspace spanned by
-    |phi_cl> = Hartree-Fock state  (classical, single Slater determinant)
+    |phi_cl> = encoded Hartree-Fock reference (including its CS projection)
     |phi_q>  = VQE-optimised state (quantum, ansatz output)
 
-This reduces measurement overhead vs. standard VQE while improving energy
-estimates, especially for noisy / shot-limited settings.
+The implemented complex Rayleigh–Ritz projection uses an analytic pure-state
+simulator for both the variational energy and the measured cross terms.
 """
 
-import math
 import numpy as np
-from typing import Optional, Any, List
+from functools import lru_cache
+from typing import Optional, Any
 from scipy import linalg
 import logging
 import time
 
 import sys
 sys.path.append('..')
-from core.base_vqe import BaseVQE, VQEResult, incumbent_converged, incumbent_history
+from core.base_vqe import BaseVQE, VQEResult, incumbent_history
 from core.hamiltonian_loader import QubitHamiltonian
-from core.hf_verification import _build_hamiltonian_matrix, _parse_pauli_string
+from core.hf_verification import _build_hamiltonian_matrix
 
 logger = logging.getLogger(__name__)
 
 
-def _hf_index(n_qubits: int, n_electrons: int) -> int:
-    """
-    Return the computational-basis index for the HF state |1…1 0…0⟩.
-    Qubit-0 is the most-significant bit (big-endian / Jordan-Wigner).
-    """
-    n_occ = min(n_electrons, n_qubits)
-    idx = 0
-    for q in range(n_occ):
-        idx |= 1 << (n_qubits - 1 - q)
-    return idx
+@lru_cache(maxsize=2)
+def _contextual_unitary(n_qubits, dtype, state_bytes):
+    """Retain the two most recent small native preparation matrices by their complete input."""
+    import pennylane as qml
 
-
-def _single_double_excitations(n_electrons: int, n_qubits: int):
-    """
-    Generate all single- and double-excitation Slater determinants
-    from the HF reference (first n_electrons orbitals occupied).
-
-    Returns a list of binary arrays of length n_qubits, each
-    representing a computational-basis state.
-    """
-    n_occ = min(n_electrons, n_qubits)
-    occupied = list(range(n_occ))
-    virtual = list(range(n_occ, n_qubits))
-
-    states = []
-
-    # HF state itself (always included as the first basis state)
-    hf = np.zeros(n_qubits, dtype=int)
-    hf[:n_occ] = 1
-    states.append(hf.copy())
-
-    # Singles: move one electron from occupied -> virtual
-    for i in occupied:
-        for a in virtual:
-            s = hf.copy()
-            s[i] = 0
-            s[a] = 1
-            states.append(s)
-
-    # Doubles: move two electrons from occupied -> virtual
-    for i_idx, i in enumerate(occupied):
-        for j in occupied[i_idx + 1:]:
-            for a_idx, a in enumerate(virtual):
-                for b in virtual[a_idx + 1:]:
-                    d = hf.copy()
-                    d[i] = 0
-                    d[j] = 0
-                    d[a] = 1
-                    d[b] = 1
-                    states.append(d)
-
-    return states
+    state = np.frombuffer(state_bytes, dtype=dtype)
+    wires = tuple(range(n_qubits))
+    matrix = np.asarray(qml.matrix(qml.StatePrep(state, wires=wires), wire_order=wires))
+    matrix.flags.writeable = False
+    return matrix
 
 
 # ---------------------------------------------------------------------------
@@ -99,10 +59,12 @@ class ClassicallyBoostedVQE(BaseVQE):
        in the {|phi_cl>, |phi_q>} subspace.
     3. Solve the generalized eigenvalue problem  H c = E S c.
 
-    The classical state |phi_cl> is the Hartree-Fock determinant.
+    The classical state |phi_cl> is the encoded reference, including its CS rotation.
     Cross-terms are computed via the Hadamard test (quantum) combined
     with classically extractable matrix elements.
     """
+
+    parameter_period = 2 * np.pi
 
     def __init__(
         self,
@@ -116,15 +78,8 @@ class ClassicallyBoostedVQE(BaseVQE):
         self.description = "Classically-Boosted VQE"
         self.n_layers = n_layers
 
-        # Effective n_electrons for the (possibly truncated) active space.
-        # When the full-molecule electron count exceeds the qubit count the
-        # Hamiltonian has been projected into an active space – use half-
-        # filling so the HF state has both occupied and virtual orbitals.
-        n_el_raw = self.hamiltonian.molecule.n_electrons or self.n_qubits // 2
-        if n_el_raw >= self.n_qubits:
-            self._eff_n_electrons = max(1, self.n_qubits // 2)
-        else:
-            self._eff_n_electrons = n_el_raw
+        if self.backend_config.backend_type != "statevector" or self.backend_config.n_shots != 0:
+            raise ValueError("Classically boosted Ritz energies require an analytic pure statevector backend")
 
         # Set during build / run
         self.device = None
@@ -133,32 +88,13 @@ class ClassicallyBoostedVQE(BaseVQE):
         self._cb_energy: Optional[float] = None
 
     # ------------------------------------------------------------------
-    # HF verification with effective n_electrons for truncated system
-    # ------------------------------------------------------------------
-
-    def _perform_hf_verification(self) -> None:
-        """Compute HF energy using the effective active-space electron count."""
-        from core.hf_verification import compute_hf_energy
-        try:
-            self.hf_energy = compute_hf_energy(
-                self.hamiltonian, n_electrons=self._eff_n_electrons
-            )
-            logger.info(
-                f"HF energy (truncated, n_el={self._eff_n_electrons}) = "
-                f"{self.hf_energy:.8f} Ha"
-            )
-        except Exception as exc:
-            logger.warning(f"Could not compute HF energy: {exc}")
-            self.hf_energy = None
-
-    # ------------------------------------------------------------------
     # Ansatz (same lightweight hardware-efficient ansatz as VanillaVQE)
     # ------------------------------------------------------------------
 
     def build_ansatz(self) -> Any:
         """Build parameterised ansatz circuit and cost QNode."""
         import pennylane as qml
-        from core.backend_manager import create_device
+        from core.backend_manager import create_device, fixed_circuit_energy
 
         n_qubits = self.n_qubits
         n_layers = self.n_layers
@@ -189,7 +125,9 @@ class ClassicallyBoostedVQE(BaseVQE):
 
             return qml.expval(H_pl)
 
+        circuit.func.rotation_layout = self._rotation_layout
         self.cost_fn = circuit
+        self._energy = fixed_circuit_energy(circuit, H_pl)
         logger.info(
             f"CB-VQE ansatz: {self.n_parameters} params, "
             f"{n_layers} layers, backend={self.backend_config.label}"
@@ -199,10 +137,10 @@ class ClassicallyBoostedVQE(BaseVQE):
     def cost_function(self, parameters: np.ndarray) -> float:
         if self.cost_fn is None:
             raise RuntimeError("Must call build_ansatz() first")
-        return float(self.cost_fn(parameters))
+        return float(self._energy(parameters))
 
     def get_initial_parameters(self) -> np.ndarray:
-        """All zeros --> HF reference state (rotations = identity)."""
+        """Initialize rotation angles at zero."""
         return np.zeros(self.n_parameters)
 
     # ------------------------------------------------------------------
@@ -230,34 +168,24 @@ class ClassicallyBoostedVQE(BaseVQE):
                 for i in range(1, n_qubits - 1, 2):
                     qml.CNOT(wires=[i, i + 1])
 
-        U = qml.matrix(ansatz_circuit, wire_order=wire_order)(params, wire_order)
-        return np.array(U)
-
-    def _basis_state_unitary(self, state: np.ndarray) -> np.ndarray:
-        """Return the unitary that maps |0…0⟩ -> |state⟩ (product of X gates)."""
-        import pennylane as qml
-
-        n_qubits = self.n_qubits
-        wire_order = list(range(n_qubits))
-
-        def basis_circuit(state):
-            qml.BasisState(state, wires=range(n_qubits))
-
-        U = qml.matrix(basis_circuit, wire_order=wire_order)(state)
+        tape = qml.tape.make_qscript(ansatz_circuit)(params, wire_order)
+        if tape.operations and type(tape.operations[0]) is qml.StatePrep and n_qubits <= 9:
+            preparation = tape.operations[0]
+            state = preparation.data[0]
+            if (type(state) is np.ndarray and state.shape == (1 << n_qubits,)
+                    and state.dtype in (np.float64, np.complex128) and tuple(preparation.wires) == tuple(wire_order)):
+                matrix = _contextual_unitary(n_qubits, state.dtype.str, state.tobytes())
+                first = qml.QubitUnitary(matrix, wires=wire_order)
+                tape = qml.tape.QuantumScript([first, *tape.operations[1:]])
+        U = qml.matrix(tape, wire_order=wire_order)
         return np.array(U)
 
     # ------------------------------------------------------------------
     # Hadamard test
     # ------------------------------------------------------------------
 
-    def _hadamard_test(self, Uq: np.ndarray, Ucl: np.ndarray) -> float:
-        """
-        Compute Re(⟨0|Uq† Ucl|0⟩) via the Hadamard test.
-
-        Uses one ancilla qubit (wire 0) and the system register (wires 1..n).
-        Returns 2*p(0) - 1 where p(0) is the probability of measuring
-        the ancilla in |0⟩.
-        """
+    def _hadamard_test(self, unitary: np.ndarray, index: int) -> complex:
+        """Measure both quadratures of ⟨index|U|0⟩ on a Hadamard-test ancilla."""
         import pennylane as qml
 
         n_qubits = self.n_qubits
@@ -267,23 +195,17 @@ class ClassicallyBoostedVQE(BaseVQE):
         from config import PENNYLANE_DEVICE
         dev = qml.device(PENNYLANE_DEVICE, wires=total_wires)
 
-        # Controlled unitary: Uq† @ Ucl
-        controlled_U = Uq.conj().T @ Ucl
+        # The product of X gates preparing the basis state permutes the unitary rows.
+        controlled_U = unitary[np.arange(1 << n_qubits) ^ index]
 
         @qml.qnode(dev)
         def hadamard_circuit():
             qml.Hadamard(wires=0)
-            # PennyLane >= 0.44: wires = [control, *targets]
-            qml.ControlledQubitUnitary(
-                controlled_U,
-                wires=[0] + list(range(1, total_wires)),
-            )
-            qml.Hadamard(wires=0)
-            return qml.probs(wires=[0])
+            qml.ctrl(qml.QubitUnitary, control=0)(controlled_U, wires=wires[1:])
+            return qml.expval(qml.PauliX(0)), qml.expval(qml.PauliY(0))
 
-        probs = hadamard_circuit()
-        # Re(⟨0|U|0⟩) = 2 * P(ancilla=0) - 1
-        return float(2.0 * probs[0] - 1.0)
+        real, imaginary = hadamard_circuit()
+        return complex(real, imaginary)
 
     # ------------------------------------------------------------------
     # Classical boosting step
@@ -297,81 +219,49 @@ class ClassicallyBoostedVQE(BaseVQE):
         in the {|HF⟩, |VQE⟩} subspace and returns the lowest eigenvalue
         of the generalised eigenvalue problem.
         """
+        import pennylane as qml
+
         n_qubits = self.n_qubits
-        n_electrons = self._eff_n_electrons
+        device = qml.device("default.qubit", wires=n_qubits)
 
-        logger.info(
-            f"CB-VQE: computing classical boost ... "
-            f"(n_electrons={n_electrons}, n_qubits={n_qubits})"
-        )
+        @qml.qnode(device)
+        def reference_state():
+            self._prepare_initial_state()
+            return qml.state()
 
-        # ── Full Hamiltonian matrix (fermionic representation) ────────
-        H_mat = _build_hamiltonian_matrix(self.hamiltonian)
-        hf_idx = _hf_index(n_qubits, n_electrons)
+        reference = np.asarray(reference_state())
+        support = np.flatnonzero(reference)
+        matrix = None
+        if support.size == 1:
+            idx = support[0]
+            h_row = reference[idx].conj() * _build_hamiltonian_matrix(self.hamiltonian, row=idx)
+        else:
+            matrix = _build_hamiltonian_matrix(self.hamiltonian)
+            h_row = reference.conj() @ matrix
+        ref_energy = float(np.real(h_row @ reference))
 
-        # ── H11: classical entry ⟨HF|H|HF⟩ ──────────────────────────
-        H11 = float(np.real(H_mat[hf_idx, hf_idx]))
-        S11 = 1.0
-        logger.info(f"  H11 Classical Entry(HF energy)     = {H11:.8f}")
+        unitary = self._ansatz_unitary(optimal_params)
+        h_cross = 0j
+        overlap = 0j
+        # Both off-diagonal elements use the same measured amplitude ⟨j|ψ⟩.
+        for idx in np.flatnonzero((reference != 0) | (h_row != 0)):
+            amplitude = self._hadamard_test(unitary, idx)
+            h_cross += h_row[idx] * amplitude
+            overlap += reference[idx].conj() * amplitude
 
-        # ── H22: quantum entry = VQE energy ──────────────────────────
-        H22 = vqe_energy
-        S22 = 1.0
-        logger.info(f"  H22 Quantum Entry (VQE energy)    = {H22:.8f}")
-
-        # ── Cross terms H12, S12 via Hadamard test ────────────────────
-        # Relevant basis states: HF + single & double excitations
-        basis_states = _single_double_excitations(n_electrons, n_qubits)
-        logger.info(f"  Relevant basis states: {len(basis_states)}")
-
-        # Get ansatz unitary
-        Uq = self._ansatz_unitary(optimal_params)
-
-        H12 = 0.0 + 0.0j
-        S12 = 0.0
-
-        for j, basis_state in enumerate(basis_states):
-            # Unitary that prepares |basis_state⟩ from |0…0⟩
-            Ucl = self._basis_state_unitary(basis_state)
-
-            # Re(⟨phi_q | basis_state⟩) via Hadamard test
-            y = self._hadamard_test(Uq, Ucl)
-
-            # ⟨basis_state|H|HF⟩ from the fermionic Hamiltonian matrix
-            binary_string = "".join(str(b) for b in basis_state)
-            idx = int(binary_string, 2)
-            overlap_H = H_mat[hf_idx, idx]
-
-            H12 += y * overlap_H
-
-            # The first basis state is the HF state itself →
-            #   y0 = Re(⟨phi_q | HF⟩) → used for overlap S12
-            if j == 0:
-                S12 = y
-
-        H21 = np.conjugate(H12)
-        S21 = np.conjugate(S12)
-
-        logger.info(f"  H12 (cross-term)    = {H12}")
-        logger.info(f"  S12 (overlap)       = {S12}")
-
-        # ── Solve generalised eigenvalue problem ──────────────────────
-        H_proj = np.array([[H11, H12], [H21, H22]], dtype=complex)
-        S_proj = np.array([[S11, S12], [S21, S22]], dtype=complex)
-
-        try:
-            eigenvalues = linalg.eigvals(H_proj, S_proj)
-            real_evals = np.real(eigenvalues[np.isfinite(eigenvalues)])
-            if len(real_evals) == 0:
-                logger.warning("Generalised eigenvalue problem returned no finite eigenvalues; "
-                               "falling back to VQE energy.")
-                return vqe_energy
-            cb_energy = float(np.min(real_evals))
-        except linalg.LinAlgError as exc:
-            logger.warning(f"Generalised eigenvalue problem failed ({exc}); "
-                           f"falling back to VQE energy.")
-            cb_energy = vqe_energy
-
+        h_proj = np.array([[ref_energy, h_cross], [h_cross.conjugate(), vqe_energy]])
+        s_proj = np.array([[1., overlap], [overlap.conjugate(), 1.]])
+        if 1. - abs(overlap) < np.sqrt(np.finfo(float).eps):
+            # The Gram matrix squares the condition number of the state pair.
+            # Resolve a small independent direction directly on the analytic simulator.
+            basis, triangular = np.linalg.qr(np.column_stack((reference, unitary[:, 0])))
+            if abs(triangular[1, 1]) <= np.finfo(float).eps * max(basis.shape):
+                return min(ref_energy, vqe_energy)
+            if matrix is None:
+                matrix = _build_hamiltonian_matrix(self.hamiltonian)
+            cb_energy = float(linalg.eigvalsh(basis.conj().T @ matrix @ basis)[0])
+        else:
+            cb_energy = float(linalg.eigvalsh(h_proj, s_proj)[0])
         logger.info(f"  CB-VQE energy       = {cb_energy:.8f}")
         return cb_energy
 
@@ -379,7 +269,7 @@ class ClassicallyBoostedVQE(BaseVQE):
     # Override run() to add the classical-boosting post-processing
     # ------------------------------------------------------------------
 
-    def run(self) -> VQEResult:
+    def run(self, initial_parameters: Optional[np.ndarray] = None) -> VQEResult:
         """
         Run CB-VQE:
             1. Standard VQE optimisation → optimal params & E_VQE
@@ -388,7 +278,7 @@ class ClassicallyBoostedVQE(BaseVQE):
         logger.info(f"Running {self.name} on {self.hamiltonian.molecule.name}")
         logger.info(f"Backend: {self.backend_config.label}")
 
-        # ── HF verification (truncated active-space electron count) ─
+        # ── Reference energy ─
         self._perform_hf_verification()
 
         # ── Progress bar ──────────────────────────────────────────────
@@ -401,16 +291,15 @@ class ClassicallyBoostedVQE(BaseVQE):
 
         # ── Step 1: standard VQE ──────────────────────────────────────
         start_time = time.time()
-        self.build_ansatz()
-        optimal_params, vqe_energy = self.optimize()
-        self._vqe_energy = vqe_energy
-
-        # ── Step 2: classical boost ───────────────────────────────────
         try:
+            self.build_ansatz()
+            optimal_params, vqe_energy = self.optimize(initial_parameters=initial_parameters)
+            self._vqe_energy = vqe_energy
+
+            # ── Step 2: classical boost ───────────────────────────────────
             cb_energy = self._classical_boost(optimal_params, vqe_energy)
-        except Exception as exc:
-            logger.warning(f"Classical boost failed ({exc}); using VQE energy.")
-            cb_energy = vqe_energy
+        finally:
+            self.progress_bar.close()
         self._cb_energy = cb_energy
 
         runtime = time.time() - start_time
@@ -423,9 +312,7 @@ class ClassicallyBoostedVQE(BaseVQE):
         error = best_energy - ref_energy
         relative_error = abs(error / ref_energy) if ref_energy != 0 else 0.0
 
-        converged = incumbent_converged(
-            self.convergence_history, self.convergence_threshold
-        )
+        converged = bool(self.optimizer_outcome["optimizer_success"])
 
         result = VQEResult(
             molecule_abbrev=self.hamiltonian.molecule.abbreviation,
@@ -444,6 +331,7 @@ class ClassicallyBoostedVQE(BaseVQE):
             optimal_parameters=optimal_params,
             converged=converged,
             metadata={
+                **self.fit_diagnostics(),
                 "optimizer": self.optimizer_name,
                 "max_iterations": self.max_iterations,
                 "n_shots": self.n_shots,
@@ -465,9 +353,6 @@ class ClassicallyBoostedVQE(BaseVQE):
             f"Best={best_energy:.8f}, Error={error:.8f}, "
             f"Runtime={runtime:.2f}s"
         )
-
-        if self.progress_bar:
-            self.progress_bar.close()
 
         if self.hamiltonian.molecule.truncated_ground_state_energy is not None:
             logger.info(f"Full system reference energy: {ref_energy:.8f} Hartree")

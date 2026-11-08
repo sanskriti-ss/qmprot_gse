@@ -11,7 +11,7 @@ import pennylane as qml
 from core.backend_manager import create_device
 from core.base_vqe import BaseVQE, VQEResult
 from core.hamiltonian_loader import QubitHamiltonian
-from core.iqcc_helpers import PauliOperatorPool, of_to_pennylane
+from core.iqcc_helpers import PauliOperatorPool, basis_commutator_support, of_to_pennylane
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +162,7 @@ class iQCC_true_VQE(BaseVQE):
         n_commutator_builds = 0
         n_materialized_commutators = 0
         n_screen_expectations = 0
+        n_screen_basis_zeros = 0
         n_angle_expectations = 0
 
         for step in range(self.max_operators):
@@ -169,9 +170,19 @@ class iQCC_true_VQE(BaseVQE):
             n_screen_sweeps += 1
             best = None
             best_gradient = 0.
+            # Finite operator sums preserve exact structural zeros in Lightning's statevector contraction.
+            support = basis_commutator_support(self, dressed, coefficient_bound=2)
             for word in self.operator_pool:
                 generator = QubitOperator(word)
                 n_commutator_builds += 1
+                if support is not None:
+                    classification = support.classify(next(iter(generator.terms)))
+                    if classification == "commutes":
+                        continue
+                    if classification == "disjoint":
+                        n_screen_expectations += 1
+                        n_screen_basis_zeros += 1
+                        continue
                 anti, derivative = _rotation_terms(dressed, generator)
                 n_materialized_commutators += 1
                 if not derivative.terms:
@@ -231,6 +242,7 @@ class iQCC_true_VQE(BaseVQE):
                 "n_molecular_energy_evals": 1 + self.iteration_count,
                 "n_screen_sweeps": n_screen_sweeps,
                 "n_screen_expectations": n_screen_expectations,
+                "n_screen_basis_zeros": n_screen_basis_zeros,
                 "n_commutator_builds": n_commutator_builds,
                 "n_materialized_commutators": n_materialized_commutators,
                 "n_angle_expectations": n_angle_expectations,

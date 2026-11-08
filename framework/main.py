@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# ABOUTME: Runs registered VQE algorithms on prepared molecular Hamiltonians.
+# ABOUTME: Saves completed results and reports failures across requested batch runs.
 """
 VQE Framework Main Runner
 
@@ -98,6 +100,7 @@ class VQEFramework:
         self.results_manager = ResultsManager(self.results_dir)
         self.visualizer = None  # Lazy initialization
         self._run_csv_path = None  # Incremental CSV in timestamped run folder
+        self.failed_runs = 0
         self._hamiltonian_cache = {}  # Cache prepared (truncated + CS-reduced) Hamiltonians per molecule
 
         logger.info(f"VQE Framework initialized")
@@ -298,18 +301,7 @@ class VQEFramework:
         Returns:
             List of VQEResult dictionaries
         """
-        if algorithms is None:
-            algorithms = list_algorithms()
-        
-        results = []
-        for alg in algorithms:
-            try:
-                result = self.run_single(molecule, alg, **kwargs)
-                results.append(result)
-            except Exception as e:
-                logger.error(f"Error running {alg} on {molecule}: {e}")
-        
-        return results
+        return self.run_all(molecules=[molecule], algorithms=algorithms, **kwargs)
     
     def run_algorithm(self,
                       algorithm: str,
@@ -326,18 +318,7 @@ class VQEFramework:
         Returns:
             List of VQEResult dictionaries
         """
-        if molecules is None:
-            molecules = self.loader.list_available_hamiltonians()
-        
-        results = []
-        for mol in molecules:
-            try:
-                result = self.run_single(mol, algorithm, **kwargs)
-                results.append(result)
-            except Exception as e:
-                logger.error(f"Error running {algorithm} on {mol}: {e}")
-        
-        return results
+        return self.run_all(molecules=molecules, algorithms=[algorithm], **kwargs)
     
     def run_all(self,
                 molecules: Optional[List[str]] = None,
@@ -358,6 +339,8 @@ class VQEFramework:
             molecules = self.loader.list_available_hamiltonians()
         if algorithms is None:
             algorithms = list_algorithms()
+        if not molecules or not algorithms:
+            raise ValueError("The batch requires at least one molecule and one algorithm")
         
         logger.info(f"Running {len(algorithms)} algorithms on {len(molecules)} molecules")
         
@@ -368,6 +351,7 @@ class VQEFramework:
                     result = self.run_single(mol, alg, **kwargs)
                     all_results.append(result)
                 except Exception as e:
+                    self.failed_runs += 1
                     logger.error(f"Error running {alg} on {mol}: {e}")
         
         return all_results
@@ -813,6 +797,8 @@ Examples:
         print("="*50)
         for key, value in summary.items():
             print(f"  {key}: {value}")
+    if framework.failed_runs:
+        raise SystemExit(f"{framework.failed_runs} requested solver run(s) failed")
 
 
 if __name__ == "__main__":

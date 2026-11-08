@@ -1,3 +1,5 @@
+# ABOUTME: Measures adaptive and hardware-efficient trainability at declared parameter targets.
+# ABOUTME: Records optimizer costs, accuracy crossings and single- and multi-molecule results.
 """
 Experiment 3 -- Trainability at matched parameter counts
 ========================================================
@@ -20,10 +22,9 @@ We pre-choose target parameter counts (default ``10, 50, 100``) and run:
   ``>= target_n_params`` parameters.  Defaults to RY-only rotations so
   the parameter count grows linearly with depth.
 
-We also default to ``cs_target_qubits=None`` (no contextual-subspace
-reduction) because CS places the start state at the noncontextual
-ground state, which is a stationary point of the operator pool and
-makes ADAPT exit at k=0.
+With the default ``cs_target_qubits=None``, ADAPT starts from the
+molecular HF determinant. Under contextual reduction the projected
+reference can already be stationary for the selected operator pool.
 
 Comparison metric
 -----------------
@@ -36,7 +37,8 @@ report says it did not reach the threshold within the shared budget.
 
 Every evaluation's energy is recorded by
 :class:`experiments._common.CostEvalCounter`, so the first evaluation at
-which ``E - E_CASCI <= threshold`` is read off exactly.  A run that never
+which ``abs(E - E_CASCI) <= threshold`` is read off exactly. The first
+evaluation at or below HF (within the recorded tolerance) is a separate milestone. A run that never
 reaches a threshold is *censored*: it is reported as ``reached=False`` with
 its spent budget as a lower bound (``> N evals``), never as a cost.
 
@@ -64,8 +66,9 @@ What we measure (per (target_n_params, algorithm) pair)
 * ``n_outer_iters``    -- algorithm-reported iterations (operators for
   ADAPT, COBYLA outer iters for HW-efficient).
 * ``n_cost_evals``     -- the *true* number of optimiser-requested evaluations.
+* ``n_reused_reference_probes`` -- first-screen calls answered from an earlier target on the same molecule.
 * ``evals_to_<thr>``   -- evaluations to first reach ``thr`` (blank = never).
-* ``runtime_seconds``  -- wall time.
+* ``runtime_seconds``  -- elapsed fit time in sweep order. Run one target per invocation for independent timings.
 * ``final_energy``     -- energy of the finished search, not a point where
   the run was cut for reaching chemical accuracy.  Hardware-efficient uses
   the energy the optimiser returns.  Qubit-ADAPT uses the energy of the
@@ -84,7 +87,10 @@ Single-molecule mode:
 ``framework/experiments/results/trainability/<timestamp>_<molecule>_comparison/``
 
 * ``run_config.json``
-* ``results.csv``                  -- one row per (target, algorithm).
+* ``results.csv``                  -- one row per (target, algorithm) with first target crossings
+  for all objective evaluations, accepted states, and displaced pool probes.
+* ``endpoints.jsonl``              -- refitted generators, angles, replayed energies and sector diagnostics.
+* ``model_reference.json``         -- model ground energy and minimum possible absolute CASCI error bound.
 * ``convergence_traces.csv``       -- long-format energy traces.
 * ``eval_traces.csv``              -- best-error-so-far vs evaluation index.
 * ``cost_to_accuracy.png``         -- evals to reach each accuracy (censored runs marked).
@@ -121,6 +127,7 @@ Run as a script
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import sys
@@ -137,14 +144,19 @@ if str(_FW_DIR) not in sys.path:
 
 from algorithms import get_algorithm  # noqa: E402
 
+from experiments.provenance import framework_source, record_runtime, save_problem
+from experiments.endpoint_sector import model_reference, summarize_endpoint
 from experiments import cost_to_accuracy as cta  # noqa: E402
-from core.base_vqe import EvaluationBudgetExhausted  # noqa: E402
+from core.base_vqe import EvaluationBudgetExhausted, is_bayesian_optimizer  # noqa: E402
+from core.hf_verification import compute_hf_energy_pennylane
 from experiments._common import (  # noqa: E402
     ACCURACY_LADDER_HA,
     AccuracyReached,
     CHEMICAL_ACCURACY_HA,
     CostEvalCounter,
     DATASETS2_DIR,
+    geometry_sha256,
+    HF_TOLERANCE_HA,
     LoadedHamiltonian,
     he_layers_for_target_params,
     load_small_hamiltonian,
@@ -152,6 +164,7 @@ from experiments._common import (  # noqa: E402
     make_run_dir,
     sample_initial_parameters,
     threshold_label,
+    validate_study_axes,
 )
 
 logger = logging.getLogger(__name__)
@@ -177,25 +190,35 @@ class TrainabilityRow:
     runtime_seconds: float
     final_energy: float
     error_vs_casci: float
-    converged_below_threshold: bool
+    converged_below_threshold: Optional[bool]  # adaptive pool gradient criterion
     convergence_history: List[float] = field(default_factory=list)
     notes: str = ""
     # -- parameter matching ------------------------------------------------
     param_match: str = ""             # exact | rounded_up | stopped_early
     # -- cost to reach a fixed accuracy -------------------------------------
     n_callback_evals: int = 0         # bookkeeping evals, NOT in n_cost_evals
+    n_reused_reference_probes: int = 0
     eval_budget: int = 0              # evaluation cap given to the optimiser (0 = none)
     best_error_vs_casci: float = float("nan")   # lowest energy seen - CASCI
+    best_abs_error_vs_casci: float = float("nan")
     hf_error_vs_casci: float = float("nan")     # E_HF - E_CASCI
+    evals_to_hf: Optional[int] = None
     # threshold label (e.g. '1.6mHa') -> first eval reaching it, None = never
     evals_to_threshold: Dict[str, Optional[int]] = field(default_factory=dict)
-    # (eval_index, best_error_vs_casci) recorded whenever the best improves
-    error_trace: List[Tuple[int, float]] = field(default_factory=list)
+    # (evaluation, lowest signed error, closest absolute error), including each improvement
+    error_trace: List[Tuple[int, float, float]] = field(default_factory=list)
     stopped_at_accuracy: bool = False
     init_label: str = ""
     # True for rows rebuilt from final-energy-only data: ``evals_to_threshold``
     # values are then UPPER bounds (run total) rather than exact first hits.
     bounds_only: bool = False
+    optimizer_success: Optional[bool] = None
+    stop_reason: str = ""
+    accepted_evals_to: Dict[str, Optional[int]] = field(default_factory=dict)
+    probe_evals_to: Dict[str, Optional[int]] = field(default_factory=dict)
+    endpoint: dict = field(default_factory=dict)
+    operator_ground_energy: Optional[float] = None
+    error_vs_operator_ground: Optional[float] = None
 
 
 @dataclass
@@ -216,11 +239,15 @@ class TrainabilityConfig:
     n_qubits_final: int
     casci_energy: Optional[float]
     hf_energy: Optional[float]
+    encoded_reference_energy: Optional[float]
     he_param_match: str = "exact"
     he_eval_budget: int = DEFAULT_HE_EVAL_BUDGET
     he_init_strategy: str = "small_random"
     he_hf_init: bool = True
+    he_stop_at_accuracy: bool = False
+    geometry_sha256: str = ""
     accuracy_thresholds_ha: Tuple[float, ...] = ACCURACY_LADDER_HA
+    hf_tolerance_ha: float = HF_TOLERANCE_HA
 
 
 def _fill_accuracy_metrics(
@@ -236,23 +263,88 @@ def _fill_accuracy_metrics(
     row.n_callback_evals = int(counter.callback_evals)
     if hf is not None and casci is not None:
         row.hf_error_vs_casci = float(hf - casci)
+    if hf is not None:
+        row.evals_to_hf = counter.evals_to_reach(hf + HF_TOLERANCE_HA)
     if casci is None or not counter.energies:
         return
-    rm = counter.running_min()
-    row.best_error_vs_casci = float(rm[-1] - casci)
-    improved = np.flatnonzero(np.r_[True, rm[1:] < rm[:-1]])
-    trace = [(int(i) + 1, float(rm[i] - casci)) for i in improved]
-    if trace[-1][0] != len(rm):
-        trace.append((len(rm), float(rm[-1] - casci)))
-    row.error_trace = trace
-    row.evals_to_threshold = {
-        threshold_label(t): counter.evals_to_reach(casci + t) for t in thresholds
-    }
+    errors = np.asarray(counter.energies) - casci
+    lowest = np.minimum.accumulate(errors)
+    closest = np.minimum.accumulate(np.abs(errors))
+    row.best_error_vs_casci = float(lowest[-1])
+    row.best_abs_error_vs_casci = float(closest[-1])
+    keep = np.r_[True, (np.diff(lowest) < 0) | (np.diff(closest) < 0)]
+    keep[-1] = True
+    row.error_trace = [(int(i) + 1, float(lowest[i]), float(closest[i])) for i in np.flatnonzero(keep)]
+    for tolerance in thresholds:
+        hits = np.flatnonzero(closest <= tolerance)
+        row.evals_to_threshold[threshold_label(tolerance)] = int(hits[0]) + 1 if hits.size else None
 
 
 # ──────────────────────────────────────────────────────────────────────────
 # Per-algorithm runners
 # ──────────────────────────────────────────────────────────────────────────
+
+class StateAttainment:
+    """First crossings of molecular targets by retained states and displaced pool probes."""
+
+    def __init__(self, loaded):
+        self.loaded = loaded
+        self.thresholds = {"hf": None, **{threshold_label(t): t for t in ACCURACY_LADDER_HA}}
+        self.accepted = dict.fromkeys(self.thresholds)
+        self.probes = dict.fromkeys(self.thresholds)
+        self.states = []
+
+    def crossings(self, counts, index, energy):
+        hits = []
+        for label, tolerance in self.thresholds.items():
+            if counts[label] is not None:
+                continue
+            if label == "hf":
+                reached = self.loaded.hf_energy is not None and energy <= self.loaded.hf_energy + HF_TOLERANCE_HA
+            else:
+                reached = self.loaded.casci_energy is not None and abs(energy - self.loaded.casci_energy) <= tolerance
+            if reached:
+                counts[label] = index
+                hits.append(label)
+        return hits
+
+    def accept(self, index, energy, kind, parameters, operators=None):
+        hits = self.crossings(self.accepted, index, energy)
+        state = dict(eval_index=index, energy=float(energy), kind=kind)
+        if hits or kind != "incumbent":
+            state["parameters"] = np.asarray(parameters, dtype=float).tolist()
+        if hits:
+            state["first_crossings"] = hits
+        if operators is not None:
+            state["selected_operators"] = list(operators)
+        self.states.append(state)
+
+
+def _record_endpoint(row, loaded, solver, parameters, attainment, settings):
+    diagnostics = summarize_endpoint(loaded, solver, parameters)
+    if not np.isclose(diagnostics["rescored_energy"], row.final_energy, rtol=0, atol=1e-8):
+        raise ValueError(f"{row.algorithm} endpoint does not reproduce its reported energy")
+    selected = [int(i) for i in getattr(solver, "selected_operators", ())]
+    for state in attainment.states:
+        if "parameters" not in state:
+            continue
+        state_selected = state.get("selected_operators")
+        if (state_selected is None or state_selected == selected) and np.array_equal(state["parameters"], parameters):
+            measured = diagnostics
+        else:
+            measured = summarize_endpoint(loaded, solver, state["parameters"], state_selected)
+        if not np.isclose(measured["rescored_energy"], state["energy"], rtol=0, atol=1e-8):
+            raise ValueError(f"{row.algorithm} accepted state does not reproduce its recorded energy")
+        state["rescored_energy"] = measured["rescored_energy"]
+        state["wrong_electron_probability"] = measured["wrong_electron_probability"]
+    row.accepted_evals_to = attainment.accepted
+    row.probe_evals_to = attainment.probes
+    row.endpoint = dict(parameters=np.asarray(parameters, dtype=float).tolist(),
+                        selected_operators=selected,
+                        generators=[solver.operator_pool[i] for i in selected],
+                        settings=settings, reported_energy=row.final_energy,
+                        stop_reason=row.stop_reason, accepted_states=attainment.states, **diagnostics)
+
 
 def _run_adapt_at_target(
     loaded: LoadedHamiltonian,
@@ -266,6 +358,7 @@ def _run_adapt_at_target(
     convergence_threshold: float,
     random_seed: int,
     eval_budget: int = DEFAULT_HE_EVAL_BUDGET,
+    reference_probes: Optional[dict] = None,
 ) -> TrainabilityRow:
     """Run an adaptive VQE capped at ``target_n_params`` operators and at
     ``eval_budget`` energy evaluations.
@@ -287,8 +380,19 @@ def _run_adapt_at_target(
     if algorithm == "qubit_adapt_vqe" and qubit_adapt_max_gradient_candidates is not None:
         algo_kwargs["max_gradient_candidates"] = qubit_adapt_max_gradient_candidates
 
+    counter = CostEvalCounter(max_evals=eval_budget)
+    attainment = StateAttainment(loaded)
+    initial_energy = float(compute_hf_energy_pennylane(loaded.hamiltonian))
+    attainment.accept(0, initial_energy, "encoded_reference", [], [])
+
+    def operator_fit(solver, energy):
+        attainment.accept(counter.count, energy, "operator_fit", solver.parameters,
+                          [int(i) for i in solver.selected_operators])
+
     vqe = AlgorithmCls(
         loaded.hamiltonian,
+        on_pool_probe=lambda energy: attainment.crossings(attainment.probes, counter.count, energy),
+        on_operator_fit=operator_fit,
         max_operators=target_n_params,
         gradient_threshold=gradient_threshold,
         optimizer=optimizer,
@@ -299,7 +403,31 @@ def _run_adapt_at_target(
         **algo_kwargs,
     )
 
-    counter = CostEvalCounter(max_evals=eval_budget)
+    reused = 0
+    if (reference_probes is not None and bc.n_shots == 0 and not bc.is_noisy
+            and bc.device_name in ("lightning.qubit", "default.qubit")):
+        from core.pauli_measurement import lightning_thread_count
+
+        evaluate = vqe.cost_function
+        threads = lightning_thread_count() if bc.device_name == "lightning.qubit" else None
+
+        def evaluate_probe(parameters):
+            nonlocal reused
+            if vqe.parameters.size or len(vqe.selected_operators) != 1:
+                return evaluate(parameters)
+            if vqe.device.name == "lightning.qubit" and (threads is None or threads() != 1):
+                return evaluate(parameters)
+            # The pool is displaced from the encoded reference before the first operator is accepted.
+            vector = np.asarray(parameters)
+            generator = vqe.operator_pool[vqe.selected_operators[0]]
+            key = (vqe.device.name, generator, vector.dtype.str, vector.tobytes())
+            if key in reference_probes:
+                reused += 1
+            else:
+                reference_probes[key] = evaluate(parameters)
+            return reference_probes[key]
+
+        vqe.cost_function = evaluate_probe
     counter.attach(vqe)
     t0 = time.time()
     try:
@@ -310,14 +438,10 @@ def _run_adapt_at_target(
 
     history = list(result.convergence_history)
     final_e = float(history[-1]) if history else float(result.calculated_energy)
-    if (
-        not np.isfinite(final_e)
-        and int(result.n_parameters) == 0
-        and loaded.hf_energy is not None
-    ):
-        # The budget ran out while scoring the first pool, before any
-        # operator existed.  The state is still the Hartree-Fock determinant.
-        final_e = float(loaded.hf_energy)
+    if not np.isfinite(final_e) and int(result.n_parameters) == 0:
+        # The screen exhausted the budget before an operator was accepted.
+        # Score the initial ket against the actual operator for the endpoint.
+        final_e = initial_energy
     casci = loaded.casci_energy if loaded.casci_energy is not None else float("nan")
 
     limited = (result.metadata or {}).get("evaluation_budget")
@@ -329,6 +453,10 @@ def _run_adapt_at_target(
             f"(target={target_n_params})"
         )
         logger.info(notes)
+    elif (result.metadata or {}).get("stopped_on_sample"):
+        notes = (f"{algorithm} stopped at {result.n_parameters} ops (target={target_n_params}); "
+                 "the sampled gradients did not justify growth. Other candidates were untested.")
+        logger.info(notes)
     elif result.n_parameters < target_n_params:
         notes = (
             f"{algorithm} terminated early at {result.n_parameters} ops "
@@ -336,12 +464,16 @@ def _run_adapt_at_target(
         )
         logger.info(notes)
 
+    if algorithm == "adapt_vqe":
+        notes = (notes + " " + vqe.description).strip()
+
     row = TrainabilityRow(
         algorithm=algorithm,
         target_n_params=target_n_params,
         actual_n_params=int(result.n_parameters),
         n_outer_iters=int(result.n_iterations),
         n_cost_evals=int(counter.count),
+        n_reused_reference_probes=reused,
         runtime_seconds=runtime,
         final_energy=final_e,
         error_vs_casci=final_e - casci,
@@ -354,7 +486,15 @@ def _run_adapt_at_target(
         eval_budget=eval_budget,
         init_label="HF reference",
     )
+    row.stop_reason = (f"evaluation budget during {limited}" if limited else
+                       "sampled gradients below threshold" if result.metadata.get("stopped_on_sample") else
+                       "pool gradients below threshold" if result.converged else "operator target reached")
     _fill_accuracy_metrics(row, counter, loaded)
+    settings = dict(max_operators=target_n_params, gradient_threshold=gradient_threshold,
+                    random_seed=random_seed, optimizer=optimizer, max_iterations=max_iterations)
+    if algorithm == "adapt_vqe":
+        settings["excitation_implementation"] = vqe.excitation_implementation
+    _record_endpoint(row, loaded, vqe, result.optimal_parameters, attainment, {**settings, **algo_kwargs})
     return row
 
 
@@ -400,7 +540,7 @@ def _run_he_at_target(
     if budget < 1:
         raise ValueError(f"eval_budget must be >= 1, got {eval_budget}")
     budget_note = ""
-    if budget < n_free + 1:
+    if str(optimizer).upper() == "COBYLA" and budget < n_free + 1:
         budget_note = (
             f"; budget {budget} is below n_params+1={n_free + 1}, so COBYLA "
             "cannot take a step along every parameter"
@@ -428,17 +568,30 @@ def _run_he_at_target(
     )
 
     casci = loaded.casci_energy
-    stop_below = (
-        casci + CHEMICAL_ACCURACY_HA if (stop_at_accuracy and casci is not None) else None
-    )
-    counter = CostEvalCounter(stop_below=stop_below, max_evals=budget)
+    stop_within = (casci, CHEMICAL_ACCURACY_HA) if stop_at_accuracy and casci is not None else None
+    attainment = StateAttainment(loaded)
+    incumbent_energy = float("inf")
+    incumbent_parameters = last_parameters = None
+    bayesian = is_bayesian_optimizer(optimizer)
+
+    def observe(index, parameters, energy, callback):
+        nonlocal incumbent_energy, incumbent_parameters, last_parameters
+        if not callback and stop_within is not None and abs(energy - stop_within[0]) <= stop_within[1]:
+            last_parameters = np.array(parameters, dtype=float, copy=True)
+        if callback or index == 1 or (bayesian and energy < incumbent_energy):
+            incumbent_energy = energy
+            incumbent_parameters = np.array(parameters, dtype=float, copy=True)
+            kind = "initial" if index == 1 and not callback else "incumbent"
+            attainment.accept(index, energy, kind, parameters)
+
+    counter = CostEvalCounter(stop_within=stop_within, max_evals=budget, observe_energy=observe)
     counter.attach(vqe)
     stopped = False
     budget_hit = False
     optimal_energy = None
     t0 = time.time()
     try:
-        _, optimal_energy = vqe.optimize(initial_parameters=theta0)
+        parameters, optimal_energy = vqe.optimize(initial_parameters=theta0)
     except AccuracyReached:
         stopped = True
     except EvaluationBudgetExhausted:
@@ -454,9 +607,9 @@ def _run_he_at_target(
         # The accuracy stop raises inside the crossing evaluation, so
         # ``optimize`` does not return.  That crossing energy is the one
         # the optional early stop is defined to report.
-        final_e = float(counter.energies[-1]) if counter.energies else float("nan")
+        parameters, final_e = last_parameters, counter.energies[-1]
     elif budget_hit or optimal_energy is None:
-        final_e = float(min(counter.energies)) if counter.energies else float("nan")
+        parameters, final_e = incumbent_parameters, incumbent_energy
     else:
         final_e = float(optimal_energy)
     casci_f = casci if casci is not None else float("nan")
@@ -480,7 +633,7 @@ def _run_he_at_target(
         runtime_seconds=runtime,
         final_energy=final_e,
         error_vs_casci=final_e - casci_f,
-        converged_below_threshold=stopped,
+        converged_below_threshold=None,
         convergence_history=history,
         notes=notes,
         param_match="exact" if int(vqe.n_parameters) == target_n_params else "rounded_up",
@@ -488,7 +641,17 @@ def _run_he_at_target(
         stopped_at_accuracy=stopped,
         init_label=f"{init_strategy}{'+HF' if hf_init else ''}",
     )
+    row.optimizer_success = vqe.optimizer_outcome.get("optimizer_success")
+    row.stop_reason = ("chemical accuracy" if stopped else "shared evaluation budget" if budget_hit else
+                       vqe.optimizer_outcome["optimizer_message"])
+    endpoint_kind = ("crossing_at_accuracy" if stopped else "last_incumbent_at_budget" if budget_hit
+                     else "optimizer_return")
+    attainment.accept(counter.count, final_e, endpoint_kind, parameters)
     _fill_accuracy_metrics(row, counter, loaded)
+    settings = dict(n_layers=n_layers, rotation_gates=rotation_gates, prepare_hf=hf_init,
+                    max_free_parameters=target_n_params if exact else None, random_seed=random_seed,
+                    optimizer=optimizer, max_iterations=budget)
+    _record_endpoint(row, loaded, vqe, parameters, attainment, settings)
     return row
 
 
@@ -526,11 +689,14 @@ def run_trainability(
 
     Returns a dict with keys ``"config"``, ``"rows"``, ``"output_dir"``.
     """
+    validate_study_axes(algorithms=algorithms, param_targets=param_targets)
     loaded = load_small_hamiltonian(
         molecule=molecule, basis=basis, cs_target_qubits=cs_target_qubits,
     )
+    reference_summary = model_reference(loaded)
 
     cfg = TrainabilityConfig(
+        he_stop_at_accuracy=he_stop_at_accuracy, geometry_sha256=loaded.preparation["geometry_sha256"],
         molecule=molecule, basis=basis,
         cs_target_qubits=cs_target_qubits,
         algorithms=tuple(algorithms),
@@ -546,6 +712,7 @@ def run_trainability(
         n_qubits_final=loaded.n_qubits_final,
         casci_energy=loaded.casci_energy,
         hf_energy=loaded.hf_energy,
+        encoded_reference_energy=loaded.encoded_reference_energy,
         he_param_match=he_param_match,
         he_eval_budget=he_eval_budget,
         he_init_strategy=he_init_strategy,
@@ -555,16 +722,21 @@ def run_trainability(
     out_dir = output_dir or make_run_dir(
         "trainability", molecule, "comparison",
     )
+    record_runtime(out_dir)
+    save_problem(loaded, Path(out_dir) / "inputs")
+    (Path(out_dir) / "model_reference.json").write_text(json.dumps(reference_summary, indent=2, allow_nan=False) + "\n")
     logger.info("Output dir: %s", out_dir)
 
     # Only relevant for ``he_param_match='round_up'``: different targets can
     # round up to the same ansatz (e.g. 5 and 10 both -> 24 parameters), so
     # HE rows are cached by actual_n_params and re-used instead of re-run.
     he_cache: Dict[int, TrainabilityRow] = {}
+    reference_probes = {name: {} for name in algorithms} if len(param_targets) > 1 else {}
     if int(he_eval_budget) < 1:
         raise ValueError(f"he_eval_budget must be >= 1, got {he_eval_budget}")
 
     rows: List[TrainabilityRow] = []
+    failures = []
     for target in param_targets:
         for algo in algorithms:
             logger.info(
@@ -583,6 +755,7 @@ def run_trainability(
                         convergence_threshold=convergence_threshold,
                         random_seed=random_seed,
                         eval_budget=he_eval_budget,
+                        reference_probes=reference_probes.get(algo),
                     )
                 elif algo == "hardware_efficient_vqe":
                     n_layers, actual = he_layers_for_target_params(
@@ -642,11 +815,26 @@ def run_trainability(
                     f"after {reached} evals" if reached else "NO (censored)",
                 )
             except Exception as exc:
+                failures.append(f"{algo} at target {target}: {exc}")
                 logger.exception("Failed for target=%d algo=%s: %s", target, algo, exc)
 
-    _save_outputs(cfg, rows, out_dir, save_plots=save_plots)
+    ground = reference_summary["operator_ground_energy"]
+    for row in rows:
+        row.operator_ground_energy = ground
+        row.error_vs_operator_ground = None if ground is None else row.final_energy - ground
+    _save_outputs(cfg, rows, out_dir, save_plots=save_plots, reference_summary=reference_summary)
+    if failures:
+        raise RuntimeError("Incomplete trainability results: " + "; ".join(failures))
+    inventory = _artifact_hashes(Path(out_dir), molecule, save_plots)
+    marker = Path(out_dir) / "completed_artifacts.json"
+    pending = marker.with_suffix(".tmp")
+    pending.write_text(json.dumps(inventory, indent=2) + "\n")
+    pending.replace(marker)
 
-    return {"config": cfg, "rows": rows, "output_dir": out_dir}
+    return {
+        "config": cfg, "rows": rows, "output_dir": out_dir,
+        "model_reference": reference_summary,
+    }
 
 
 def discover_trainability_molecules(
@@ -654,13 +842,14 @@ def discover_trainability_molecules(
 ) -> List[str]:
     """Resolve molecule IDs for trainability runs.
 
+    Both plain ``.h5`` and compressed ``.h5.gz`` geometry files are accepted.
     If ``molecules`` is provided, duplicates are removed while preserving
-    order. Otherwise, all molecules with ``datasets2/<mol>/<mol>.h5`` are
-    discovered from disk.
+    order. Otherwise, all valid datasets2 molecule folders are discovered.
     """
-    import h5py
+    from active_space_truncation.geometry import load_geometry_from_h5
 
     if molecules:
+        validate_study_axes(molecules=molecules)
         deduped: List[str] = []
         seen = set()
         for mol in molecules:
@@ -675,7 +864,10 @@ def discover_trainability_molecules(
         candidates = sorted(
             p.name
             for p in DATASETS2_DIR.iterdir()
-            if p.is_dir() and (p / f"{p.name}.h5").is_file()
+            if p.is_dir() and any(
+                (p / f"{p.name}{suffix}").is_file()
+                for suffix in (".h5", ".h5.gz")
+            )
         )
 
     discovered: List[str] = []
@@ -683,22 +875,25 @@ def discover_trainability_molecules(
     for mol in candidates:
         h5_path = DATASETS2_DIR / mol / f"{mol}.h5"
         if not h5_path.is_file():
+            compressed_h5_path = DATASETS2_DIR / mol / f"{mol}.h5.gz"
+            if compressed_h5_path.is_file():
+                h5_path = compressed_h5_path
+        if not h5_path.is_file():
             skipped.append(mol)
             continue
         try:
-            with h5py.File(h5_path, "r") as f:
-                if "symbols" in f and "coordinates" in f:
-                    discovered.append(mol)
-                else:
-                    skipped.append(mol)
+            load_geometry_from_h5(str(h5_path))
+            discovered.append(mol)
         except Exception:
             skipped.append(mol)
 
     if not discovered:
         raise FileNotFoundError(
             f"No trainability-ready molecules found in {DATASETS2_DIR}; "
-            "expected datasets2/<molecule>/<molecule>.h5 with 'symbols' and 'coordinates' datasets"
+            "expected datasets2/<molecule>/<molecule>.h5[.gz] with valid QMProt geometry"
         )
+    if skipped and molecules:
+        raise ValueError("Invalid requested geometries: " + ", ".join(skipped))
     if skipped:
         logger.warning(
             "Skipping %d molecule(s) without trainability-ready geometry keys: %s",
@@ -706,6 +901,15 @@ def discover_trainability_molecules(
             ", ".join(skipped),
         )
     return discovered
+
+
+def _artifact_hashes(directory, molecule, plots):
+    names = ["run_config.json", "runtime.json", "framework-source.zip", f"inputs/{molecule}.npz",
+             "results.csv", "endpoints.jsonl", "model_reference.json", "eval_traces.csv", "convergence_traces.csv", "cost_to_accuracy_report.md"]
+    if plots:
+        names.extend(("cost_to_accuracy.png", "error_vs_cost.png", "cost_evals_vs_params.png",
+                      "final_energy_vs_params.png", "runtime_vs_params.png"))
+    return {name: hashlib.sha256((directory / name).read_bytes()).hexdigest() for name in names}
 
 
 def run_trainability_all_molecules(
@@ -734,6 +938,7 @@ def run_trainability_all_molecules(
     import csv
     from datetime import datetime
 
+    validate_study_axes(algorithms=algorithms, param_targets=param_targets)
     selected_molecules = discover_trainability_molecules(molecules)
 
     if output_root is None:
@@ -748,19 +953,50 @@ def run_trainability_all_molecules(
     succeeded: List[str] = []
     failed: Dict[str, str] = {}
     resumed: List[str] = []
-    expected_rows_per_molecule = len(param_targets) * len(algorithms)
+    settings = dict(
+        basis=basis,
+        cs_target_qubits=cs_target_qubits,
+        algorithms=algorithms,
+        param_targets=param_targets,
+        adapt_gradient_threshold=adapt_gradient_threshold,
+        qubit_adapt_max_gradient_candidates=qubit_adapt_max_gradient_candidates,
+        optimizer=optimizer,
+        max_iterations=max_iterations,
+        convergence_threshold=convergence_threshold,
+        he_rotation_gates=he_rotation_gates,
+        random_seed=random_seed,
+        he_param_match=he_param_match,
+        he_eval_budget=he_eval_budget,
+        he_init_strategy=he_init_strategy,
+        he_hf_init=he_hf_init,
+        he_stop_at_accuracy=he_stop_at_accuracy,
+    )
+    expected_keys = {(algorithm, target) for algorithm in algorithms for target in param_targets}
+    source_hash = hashlib.sha256(framework_source()).hexdigest() if resume else None
 
     for molecule in selected_molecules:
         molecule_out = output_root / molecule
 
-        if resume:
-            existing_rows = _load_trainability_rows(molecule_out)
-            if len(existing_rows) >= expected_rows_per_molecule:
-                logger.info(
-                    "[trainability-batch] resume skip molecule=%s (%d existing rows)",
-                    molecule,
-                    len(existing_rows),
-                )
+        config_file = molecule_out / "run_config.json"
+        if resume and config_file.is_file():
+            stored = json.loads(config_file.read_text())
+            expected = json.loads(json.dumps(dict(settings, molecule=molecule,
+                                                  geometry_sha256=geometry_sha256(molecule))))
+            different = [key for key in expected if stored.get(key) != expected[key]]
+            if different:
+                raise ValueError(f"Resume settings differ for {molecule}: {', '.join(different)}")
+            try:
+                completed = json.loads((molecule_out / "completed_artifacts.json").read_text())
+                required = _artifact_hashes(molecule_out, molecule, save_plots)
+                intact = (required["framework-source.zip"] == source_hash and
+                          all(completed.get(name) == digest for name, digest in required.items()))
+            except (FileNotFoundError, ValueError):
+                intact = False
+            existing_rows = _load_trainability_rows(molecule_out) if intact else []
+            keys = {(r.algorithm, r.target_n_params) for r in existing_rows}
+            if keys == expected_keys and all(r.error_trace and r.n_cost_evals == r.error_trace[-1][0]
+                                             and np.isfinite(r.final_energy) for r in existing_rows):
+                logger.info("[trainability-batch] resume skip molecule=%s", molecule)
                 aggregated_rows.extend((molecule, row) for row in existing_rows)
                 succeeded.append(molecule)
                 resumed.append(molecule)
@@ -774,24 +1010,7 @@ def run_trainability_all_molecules(
         try:
             out = run_trainability(
                 molecule=molecule,
-                basis=basis,
-                cs_target_qubits=cs_target_qubits,
-                algorithms=algorithms,
-                param_targets=param_targets,
-                adapt_gradient_threshold=adapt_gradient_threshold,
-                qubit_adapt_max_gradient_candidates=qubit_adapt_max_gradient_candidates,
-                optimizer=optimizer,
-                max_iterations=max_iterations,
-                convergence_threshold=convergence_threshold,
-                he_rotation_gates=he_rotation_gates,
-                random_seed=random_seed,
-                output_dir=molecule_out,
-                save_plots=save_plots,
-                he_param_match=he_param_match,
-                he_eval_budget=he_eval_budget,
-                he_init_strategy=he_init_strategy,
-                he_hf_init=he_hf_init,
-                he_stop_at_accuracy=he_stop_at_accuracy,
+                output_dir=molecule_out, save_plots=save_plots, **settings,
             )
             rows = out["rows"]
             aggregated_rows.extend((molecule, row) for row in rows)
@@ -853,6 +1072,7 @@ def run_trainability_all_molecules(
         "he_init_strategy": he_init_strategy,
         "he_hf_init": he_hf_init,
         "he_stop_at_accuracy": he_stop_at_accuracy,
+        "hf_tolerance_ha": HF_TOLERANCE_HA,
         "accuracy_thresholds_ha": list(ACCURACY_LADDER_HA),
         "random_seed": random_seed,
         "n_rows": len(aggregated_rows),
@@ -886,6 +1106,7 @@ def _save_outputs(
     rows: List[TrainabilityRow],
     out_dir: Path,
     save_plots: bool = True,
+    reference_summary: Optional[dict] = None,
 ) -> None:
     import csv
 
@@ -897,6 +1118,14 @@ def _save_outputs(
     cfg_dict["accuracy_thresholds_ha"] = list(cfg.accuracy_thresholds_ha)
     with open(out_dir / "run_config.json", "w") as f:
         json.dump(cfg_dict, f, indent=2)
+
+    digest = hashlib.sha256((out_dir / "inputs" / f"{cfg.molecule}.npz").read_bytes()).hexdigest()
+    with (out_dir / "endpoints.jsonl").open("w") as stream:
+        for row in rows:
+            record = dict(molecule=cfg.molecule, input_sha256=digest, algorithm=row.algorithm,
+                          target_n_params=row.target_n_params, accepted_evals_to=row.accepted_evals_to,
+                          probe_evals_to=row.probe_evals_to, **row.endpoint)
+            stream.write(json.dumps(record, allow_nan=False) + "\n")
 
     records = [cta.make_record(cfg.molecule, r, cfg.accuracy_thresholds_ha) for r in rows]
     cta.write_records_csv(out_dir / "results.csv", records, cfg.accuracy_thresholds_ha)
@@ -1016,13 +1245,16 @@ def _load_trainability_rows(molecule_out_dir: Path) -> List[TrainabilityRow]:
     rows_by_key: Dict[Tuple[str, int], TrainabilityRow] = {}
     with open(results_csv, newline="") as f:
         reader = csv.DictReader(f)
+        if "best_abs_error_vs_casci" not in (reader.fieldnames or ()):
+            return []
         for rec in reader:
             try:
                 algo = str(rec["algorithm"])
                 target = int(rec["target_n_params"])
                 key = (algo, target)
+                if key in rows_by_key:
+                    return []
                 labels = [threshold_label(t) for t in ACCURACY_LADDER_HA]
-                has_new = f"evals_to_{labels[-1]}" in rec
                 rows_by_key[key] = TrainabilityRow(
                     algorithm=algo,
                     target_n_params=target,
@@ -1032,25 +1264,46 @@ def _load_trainability_rows(molecule_out_dir: Path) -> List[TrainabilityRow]:
                     runtime_seconds=float(rec["runtime_seconds"]),
                     final_energy=float(rec["final_energy"]),
                     error_vs_casci=float(rec["error_vs_casci"]),
-                    converged_below_threshold=str(rec["converged_below_threshold"]).strip()
-                    in ("1", "true", "True", "yes", "YES"),
+                    operator_ground_energy=(float(rec["operator_ground_energy"])
+                                            if rec.get("operator_ground_energy") else None),
+                    error_vs_operator_ground=(float(rec["error_vs_operator_ground"])
+                                              if rec.get("error_vs_operator_ground") else None),
+                    converged_below_threshold=(bool(int(rec["converged_below_threshold"]))
+                                               if rec["converged_below_threshold"] else None),
+                    optimizer_success=bool(int(rec["optimizer_success"])) if rec["optimizer_success"] else None,
+                    stop_reason=rec["stop_reason"],
                     convergence_history=[],
                     notes=str(rec.get("notes", "")),
                     param_match=str(rec.get("param_match", "")),
                     n_callback_evals=int(rec.get("n_callback_evals") or 0),
+                    n_reused_reference_probes=int(rec.get("n_reused_reference_probes") or 0),
                     eval_budget=int(rec.get("eval_budget") or 0),
                     best_error_vs_casci=float(rec.get("best_error_vs_casci") or "nan"),
+                    best_abs_error_vs_casci=float(rec["best_abs_error_vs_casci"]),
                     hf_error_vs_casci=float(rec.get("hf_error_vs_casci") or "nan"),
+                    evals_to_hf=int(rec["evals_to_hf"]) if rec["evals_to_hf"] else None,
                     evals_to_threshold={
                         lab: (int(rec[f"evals_to_{lab}"]) if rec.get(f"evals_to_{lab}") else None)
                         for lab in labels
-                    } if has_new else {},
+                    },
                     stopped_at_accuracy=str(rec.get("stopped_at_accuracy", "")).strip() == "1",
                     init_label=str(rec.get("init_label", "")),
-                    bounds_only=not has_new,
+                    bounds_only=bool(int(rec["bounds_only"])),
                 )
             except Exception as exc:
                 logger.warning("Could not parse row in %s: %s", results_csv, exc)
+
+    with (molecule_out_dir / "endpoints.jsonl").open() as stream:
+        for line in stream:
+            record = json.loads(line)
+            row = rows_by_key.get((record["algorithm"], record["target_n_params"]))
+            if row is None or row.endpoint:
+                return []
+            row.endpoint = record
+            row.accepted_evals_to = record["accepted_evals_to"]
+            row.probe_evals_to = record["probe_evals_to"]
+    if any(not row.endpoint for row in rows_by_key.values()):
+        return []
 
     eval_csv = molecule_out_dir / "eval_traces.csv"
     if eval_csv.is_file() and rows_by_key:
@@ -1060,7 +1313,8 @@ def _load_trainability_rows(molecule_out_dir: Path) -> List[TrainabilityRow]:
                     key = (str(rec["algorithm"]), int(rec["target_n_params"]))
                     if key in rows_by_key:
                         rows_by_key[key].error_trace.append(
-                            (int(rec["eval_index"]), float(rec["best_error_vs_casci"]))
+                            (int(rec["eval_index"]), float(rec["best_error_vs_casci"]),
+                             float(rec["best_abs_error_vs_casci"]))
                         )
                 except Exception:
                     continue
@@ -1095,7 +1349,7 @@ def _save_all_molecules_cost_evals_plot(
     output_root: Path,
     aggregated_rows: List[Tuple[str, TrainabilityRow]],
 ) -> None:
-    """Plot one aggregate cost-evals chart with all molecules and both algorithms."""
+    """Plot evaluation counts for all recorded molecules and algorithms."""
     if not aggregated_rows:
         return
 
@@ -1107,21 +1361,28 @@ def _save_all_molecules_cost_evals_plot(
         logger.warning("matplotlib unavailable for aggregate plot: %s", exc)
         return
 
+    fig, ax = plt.subplots(figsize=(11, 6))
+    _plot_trainability_costs(ax, aggregated_rows)
+    fig.tight_layout()
+    out = output_root / "all_molecules_cost_evals_vs_params.png"
+    fig.savefig(out, dpi=180)
+    plt.close(fig)
+    logger.info("Wrote aggregate cost-evals plot to %s", out)
+
+
+def _plot_trainability_costs(ax, aggregated_rows: List[Tuple[str, TrainabilityRow]]) -> None:
+    from matplotlib import colormaps
+
     targets = sorted({r.target_n_params for _, r in aggregated_rows})
-    algorithms = [
-        algo for algo in DEFAULT_ALGORITHMS
-        if any(r.algorithm == algo for _, r in aggregated_rows)
-    ]
-    if not algorithms:
-        algorithms = sorted({r.algorithm for _, r in aggregated_rows})
+    recorded = {r.algorithm for _, r in aggregated_rows}
+    algorithms = [algo for algo in DEFAULT_ALGORITHMS if algo in recorded]
+    algorithms.extend(sorted(recorded.difference(algorithms)))
 
     n_molecules = len({m for m, _ in aggregated_rows})
     x = np.arange(len(targets), dtype=float)
     offsets = np.linspace(-0.18, 0.18, num=max(len(algorithms), 1))
-    colors = plt.get_cmap("tab10")
+    colors = colormaps["tab10"]
     rng = np.random.default_rng(42)
-
-    fig, ax = plt.subplots(figsize=(11, 6))
 
     for i, algo in enumerate(algorithms):
         medians: List[float] = []
@@ -1156,20 +1417,15 @@ def _save_all_molecules_cost_evals_plot(
 
     ax.set_xticks(x)
     ax.set_xticklabels([str(t) for t in targets])
-    ax.set_xlabel("target n_parameters")
-    ax.set_ylabel("# cost-function evaluations")
+    ax.set_xlabel("Requested parameter count")
+    ax.set_ylabel("Cost-function evaluations spent")
     ax.set_yscale("log")
     ax.set_title(
         f"Trainability across all molecules ({n_molecules} molecules)\n"
-        "points = molecule runs, lines = algorithm median"
+        "Points show molecule runs, including early stops. Lines show algorithm medians."
     )
     ax.grid(True, axis="y", which="both", alpha=0.3)
     ax.legend(fontsize=9)
-    fig.tight_layout()
-    out = output_root / "all_molecules_cost_evals_vs_params.png"
-    fig.savefig(out, dpi=180)
-    plt.close(fig)
-    logger.info("Wrote aggregate cost-evals plot to %s", out)
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -1206,9 +1462,8 @@ def _build_argparser() -> argparse.ArgumentParser:
     )
     p.add_argument("--basis", default="sto-3g")
     p.add_argument("--cs-target-qubits", type=int, default=0,
-                   help="<=0 to skip CS reduction (recommended -- CS makes "
-                        "ADAPT terminate at k=0 because the start state is "
-                        "the noncontextual GS).")
+                   help="<=0 to retain the molecular HF starting determinant. "
+                        "With CS the projected reference can already be stationary for the pool.")
     p.add_argument("--algorithms", nargs="+", default=list(DEFAULT_ALGORITHMS),
                    help="Algorithms to compare. Supported: "
                         "{adapt_vqe, qubit_adapt_vqe, hardware_efficient_vqe}.")
@@ -1248,7 +1503,7 @@ def _build_argparser() -> argparse.ArgumentParser:
     p.add_argument("--he-init-strategy", default="small_random",
                    choices=["random_uniform", "small_random", "near_identity", "zeros"],
                    help="HE initial parameters. small_random is U[-pi/8, pi/8], "
-                        "near the Hartree-Fock state because HF preparation is on. "
+                        "near the zero-angle circuit; its entanglers still act on HF. "
                         "random_uniform is U[0, 2pi], the McClean hard case.")
     p.add_argument("--he-hf-init", action=argparse.BooleanOptionalAction, default=True,
                    help="Prepare the Hartree-Fock reference before the HE rotations. "
@@ -1334,6 +1589,8 @@ def main() -> None:
             for mol, err in failed.items():
                 print(f"  {mol}: {err}")
         print(f"\nBatch results saved to: {out['output_dir']}")
+        if failed:
+            raise SystemExit(1)
         return
 
     out = run_trainability(

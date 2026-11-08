@@ -1,3 +1,5 @@
+# ABOUTME: Loads atomic coordinates and molecule identifiers from QMProt geometry datasets.
+# ABOUTME: Reads plain or gzip-compressed HDF5 inputs used by the active-space pipeline.
 """Geometry loading for molecular systems.
 
 Supports loading from QMProt H5 files (the primary path)

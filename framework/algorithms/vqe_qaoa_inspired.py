@@ -1,3 +1,5 @@
+# ABOUTME: Fits a layered fixed Ising phase and single-qubit mixer to a molecular observable.
+# ABOUTME: Supports parameterized product-state initialization and configurable mixer gates.
 """
 QAOA-Inspired VQE Implementation
 
@@ -23,6 +25,8 @@ class QAOAInspiredVQE(BaseVQE):
     Adapted for molecular Hamiltonians.
     """
     
+    parameter_period = 2 * np.pi
+
     def __init__(self,
                  hamiltonian: QubitHamiltonian,
                  n_layers: int = 3,
@@ -51,7 +55,7 @@ class QAOAInspiredVQE(BaseVQE):
     def build_ansatz(self) -> Any:
         """Build the QAOA-inspired ansatz circuit"""
         import pennylane as qml
-        from core.backend_manager import create_device
+        from core.backend_manager import create_device, fixed_circuit_energy
         
         n_qubits = self.n_qubits
         n_layers = self.n_layers
@@ -117,6 +121,7 @@ class QAOAInspiredVQE(BaseVQE):
             return qml.expval(H)
         
         self.cost_fn = circuit
+        self._energy = fixed_circuit_energy(circuit, H)
         logger.info(f"Built QAOA-inspired ansatz with {self.n_parameters} parameters, "
                    f"{n_layers} layers, backend={self.backend_config.label}")
         
@@ -126,7 +131,7 @@ class QAOAInspiredVQE(BaseVQE):
         """Evaluate the cost function"""
         if self.cost_fn is None:
             raise RuntimeError("Must call build_ansatz() first")
-        return float(self.cost_fn(parameters))
+        return float(self._energy(parameters))
     
     def get_initial_parameters(self) -> np.ndarray:
         """Get initial parameters"""

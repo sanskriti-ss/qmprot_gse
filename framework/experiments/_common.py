@@ -1,3 +1,5 @@
+# ABOUTME: Loads experiment geometries and builds simulation backends and circuits.
+# ABOUTME: Provides shared initialization, gradient and evaluation-count helpers.
 """
 Shared helpers for ``experiments/*`` modules.
 
@@ -21,15 +23,17 @@ experiments both need:
    parameter drift is attributable to the noise channel and not to a
    different starting point.
 
-All path handling is done via ``pathlib`` and uses ``framework/datasets2``
-explicitly (per project convention) rather than the ``DATASETS_DIR`` env
-variable, so these scripts run regardless of what ``DATASETS_DIR`` is set to.
+Geometry inputs default to ``framework/datasets2``. Set ``QMPROT_GEOMETRIES``
+to select a directory with the same per-molecule layout.
 """
 
 from __future__ import annotations
 
+import hashlib
 import logging
+import os
 import sys
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -50,7 +54,7 @@ from algorithms import get_algorithm  # noqa: E402
 logger = logging.getLogger(__name__)
 
 # Project-standard dataset folder (per project README + user guidance)
-DATASETS2_DIR: Path = _FW_DIR / "datasets2"
+DATASETS2_DIR: Path = Path(os.environ.get("QMPROT_GEOMETRIES", _FW_DIR / "datasets2"))
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -70,6 +74,26 @@ class LoadedHamiltonian:
     cs_metadata: Optional[Dict[str, Any]] = None
     casci_energy: Optional[float] = None
     hf_energy: Optional[float] = None
+    encoded_reference_energy: Optional[float] = None
+    preparation: Optional[Dict[str, Any]] = None
+
+
+def validate_study_axes(**axes):
+    """Each named axis contributes one observation for each distinct setting."""
+    for name, values in axes.items():
+        if not values or len(set(values)) != len(values):
+            raise ValueError(f"Select at least one {name} entry and supply each only once")
+
+
+def geometry_sha256(molecule: str) -> str:
+    path = DATASETS2_DIR / molecule / f"{molecule}.h5"
+    if not path.is_file():
+        path = DATASETS2_DIR / molecule / f"{molecule}.h5.gz"
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def load_small_hamiltonian(
@@ -105,9 +129,14 @@ def load_small_hamiltonian(
     """
     h5_path = DATASETS2_DIR / molecule / f"{molecule}.h5"
     if not h5_path.is_file():
+        compressed_h5_path = DATASETS2_DIR / molecule / f"{molecule}.h5.gz"
+        if compressed_h5_path.is_file():
+            h5_path = compressed_h5_path
+    if not h5_path.is_file():
         available = sorted(p.name for p in DATASETS2_DIR.iterdir() if p.is_dir())
         raise FileNotFoundError(
-            f"H5 dataset not found: {h5_path}\nAvailable molecules in "
+            f"H5 dataset not found: {DATASETS2_DIR / molecule / (molecule + '.h5')} "
+            f"or its .gz variant\nAvailable molecules in "
             f"datasets2/: {available}"
         )
 
@@ -120,10 +149,20 @@ def load_small_hamiltonian(
         h5_path=str(h5_path),
         quiet=True,
     )
+    if not pipeline["diagnostics"].hf_converged or not pipeline["active_space"].casci_converged:
+        raise ValueError(f"Unconverged chemistry reference for {molecule} in {basis}")
     ham: QubitHamiltonian = pipeline["hamiltonian"].qubit_hamiltonian
     n_active = ham.n_qubits
     casci_energy = pipeline["active_space"].casci_energy
     hf_energy = pipeline["diagnostics"].hf_energy
+    preparation = {
+        "geometry_file_sha256": hashlib.sha256(h5_path.read_bytes()).hexdigest(),
+        "active_electrons": pipeline["active_space"].n_active_electrons,
+        "active_orbitals": pipeline["active_space"].n_active_orbitals,
+        "spin": pipeline["geometry"].spin,
+        "charge": pipeline["geometry"].charge,
+        "active_orbital_indices": list(pipeline["diagnostics"].proposed_active_indices),
+    }
 
     # 3. Optional CS reduction
     cs_meta: Optional[Dict[str, Any]] = None
@@ -140,6 +179,9 @@ def load_small_hamiltonian(
         )
         cs_reduced = bool(cs_meta.get("reduced", False))
 
+    from core.hf_verification import compute_hf_energy_pennylane
+    encoded_reference_energy = float(compute_hf_energy_pennylane(ham))
+
     logger.info(
         "Loaded %s/%s: active-space %d qubits -> final %d qubits (cs=%s, %d terms)",
         molecule, basis, n_active, ham.n_qubits, cs_reduced, ham.n_terms,
@@ -155,6 +197,13 @@ def load_small_hamiltonian(
         cs_metadata=cs_meta,
         casci_energy=casci_energy,
         hf_energy=hf_energy,
+        encoded_reference_energy=encoded_reference_energy,
+        preparation={**preparation, "geometry_sha256": geometry_sha256(molecule),
+                     "atoms": pipeline["geometry"].atoms,
+                     "coordinates_angstrom": pipeline["geometry"].coords.tolist(),
+                     "active_orbital_basis": ("natural" if pipeline["diagnostics"].natural_orbital_coefficients is not None else "canonical"),
+                     "active_indices": list(pipeline["diagnostics"].proposed_active_indices),
+                     "cs_target_qubits": cs_target_qubits},
     )
 
 
@@ -176,6 +225,8 @@ def load_small_hamiltonian(
 # ``build_vqe`` so the trainability / accuracy-vs-parameters experiments
 # can use it.
 SAFE_ALGORITHMS = ("hardware_efficient_vqe", "pennylane_vqe", "adapt_vqe")
+LAYERED_ALGORITHMS = ("hardware_efficient_vqe", "pennylane_vqe", "qaoa_inspired_vqe", "hva_vqe")
+NOISE_ALGORITHMS = LAYERED_ALGORITHMS + ("ucc_vqe", "nn_ae_vqe")
 
 
 def make_backend_config(
@@ -216,6 +267,7 @@ def build_vqe(
     convergence_threshold: float = 1e-10,
     random_seed: int = 42,
     n_shots: int = 0,
+    supported_algorithms: Tuple[str, ...] = SAFE_ALGORITHMS,
     **algo_kwargs,
 ):
     """Instantiate a VQE algorithm and call ``build_ansatz`` once.
@@ -230,10 +282,10 @@ def build_vqe(
     ``rhoend`` and would otherwise terminate after only ~10 iterations on
     these small problems, masking real differences between runs.
     """
-    if algorithm not in SAFE_ALGORITHMS:
+    if algorithm not in supported_algorithms:
         logger.warning(
-            "Algorithm %r is not in SAFE_ALGORITHMS=%s; experiments may "
-            "behave unexpectedly.", algorithm, SAFE_ALGORITHMS,
+            "Algorithm %r is outside the supported experiment algorithms %s; "
+            "experiments may behave unexpectedly.", algorithm, supported_algorithms,
         )
 
     AlgorithmCls = get_algorithm(algorithm)
@@ -277,23 +329,16 @@ def sample_initial_parameters(
         initialisation that suffers from barren plateaus at modest depth
         (McClean et al., 2018).
     ``small_random``
-        Uniform on ``[-pi/8, pi/8]``.  A moderate perturbation of the
-        identity rotations, and the default for the trainability ranking.
-        With Hartree--Fock preparation this starts near ``E_HF``.  This is
-        not the Grant et al. (2019) identity-block initializer: there, half
-        of the angles are still uniform on ``[0, 2*pi]`` and the other half
-        are set to the adjoint so each block is exactly the identity.
+        Uniform on ``[-pi/8, pi/8]``. A moderate perturbation of the
+        zero-angle circuit, and the default for the trainability ranking.
+        Each angle is drawn independently. Grant et al. (2019) pair
+        random gates with their adjoints in identity blocks.
     ``near_identity``
-        Uniform on ``[-0.05, 0.05]``.  Near-zero rotations leave the state
-        close to whatever the circuit prepares before the variational
-        layers.  Hardware-efficient prepares Hartree--Fock by default, as
-        do UCC, HVA, and ADAPT, so this sits next to that reference.
-        ``prepare_hf=False`` leaves it next to ``|0...0>``.
+        Uniform on ``[-0.05, 0.05]``. Fixed entangling gates still act on
+        the prepared state at the centre of this distribution.
     ``zeros``
-        Identically zero.  Exact Hartree--Fock energy when the gates are
-        identity at theta=0 and the circuit prepares HF first, which is the
-        hardware-efficient default as well as HVA and UCC.
-        ``prepare_hf=False`` makes it a fixed point at ``|0...0>``.
+        Identically zero. The reference energy is recovered when the
+        zero-angle circuit preserves the prepared reference state.
     """
     rng = rng if rng is not None else np.random.default_rng()
 
@@ -322,8 +367,8 @@ def parameter_shift_gradient(
 ) -> np.ndarray:
     """Evaluate the parameter-shift-rule gradient component-wise.
 
-    For ansatze built from single-rotation gates (``RX``, ``RY``, ``RZ``,
-    ``SingleExcitation``, ``DoubleExcitation``, ...), the parameter-shift
+    When a parameter controls one Pauli rotation (``RX``, ``RY``, or ``RZ``),
+    the parameter-shift
     rule with ``shift = pi/2`` gives the *exact* analytic gradient with two
     circuit evaluations per parameter:
 
@@ -342,9 +387,12 @@ def parameter_shift_gradient(
     indices:
         Subset of parameter indices to differentiate.  ``None`` means all.
     shift:
-        Shift angle (default ``pi/2``).
+        Shift angle with nonzero sine (default ``pi/2``). The denominator is ``2 sin(shift)``.
     """
     params = np.asarray(params, dtype=float)
+    if not np.isfinite(shift) or np.remainder(shift, np.pi) == 0:
+        raise ValueError("The shift must have a finite, nonzero sine")
+    denominator = 2 * np.sin(shift)
     if indices is None:
         indices = list(range(len(params)))
 
@@ -354,7 +402,7 @@ def parameter_shift_gradient(
         e_k[k] = shift
         e_plus = float(cost_fn(params + e_k))
         e_minus = float(cost_fn(params - e_k))
-        grad[j] = 0.5 * (e_plus - e_minus)
+        grad[j] = (e_plus - e_minus) / denominator
     return grad
 
 
@@ -425,21 +473,23 @@ class CostEvalCounter:
 
     Optional early stop
     -------------------
-    ``stop_below`` (an absolute energy in Ha) makes the counter raise
-    :class:`AccuracyReached` as soon as an evaluation falls at or below
-    it, so a budget-limited run can end the moment it hits the target
-    accuracy.  Callers catch the exception.
+    ``stop_within=(reference, tolerance)`` (Ha) raises :class:`AccuracyReached`
+    on the first counted evaluation within that distance of the reference.
     """
 
     def __init__(
         self,
-        stop_below: Optional[float] = None,
+        stop_within: Optional[Tuple[float, float]] = None,
         max_evals: Optional[int] = None,
+        observe_energy=None,
     ) -> None:
+        self.observe_energy = observe_energy
         self.count: int = 0
         self.callback_evals: int = 0
         self.energies: List[float] = []
-        self.stop_below = stop_below
+        self.stop_within = stop_within
+        if stop_within is not None and (not np.all(np.isfinite(stop_within)) or stop_within[1] < 0):
+            raise ValueError("Early stopping requires a finite reference and nonnegative finite tolerance")
         self.max_evals = None if max_evals is None else int(max_evals)
         if self.max_evals is not None and self.max_evals < 1:
             raise ValueError(f"max_evals must be >= 1, got {max_evals}")
@@ -455,6 +505,7 @@ class CostEvalCounter:
         self.count = 0
         self.callback_evals = 0
         self.energies = []
+        self.parameters = []
         vqe._eval_counter = self
 
         self._orig_cost_function = vqe.cost_function
@@ -463,14 +514,21 @@ class CostEvalCounter:
         def counted_cost_function(parameters):
             if self._in_callback:
                 self.callback_evals += 1
-                return self._orig_cost_function(parameters)
+                energy = self._orig_cost_function(parameters)
+                if self.observe_energy is not None:
+                    self.observe_energy(self.count, parameters, float(energy), True)
+                return energy
             if self.max_evals is not None and self.count >= self.max_evals:
                 raise EvaluationBudgetExhausted(self.count)
             energy = self._orig_cost_function(parameters)
             self.count += 1
             self.energies.append(float(energy))
-            if self.stop_below is not None and energy <= self.stop_below:
-                raise AccuracyReached(self.count, float(energy))
+            if self.observe_energy is not None:
+                self.observe_energy(self.count, parameters, float(energy), False)
+            if self.stop_within is not None:
+                reference, tolerance = self.stop_within
+                if abs(energy - reference) <= tolerance:
+                    raise AccuracyReached(self.count, float(energy))
             return energy
 
         vqe.cost_function = counted_cost_function  # type: ignore[assignment]
@@ -514,7 +572,7 @@ class CostEvalCounter:
 
 
 class AccuracyReached(Exception):
-    """Raised by :class:`CostEvalCounter` when ``stop_below`` is met."""
+    """Raised by :class:`CostEvalCounter` when the absolute accuracy target is met."""
 
     def __init__(self, n_evals: int, energy: float) -> None:
         super().__init__(f"accuracy target reached after {n_evals} evaluations "
@@ -528,6 +586,7 @@ class AccuracyReached(Exception):
 # ──────────────────────────────────────────────────────────────────────────
 
 CHEMICAL_ACCURACY_HA: float = 1.6e-3   # 1 kcal/mol ~ 1.6 mHa
+HF_TOLERANCE_HA: float = 1e-8          # numerical tolerance when matching the HF baseline
 
 # Error thresholds relative to E_CASCI (Ha), loosest -> tightest.
 ACCURACY_LADDER_HA: Tuple[float, ...] = (1.0e-1, 1.0e-2, CHEMICAL_ACCURACY_HA)
@@ -542,16 +601,17 @@ def threshold_label(threshold_ha: float) -> str:
 # Parameter-drift metrics (single definition shared by all noise code)
 # ──────────────────────────────────────────────────────────────────────────
 
-def wrap_angles(delta: np.ndarray) -> np.ndarray:
-    """Map angle differences to (-pi, pi]."""
-    return (np.asarray(delta, dtype=float) + np.pi) % (2.0 * np.pi) - np.pi
+def wrap_angles(delta: np.ndarray, period: float = 2*np.pi) -> np.ndarray:
+    """Map coordinate differences into the centered interval of the declared period."""
+    return (np.asarray(delta, dtype=float) + period/2) % period - period/2
 
 
 def parameter_drift_metrics(
     theta_noisy: np.ndarray,
     theta_clean: np.ndarray,
     theta_init: Optional[np.ndarray] = None,
-) -> Dict[str, float]:
+    period: Optional[float] = 2*np.pi,
+) -> Dict[str, Optional[float]]:
     """All drift quantities for one noisy run, computed in one place.
 
     Primary quantity (the one plotted in the paper)::
@@ -568,9 +628,7 @@ def parameter_drift_metrics(
         ``param_drift_l2 / sqrt(n_params)`` -- root-mean-square shift per
         parameter in radians.  Comparable across ansatz sizes.
     ``param_drift_l2_wrapped``
-        Same as ``param_drift_l2`` after wrapping each coordinate's
-        difference to (-pi, pi]; rotation angles that differ by 2*pi are
-        the same gate, so this is the physically meaningful distance.
+        Coordinate distance modulo a common circuit period, when defined.
     ``clean_displacement_l2`` / ``noisy_displacement_l2``
         ``||theta* - theta_init||_2`` for each run: how far each
         optimiser travelled from the shared start.  These are the
@@ -584,8 +642,8 @@ def parameter_drift_metrics(
         "param_drift_l2": l2,
         "param_drift_rms": l2 / float(np.sqrt(n)),
         "param_drift_l2_wrapped": float(
-            np.linalg.norm(wrap_angles(theta_noisy - theta_clean))
-        ),
+            np.linalg.norm(wrap_angles(theta_noisy - theta_clean, period))
+        ) if period is not None else None,
         "clean_displacement_l2": float("nan"),
         "noisy_displacement_l2": float("nan"),
     }

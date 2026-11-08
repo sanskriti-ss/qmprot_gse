@@ -1,6 +1,13 @@
+# ABOUTME: Defines Pauli operator pools and Hamiltonian transforms for iQCC.
+# ABOUTME: Builds the observables consumed by the iQCC objectives.
 from dataclasses import dataclass
 from typing import Dict
 import itertools
+import math
+
+import numpy as np
+
+from core.hamiltonian_loader import pauli_product
 
 @dataclass(frozen=True)
 class IQCC_Operator:
@@ -27,14 +34,59 @@ class PauliOperatorPool:
                     pool.append(word)
         return pool
 
+
+class PauliCommutatorSupport:
+    """Pauli support of [H, P] on wires that can vary from a basis reference."""
+    def __init__(self, hamiltonian):
+        self.z_by_flip = {}
+        for term in hamiltonian.terms:
+            x, z = self.masks(term)
+            self.z_by_flip.setdefault(x, []).append(z)
+
+    @staticmethod
+    def masks(term):
+        flip = sum(1 << wire for wire, pauli in term if pauli in "XY")
+        phase = sum(1 << wire for wire, pauli in term if pauli in "YZ")
+        return flip, phase
+
+    def classify(self, generator, active_wires=0):
+        x, z = self.masks(generator)
+        classification = "commutes"
+        for hx, phases in self.z_by_flip.items():
+            # A product flipping a fixed wire connects orthogonal basis sectors.
+            can_overlap = ((hx ^ x) & ~active_wires) == 0
+            if can_overlap or classification == "commutes":
+                if any(((x & hz) ^ (z & hx)).bit_count() % 2 for hz in phases):
+                    if can_overlap:
+                        return "overlap"
+                    classification = "disjoint"
+        return classification
+
+
+def basis_commutator_support(solver, hamiltonian, coefficient_bound):
+    """Restrict exact-zero screening to finite analytic Lightning contractions on a basis ket."""
+    reference = solver.hamiltonian.cs_initial_state
+    if (solver.backend_config.backend_type != "statevector" or solver.device.name != "lightning.qubit"
+            or solver.device.shots.total_shots is not None or reference is not None and np.count_nonzero(reference) != 1):
+        return None
+    values = hamiltonian.terms.values()
+    if all(c.imag == 0 for c in values):
+        limit = np.finfo(solver.device.c_dtype).max / coefficient_bound
+        if sum(abs(float(c.real)) for c in values) < limit:
+            return PauliCommutatorSupport(hamiltonian)
+    return None
+
 def of_to_pennylane(of_operator):
+    """Convert a Hermitian Pauli sum into a measurable PennyLane observable."""
     import pennylane as qml
     coeffs = []
     ops = []
 
     for term, coeff in of_operator.terms.items():
+        if coeff.imag != 0 or not math.isfinite(coeff.real):
+            raise ValueError(f"Expected a finite real Pauli coefficient for {term}, got {coeff}")
+        coeffs.append(float(coeff.real))
         if not term:
-            coeffs.append(coeff)
             ops.append(qml.Identity(0))
             continue
 
@@ -47,12 +99,7 @@ def of_to_pennylane(of_operator):
             elif pauli == 'Z':
                 pauli_ops.append(qml.PauliZ(wire))
 
-        op = pauli_ops[0]
-        for next_op in pauli_ops[1:]:
-            op = op @ next_op
-
-        coeffs.append(coeff)
-        ops.append(op)
+        ops.append(pauli_product(pauli_ops))
 
     return qml.Hamiltonian(coeffs, ops)
 

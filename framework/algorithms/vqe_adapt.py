@@ -1,3 +1,5 @@
+# ABOUTME: Runs the registered adaptive RY/CNOT excitation approximations on a molecular objective.
+# ABOUTME: Screens its circuit extensions and optimizes the selected angles.
 """
 ADAPT-VQE Implementation
 
@@ -16,8 +18,11 @@ from core.base_vqe import (
     VQEResult,
     incumbent_history,
     inner_solve_iteration_cap,
+    pool_probe_energy,
+    record_operator_fit,
 )
 from core.hamiltonian_loader import QubitHamiltonian
+from core.pauli_measurement import adaptive_state_measurement
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +35,8 @@ class AdaptVQE(BaseVQE):
     based on their gradient magnitudes.
     """
     
+    parameter_period = 4 * np.pi
+
     def __init__(self,
                  hamiltonian: QubitHamiltonian,
                  max_operators: int = 20,
@@ -47,7 +54,8 @@ class AdaptVQE(BaseVQE):
         super().__init__(hamiltonian, **kwargs)
         
         self.name = "adapt_vqe"
-        self.description = "Adaptive Derivative-Assembled Pseudo-Trotter VQE"
+        self.description = "Adaptive VQE with approximate RY/CNOT excitations (particle number can change)"
+        self.excitation_implementation = "approximate RY/CNOT"
         self.max_operators = max_operators
         self.gradient_threshold = gradient_threshold
         
@@ -62,12 +70,15 @@ class AdaptVQE(BaseVQE):
     def build_ansatz(self) -> Any:
         """Build the operator pool for ADAPT-VQE"""
         import pennylane as qml
-        from core.backend_manager import create_device
+        from core.backend_manager import analytic_energy, create_device
         
         n_qubits = self.n_qubits
         
         # Create device via backend manager
         self.device = create_device(self.backend_config)
+        self._energy_observable = None
+        if self.backend_config.backend_type == "statevector" and self.backend_config.n_shots == 0:
+            self._energy_observable = self.hamiltonian.to_pennylane()
         
         # Build operator pool (single and double excitations)
         self.operator_pool = []
@@ -88,6 +99,11 @@ class AdaptVQE(BaseVQE):
         self.selected_operators = []
         self.parameters = np.array([])
         self.n_parameters = 0
+        self._measure_energy = None
+        if self._energy_observable is not None and type(self)._build_circuit is AdaptVQE._build_circuit:
+            self.cost_fn = self._build_circuit(self.parameters)
+            self._measure_energy = analytic_energy(self.cost_fn, self._energy_observable,
+                                                   measure_state=adaptive_state_measurement(n_qubits, self._energy_observable))
         
         return self.operator_pool
     
@@ -127,13 +143,17 @@ class AdaptVQE(BaseVQE):
                 # Apply noise after each operator (no-op for statevector)
                 insert_noise()
             
-            H = self.hamiltonian.to_pennylane()
+            H = self._energy_observable
+            if H is None:
+                H = self.hamiltonian.to_pennylane()
             return qml.expval(H)
         
         return circuit
     
     def cost_function(self, parameters: np.ndarray) -> float:
         """Evaluate the cost function"""
+        if self._measure_energy is not None:
+            return float(self._measure_energy(parameters))
         circuit = self._build_circuit(parameters)
         return float(circuit(parameters))
     
@@ -150,19 +170,19 @@ class AdaptVQE(BaseVQE):
                 continue
             
             # Temporarily add operator
-            self.selected_operators.append(op_idx)
             test_params = np.append(self.parameters, delta)
-            
-            # Compute gradient via finite difference
-            energy_plus = self.cost_function(test_params)
-            test_params[-1] = -delta
-            energy_minus = self.cost_function(test_params)
-            
+            self.selected_operators.append(op_idx)
+            try:
+                # Compute gradient via finite difference at theta=0
+                energy_plus = pool_probe_energy(self, test_params)
+                test_params[-1] = -delta
+                energy_minus = pool_probe_energy(self, test_params)
+            finally:
+                # Remove operator
+                self.selected_operators.pop()
+
             gradient = (energy_plus - energy_minus) / (2 * delta)
             gradients.append(abs(gradient))
-            
-            # Remove operator
-            self.selected_operators.pop()
         
         return np.array(gradients)
     
@@ -195,15 +215,15 @@ class AdaptVQE(BaseVQE):
                 budget_limited = "gradient screening"
                 logger.info("Evaluation budget exhausted during gradient screening")
                 break
-            max_grad_idx = np.argmax(gradients)
-            max_grad = gradients[max_grad_idx]
+            max_grad = gradients.max(initial=0.0)
             
             logger.debug(f"ADAPT iteration {iteration}: max gradient = {max_grad:.6f}")
             
-            if max_grad < self.gradient_threshold:
-                logger.info(f"Converged at iteration {iteration} (gradient below threshold)")
+            if max_grad == 0 or max_grad < self.gradient_threshold:
+                logger.info(f"Converged at iteration {iteration} (maximum pool gradient {max_grad:.2e})")
                 grad_converged = True
                 break
+            max_grad_idx = np.argmax(gradients)
 
             operators_left = self.max_operators - len(self.selected_operators)
             step_cap = inner_solve_iteration_cap(
@@ -238,7 +258,7 @@ class AdaptVQE(BaseVQE):
                 break
             finally:
                 self.max_iterations = saved_max
-            self.convergence_history.append(float(current_energy))
+            record_operator_fit(self, current_energy)
         
         runtime = time.time() - start_time
         
@@ -271,6 +291,7 @@ class AdaptVQE(BaseVQE):
             converged=grad_converged,
             metadata={
                 "optimizer": self.optimizer_name,
+                "excitation_implementation": self.excitation_implementation,
                 "n_operators_selected": len(self.selected_operators),
                 "selected_operators": self.selected_operators,
                 "evaluation_budget": budget_limited,

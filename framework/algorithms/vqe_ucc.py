@@ -1,3 +1,5 @@
+# ABOUTME: Evolves paired single and double excitations from the encoded reference.
+# ABOUTME: Fits circuit angles and records the energy and stopping diagnostics.
 """
 VQE-UCC (UCCSD) Implementation
 
@@ -38,7 +40,7 @@ import logging
 
 import sys
 sys.path.append('..')
-from core.base_vqe import BaseVQE, VQEResult, incumbent_converged, incumbent_history
+from core.base_vqe import BaseVQE, VQEResult, incumbent_history
 from core.hamiltonian_loader import QubitHamiltonian
 
 logger = logging.getLogger(__name__)
@@ -148,6 +150,8 @@ class UCCSDVariationalVQE(BaseVQE):
         doi: 10.3389/fphy.2021.735321
     """
 
+    parameter_period = 4 * np.pi
+
     def __init__(
         self,
         hamiltonian: QubitHamiltonian,
@@ -223,7 +227,7 @@ class UCCSDVariationalVQE(BaseVQE):
         the same parameter; pair doubles excite both spin components together.
         """
         import pennylane as qml
-        from core.backend_manager import create_device
+        from core.backend_manager import create_device, fixed_circuit_energy
 
         n_qubits = self.n_qubits
         n_electrons = self._eff_n_electrons
@@ -310,6 +314,7 @@ class UCCSDVariationalVQE(BaseVQE):
             return qml.expval(H_full)
 
         self.cost_fn = circuit
+        self._energy = fixed_circuit_energy(circuit, H_full)
         logger.info(
             f"UCCSD ansatz built: {self.n_parameters} params, "
             f"backend={self.backend_config.label}"
@@ -323,7 +328,7 @@ class UCCSDVariationalVQE(BaseVQE):
     def cost_function(self, parameters: np.ndarray) -> float:
         if self.cost_fn is None:
             raise RuntimeError("Must call build_ansatz() first")
-        return float(self.cost_fn(parameters))
+        return float(self._energy(parameters))
 
     def get_initial_parameters(self) -> np.ndarray:
         """All-zeros → HF reference (all excitation gates = identity)."""
@@ -366,9 +371,7 @@ class UCCSDVariationalVQE(BaseVQE):
         error = optimal_energy - ref_energy
         relative_error = abs(error / ref_energy) if ref_energy != 0 else 0.0
 
-        converged = incumbent_converged(
-            self.convergence_history, self.convergence_threshold
-        )
+        converged = bool(self.optimizer_outcome["optimizer_success"])
 
         result = VQEResult(
             molecule_abbrev=self.hamiltonian.molecule.abbreviation,
@@ -387,6 +390,7 @@ class UCCSDVariationalVQE(BaseVQE):
             optimal_parameters=optimal_params,
             converged=converged,
             metadata={
+                **self.fit_diagnostics(),
                 "optimizer": self.optimizer_name,
                 "max_iterations": self.max_iterations,
                 "n_shots": self.n_shots,

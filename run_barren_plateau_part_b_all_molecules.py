@@ -1,3 +1,5 @@
+# ABOUTME: Runs the Part B initialization comparison for each selected molecule and noise strength.
+# ABOUTME: Saves per-trial results and reports incomplete batches to the calling process.
 """
 Run barren-plateau Part B (optimization comparison) for all molecules.
 
@@ -26,8 +28,10 @@ _FW_DIR = Path(__file__).resolve().parent / "framework"
 if str(_FW_DIR) not in sys.path:
     sys.path.insert(0, str(_FW_DIR))
 
-from core.base_vqe import incumbent_history, is_bayesian_optimizer
-from experiments.barren_plateau import OptTrialRow, _mean_std_trace, run_barren_plateau
+from core.base_vqe import is_bayesian_optimizer
+from experiments._common import validate_study_axes
+from experiments.barren_plateau import OptTrialRow, run_barren_plateau, validate_initialization_noise
+from experiments.noise_resilience import noise_strength_label
 from experiments.trainability import discover_trainability_molecules
 
 
@@ -43,6 +47,7 @@ logger = logging.getLogger(__name__)
 def _save_aggregate_outputs(
     output_root: Path,
     aggregated_rows: List[Tuple[str, OptTrialRow]],
+    casci: Dict[str, float],
     save_plots: bool,
     optimizer: str,
 ) -> None:
@@ -58,7 +63,8 @@ def _save_aggregate_outputs(
             "n_parameters",
             "initial_energy",
             "final_energy",
-            "n_iterations",
+            "casci_energy",
+            "n_iterations", "wrong_electron_probability",
         ])
         for molecule, row in aggregated_rows:
             writer.writerow([
@@ -69,7 +75,8 @@ def _save_aggregate_outputs(
                 row.n_parameters,
                 f"{row.initial_energy:.10f}",
                 f"{row.final_energy:.10f}",
-                row.n_iterations,
+                f"{casci[molecule]:.10f}",
+                row.n_iterations, row.endpoint.get("wrong_electron_probability"),
             ])
 
     with open(output_root / "all_molecules_convergence_traces.csv", "w", newline="") as f:
@@ -86,33 +93,35 @@ def _save_aggregate_outputs(
                 ])
 
     # Summary table by strategy
-    by_strategy: Dict[str, List[OptTrialRow]] = {}
-    for _, row in aggregated_rows:
-        by_strategy.setdefault(row.strategy, []).append(row)
+    by_strategy: Dict[str, List[Tuple[str, OptTrialRow]]] = {}
+    for molecule, row in aggregated_rows:
+        by_strategy.setdefault(row.strategy, []).append((molecule, row))
 
     with open(output_root / "all_molecules_strategy_summary.csv", "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow([
             "strategy",
             "n_runs",
-            "mean_initial_energy",
-            "mean_final_energy",
-            "std_final_energy",
+            "n_molecules",
+            "mean_initial_abs_error_vs_casci",
+            "mean_final_abs_error_vs_casci",
+            "std_final_abs_error_vs_casci",
             "mean_iterations",
-            "best_final_energy",
+            "min_final_abs_error_vs_casci",
         ])
         for strategy, rows in sorted(by_strategy.items()):
-            initial_es = np.asarray([r.initial_energy for r in rows], dtype=float)
-            final_es = np.asarray([r.final_energy for r in rows], dtype=float)
-            n_iters = np.asarray([r.n_iterations for r in rows], dtype=float)
+            initial_errors = np.abs([r.initial_energy - casci[mol] for mol, r in rows])
+            final_errors = np.abs([r.final_energy - casci[mol] for mol, r in rows])
+            n_iters = np.asarray([r.n_iterations for _, r in rows], dtype=float)
             writer.writerow([
                 strategy,
                 len(rows),
-                f"{initial_es.mean():.10f}",
-                f"{final_es.mean():.10f}",
-                f"{final_es.std():.10f}",
+                len({mol for mol, _ in rows}),
+                f"{initial_errors.mean():.10f}",
+                f"{final_errors.mean():.10f}",
+                f"{final_errors.std():.10f}",
                 f"{n_iters.mean():.4f}",
-                f"{final_es.min():.10f}",
+                f"{final_errors.min():.10f}",
             ])
 
     if not save_plots or not aggregated_rows:
@@ -126,17 +135,17 @@ def _save_aggregate_outputs(
         logger.warning("matplotlib unavailable, skipping aggregate plots: %s", exc)
         return
 
-    # Plot 1: final-energy boxplot by strategy (all molecules/trials combined)
+    # Pool each endpoint's distance to its own molecule's reference.
     strategies = sorted(by_strategy.keys())
-    data = [[r.final_energy for r in by_strategy[s]] for s in strategies]
+    data = [[abs(r.final_energy - casci[mol]) for mol, r in by_strategy[s]] for s in strategies]
 
     fig, ax = plt.subplots(figsize=(8, 4.8))
     try:
         ax.boxplot(data, tick_labels=strategies, showmeans=True)
     except TypeError:
         ax.boxplot(data, labels=strategies, showmeans=True)
-    ax.set_ylabel("Final energy (Ha)")
-    ax.set_title("All molecules | Final energy by init")
+    ax.set_ylabel("|Final energy − molecular CASCI| (Ha)")
+    ax.set_title("All molecules | Final accuracy by initialization")
     ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout()
     fig.savefig(output_root / "all_molecules_final_energy_by_strategy.png", dpi=180)
@@ -150,24 +159,25 @@ def _save_aggregate_outputs(
             [], [], color="0.5", alpha=0.7, linewidth=1,
             label="raw acquisition (mean)",
         )
+    common_steps = min(len(row.convergence_history) for _, row in aggregated_rows)
     for strategy in strategies:
         rows = by_strategy[strategy]
-        raw_traces = [r.convergence_history for r in rows]
-        inc_traces = [incumbent_history(t) for t in raw_traces]
-        mean, std = _mean_std_trace(inc_traces)
+        raw_traces = [np.asarray(r.convergence_history[:common_steps]) - casci[mol] for mol, r in rows]
+        inc_traces = np.minimum.accumulate(raw_traces, axis=1)
+        mean, std = np.mean(inc_traces, axis=0), np.std(inc_traces, axis=0)
         xs = np.arange(len(mean))
         line, = ax.plot(xs, mean, linewidth=2, label=strategy, zorder=2)
         if bayesian:
-            mean_raw, _ = _mean_std_trace(raw_traces)
+            mean_raw = np.mean(raw_traces, axis=0)
             ax.plot(
                 np.arange(len(mean_raw)), mean_raw,
                 color=line.get_color(), alpha=0.25, linewidth=1, zorder=1,
             )
         ax.fill_between(xs, mean - std, mean + std, alpha=0.15, color=line.get_color())
 
-    ax.set_xlabel("Optimizer iteration")
-    ax.set_ylabel("Energy (Ha)")
-    ax.set_title("All molecules | Convergence by init")
+    ax.set_xlabel("Acquisition index" if bayesian else "Recorded optimizer step")
+    ax.set_ylabel("Energy − molecular CASCI (Ha)")
+    ax.set_title("All molecules | Incumbent mean ± SD over runs, through the shortest trace")
     ax.grid(True, alpha=0.3)
     ax.legend(fontsize=8)
     fig.tight_layout()
@@ -193,6 +203,10 @@ def run_part_b_all_molecules(
     output_root: Optional[Path] = None,
     save_plots: bool = True,
 ) -> Dict[str, object]:
+    if n_trials < 1 or not opt_strategies:
+        raise ValueError("Part B requires at least one trial and one initialization strategy")
+    validate_study_axes(opt_strategies=opt_strategies)
+    validate_initialization_noise(noise_model, noise_strength)
     selected_molecules = discover_trainability_molecules(molecules)
 
     if output_root is None:
@@ -205,12 +219,13 @@ def run_part_b_all_molecules(
             / (
                 f"{timestamp}_all_molecules_part_b_{optimizer.lower()}"
                 if noise_model in (None, "none", "") or noise_strength == 0.0
-                else f"{timestamp}_all_molecules_part_b_{optimizer.lower()}_{noise_model}_p{noise_strength:g}"
+                else f"{timestamp}_all_molecules_part_b_{optimizer.lower()}_{noise_model}_p{noise_strength_label(noise_strength)}"
             )
         )
     output_root.mkdir(parents=True, exist_ok=True)
 
     aggregated_rows: List[Tuple[str, OptTrialRow]] = []
+    casci: Dict[str, float] = {}
     succeeded: List[str] = []
     failed: Dict[str, str] = {}
 
@@ -242,6 +257,7 @@ def run_part_b_all_molecules(
                 skip_part_b=False,
             )
             rows: List[OptTrialRow] = out["opt_rows"]
+            casci[molecule] = float(out["config"].casci_energy)
             aggregated_rows.extend((molecule, row) for row in rows)
             succeeded.append(molecule)
             print(f"  Done. trials={len(rows)}")
@@ -251,7 +267,7 @@ def run_part_b_all_molecules(
 
     if aggregated_rows:
         _save_aggregate_outputs(
-            output_root, aggregated_rows, save_plots=save_plots, optimizer=optimizer,
+            output_root, aggregated_rows, casci, save_plots=save_plots, optimizer=optimizer,
         )
 
     manifest = {
@@ -338,9 +354,12 @@ def main() -> None:
     cs_target = args.cs_target_qubits if args.cs_target_qubits > 0 else None
 
     noise_strengths = args.noise_strengths if args.noise_strengths else [args.noise_strength]
+    validate_study_axes(noise_strengths=noise_strengths)
+    for strength in noise_strengths:
+        validate_initialization_noise(args.noise_model, strength)
 
     if len(noise_strengths) == 1:
-        run_part_b_all_molecules(
+        result = run_part_b_all_molecules(
             molecules=tuple(args.molecules) if args.molecules else None,
             algorithm=args.algorithm,
             basis=args.basis,
@@ -357,6 +376,8 @@ def main() -> None:
             output_root=args.output_root,
             save_plots=not args.no_plots,
         )
+        if result["failed"]:
+            raise SystemExit(1)
         return
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -366,10 +387,11 @@ def main() -> None:
     )
     sweep_root.mkdir(parents=True, exist_ok=True)
 
+    failed = False
     for strength in noise_strengths:
         label = "none" if args.noise_model in (None, "none", "") or strength == 0.0 else args.noise_model
-        child_root = sweep_root / f"{label}_p{float(strength):g}"
-        run_part_b_all_molecules(
+        child_root = sweep_root / f"{label}_p{noise_strength_label(strength)}"
+        result = run_part_b_all_molecules(
             molecules=tuple(args.molecules) if args.molecules else None,
             algorithm=args.algorithm,
             basis=args.basis,
@@ -386,6 +408,9 @@ def main() -> None:
             output_root=child_root,
             save_plots=not args.no_plots,
         )
+        failed |= bool(result["failed"])
+    if failed:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

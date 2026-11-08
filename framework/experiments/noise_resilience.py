@@ -1,3 +1,5 @@
+# ABOUTME: Trains fixed VQE circuits from shared parameters under local noise channels.
+# ABOUTME: Records noisy and clean energies, parameter drift and optimization histories.
 """
 Experiment 1 -- Noise resilience of a fixed VQE ansatz
 ======================================================
@@ -6,9 +8,10 @@ Question
 --------
 If we optimise the *same* variational ansatz, starting from the *same*
 initial parameters, on the *same* qubit Hamiltonian, but the simulator
-applies a fixed amount of single-qubit noise after every layer, how much do
-the optimised parameters drift -- and how much does the recovered energy
-drift?
+applies a single-qubit channel independently to each wire, how much do the
+optimised parameters and the recovered energy drift? HE, PennyLane, QAOA
+and HVA insert the channel after each variational layer. UCC and NN-AE
+insert it once after the complete circuit.
 
 This is a deliberately controlled study: only the noise model and noise
 strength change between runs.  Anything else that varied (the optimiser
@@ -38,7 +41,7 @@ For every (noise_model, noise_strength) pair we record:
   parameters is an RMS of ~1 rad.
   
 * ``param_drift_l2_wrapped`` -- same distance after wrapping each coordinate
-  difference to (-pi, pi] (angles that differ by 2*pi are the same gate).
+  difference into the centered circuit period. This field is empty for HVA evolution times.
   
 * ``clean_displacement_l2`` / ``noisy_displacement_l2`` --
   ``||theta* - theta_init||_2`` for each run, i.e. the "initial -> final"
@@ -78,9 +81,10 @@ from __future__ import annotations
 
 import argparse
 import json
+from functools import partial
 import logging
 import sys
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -92,9 +96,13 @@ if str(_FW_DIR) not in sys.path:
     sys.path.insert(0, str(_FW_DIR))
 
 from core.base_vqe import incumbent_history, is_bayesian_optimizer  # noqa: E402
-from experiments.provenance import record_runtime, save_problem  # noqa: E402
+from core.backend_manager import cached_analytic_energy
+from experiments.provenance import load_problem, record_runtime, save_problem
+from experiments.endpoint_sector import summarize_endpoint
 from experiments._common import (  # noqa: E402
     INIT_STRATEGIES,
+    LAYERED_ALGORITHMS,
+    NOISE_ALGORITHMS,
     LoadedHamiltonian,
     build_vqe,
     load_small_hamiltonian,
@@ -112,7 +120,7 @@ METRIC_DEFINITIONS: Dict[str, str] = {
     "param_drift_l2": "||theta_noisy* - theta_clean*||_2  (distance between the two "
                       "optimised parameter vectors; NOT distance from theta_init)",
     "param_drift_rms": "param_drift_l2 / sqrt(n_parameters)  (RMS radians per parameter)",
-    "param_drift_l2_wrapped": "param_drift_l2 with each coordinate difference wrapped to (-pi, pi]",
+    "param_drift_l2_wrapped": "distance modulo the circuit parameter_period, empty when no common period is defined",
     "clean_displacement_l2": "||theta_clean* - theta_init||_2",
     "noisy_displacement_l2": "||theta_noisy* - theta_init||_2",
     "param_drift_cosine": "cos(theta_noisy*, theta_clean*)",
@@ -127,10 +135,23 @@ RESULT_COLUMNS: Tuple[str, ...] = (
     "param_drift_l2", "param_drift_cosine",
     "param_drift_rms", "param_drift_l2_wrapped",
     "clean_displacement_l2", "noisy_displacement_l2",
+    "wrong_electron_probability_noisy", "wrong_electron_probability_clean_at_noisy_params",
 )
 
+def noise_strength_label(strength):
+    """Round-trip the probability when identifying its fitted parameter vector or trace."""
+    return str(float(strength)).removesuffix(".0")
 
-# Default sweep covers two qualitatively different gate-error channels.
+
+def _require_fixed_ansatz(algorithm, optimizer):
+    if optimizer.strip().lower().replace("-", "").replace("_", "") in {"gradientdescent", "gd"}:
+        raise ValueError("The noise sweep supports SciPy and Bayesian optimizers. Parameter-shift gradient descent is available in the initialization study.")
+    if algorithm not in NOISE_ALGORITHMS:
+        raise ValueError("The noise sweep requires a fixed noisy ansatz with the full algorithm objective. "
+                         f"Choose one of {NOISE_ALGORITHMS}, got {algorithm!r}")
+
+
+# The sweep compares depolarization, phase flips and energy relaxation.
 DEFAULT_NOISE_MODELS: Tuple[str, ...] = (
     "depolarizing",
     "phaseflip",
@@ -161,7 +182,9 @@ class NoiseRunResult:
     param_drift_cosine: float
     convergence_history: List[float] = field(default_factory=list)
     param_drift_rms: float = 0.0
-    param_drift_l2_wrapped: float = 0.0
+    param_drift_l2_wrapped: Optional[float] = 0.0
+    wrong_electron_probability_noisy: Optional[float] = None
+    wrong_electron_probability_clean_at_noisy_params: Optional[float] = None
     clean_displacement_l2: float = float("nan")
     noisy_displacement_l2: float = float("nan")
 
@@ -172,7 +195,7 @@ class NoiseResilienceConfig:
     algorithm: str
     basis: str
     cs_target_qubits: Optional[int]
-    n_layers: int
+    n_layers: Optional[int]
     max_iterations: int
     convergence_threshold: float
     optimizer: str
@@ -187,6 +210,8 @@ class NoiseResilienceConfig:
     casci_energy: Optional[float]
     hf_energy: Optional[float]
     rotation_gates: Optional[str] = None
+    parameter_period: Optional[float] = None
+    bayes_bounds: Optional[Tuple[float, float]] = None
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -206,50 +231,27 @@ def _algo_kwargs(
         return kwargs
     if not prepare_hf:
         raise ValueError(
-            "--no-prepare-hf is only supported by hardware_efficient_vqe; "
-            f"{algorithm} already prepares the Hartree-Fock state"
+            f"--no-prepare-hf is an HE-only control. {algorithm} uses its own initial-state circuit."
         )
     return {}
 
 
-def _optimize_one(
-    loaded: LoadedHamiltonian,
-    *,
-    algorithm: str,
-    n_layers: int,
-    optimizer: str,
-    max_iterations: int,
-    convergence_threshold: float,
-    random_seed: int,
-    noise_model: Optional[str],
-    noise_strength: float,
-    initial_parameters: np.ndarray,
-    prepare_hf: bool = True,
-    rotation_gates: Optional[str] = None,
-) -> Tuple[np.ndarray, float, List[float], int]:
+def _noise_objective(circuit, backend):
+    """Reuse recent energies for a fixed analytic mixed-state circuit."""
+    if not backend.is_noisy or backend.device_name != "default.mixed" or backend.n_shots != 0:
+        return circuit
+    return cached_analytic_energy(circuit)
+
+
+def _optimize_one(vqe, initial_parameters: np.ndarray) -> Tuple[np.ndarray, float, List[float], int]:
     """Run one optimisation under a chosen noise channel.
 
     Returns ``(theta_star, energy_star, convergence_history, n_iterations)``.
     ``energy_star`` is the energy ``optimize`` returns with ``theta_star``.
-    The history is every trial, and its last entry is not that energy when
-    the solver's last trial is not its best point.
+    SciPy records its callback energies. Bayesian optimization records each
+    acquired objective. The optimizer's returned point can precede the final trace entry.
     """
-    bc = make_backend_config(
-        n_qubits=loaded.hamiltonian.n_qubits,
-        noise_model=noise_model,
-        noise_strength=noise_strength,
-    )
-    vqe = build_vqe(
-        loaded.hamiltonian,
-        algorithm=algorithm,
-        n_layers=n_layers,
-        backend_config=bc,
-        optimizer=optimizer,
-        max_iterations=max_iterations,
-        convergence_threshold=convergence_threshold,
-        random_seed=random_seed,
-        **_algo_kwargs(algorithm, rotation_gates, prepare_hf),
-    )
+    vqe.cost_function = _noise_objective(vqe.cost_function, vqe.backend_config)
     theta_star, energy_star = vqe.optimize(initial_parameters=initial_parameters.copy())
     return (
         np.asarray(theta_star),
@@ -280,6 +282,7 @@ def run_noise_resilience(
     output_dir: Optional[Path] = None,
     save_plots: bool = True,
     rotation_gates: Optional[str] = None,
+    input_snapshot: Optional[Path] = None,
 ) -> Dict[str, object]:
     """Run the full noise-resilience sweep.
 
@@ -300,29 +303,45 @@ def run_noise_resilience(
     * ``"results"``   -- ``List[NoiseRunResult]``
     * ``"output_dir"`` -- path of the run folder
     """
+    _require_fixed_ansatz(algorithm, optimizer)
+    if len(set(noise_models)) != len(noise_models) or len(set(noise_strengths)) != len(noise_strengths):
+        raise ValueError("Duplicate noise model or strength in the requested grid")
+    if any(not 0 <= p <= 1 for p in noise_strengths):
+        raise ValueError("Noise strengths must be finite probabilities in [0, 1]")
     if init_strategy not in INIT_STRATEGIES:
         raise ValueError(
             f"init_strategy must be one of {INIT_STRATEGIES}, got {init_strategy!r}"
         )
 
+    if is_bayesian_optimizer(optimizer):
+        max_iterations = max(5, max_iterations)
+
     # ── 1. Load a small Hamiltonian ─────────────────────────────────────
-    loaded = load_small_hamiltonian(
-        molecule=molecule, basis=basis, cs_target_qubits=cs_target_qubits,
-    )
+    if input_snapshot is None:
+        loaded = load_small_hamiltonian(
+            molecule=molecule, basis=basis, cs_target_qubits=cs_target_qubits,
+        )
+    else:
+        loaded = load_problem(input_snapshot)
+        if (loaded.molecule != molecule or loaded.basis != basis or
+                "cs_target_qubits" not in loaded.preparation or
+                loaded.preparation["cs_target_qubits"] != cs_target_qubits):
+            raise ValueError(f"Prepared model does not match the requested molecule, basis or contextual target for {molecule}")
 
     # ── 2. Build the noiseless ansatz once to know n_parameters ────────
     bc_clean = make_backend_config(loaded.hamiltonian.n_qubits)
-    probe = build_vqe(
-        loaded.hamiltonian,
+    solver_for = partial(
+        build_vqe, loaded.hamiltonian,
         algorithm=algorithm,
         n_layers=n_layers,
-        backend_config=bc_clean,
         optimizer=optimizer,
         max_iterations=max_iterations,
         convergence_threshold=convergence_threshold,
         random_seed=random_seed,
+        supported_algorithms=NOISE_ALGORITHMS,
         **_algo_kwargs(algorithm, rotation_gates, prepare_hf),
     )
+    probe = solver_for(backend_config=bc_clean)
     n_parameters = int(probe.n_parameters)
     clean_cost_fn = probe.cost_fn  # keep this around to evaluate noisy thetas
     effective_rotation_gates = getattr(probe, "rotation_gates", None)
@@ -338,12 +357,12 @@ def run_noise_resilience(
         algorithm=algorithm,
         basis=basis,
         cs_target_qubits=cs_target_qubits,
-        n_layers=n_layers,
+        n_layers=n_layers if algorithm in LAYERED_ALGORITHMS else None,
         max_iterations=max_iterations,
         convergence_threshold=convergence_threshold,
         optimizer=optimizer,
         init_strategy=init_strategy,
-        prepare_hf=prepare_hf,
+        prepare_hf=prepare_hf and algorithm != "qaoa_inspired_vqe",
         random_seed=random_seed,
         noise_models=tuple(noise_models),
         noise_strengths=tuple(noise_strengths),
@@ -353,6 +372,8 @@ def run_noise_resilience(
         casci_energy=loaded.casci_energy,
         hf_energy=loaded.hf_energy,
         rotation_gates=effective_rotation_gates,
+        parameter_period=probe.parameter_period,
+        bayes_bounds=probe.bayesian_bounds() if is_bayesian_optimizer(optimizer) else None,
     )
 
     out_dir = output_dir or make_run_dir(
@@ -367,22 +388,11 @@ def run_noise_resilience(
         "[baseline] noiseless | n_qubits=%d, n_params=%d, init=%s",
         loaded.hamiltonian.n_qubits, n_parameters, init_strategy,
     )
-    theta_clean, _energy_clean, conv_clean, niter_clean = _optimize_one(
-        loaded,
-        algorithm=algorithm,
-        n_layers=n_layers,
-        optimizer=optimizer,
-        max_iterations=max_iterations,
-        convergence_threshold=convergence_threshold,
-        random_seed=random_seed,
-        noise_model=None,
-        noise_strength=0.0,
-        initial_parameters=theta_init,
-        prepare_hf=prepare_hf,
-        rotation_gates=rotation_gates,
-    )
+    theta_clean, _energy_clean, conv_clean, niter_clean = _optimize_one(probe, theta_init)
     e_clean = float(clean_cost_fn(theta_clean))
     clean_disp = float(np.linalg.norm(theta_clean - theta_init))
+    clean_endpoint = summarize_endpoint(loaded, probe, theta_clean)
+    endpoints = {"none@0": {"noisy": clean_endpoint, "clean_at_noisy_params": clean_endpoint}}
     baseline = NoiseRunResult(
         noise_model="none",
         noise_strength=0.0,
@@ -394,7 +404,9 @@ def run_noise_resilience(
         param_drift_cosine=1.0,
         convergence_history=conv_clean,
         param_drift_rms=0.0,
-        param_drift_l2_wrapped=0.0,
+        param_drift_l2_wrapped=0.0 if probe.parameter_period is not None else None,
+        wrong_electron_probability_noisy=clean_endpoint["wrong_electron_probability"],
+        wrong_electron_probability_clean_at_noisy_params=clean_endpoint["wrong_electron_probability"],
         clean_displacement_l2=clean_disp,
         noisy_displacement_l2=clean_disp,
     )
@@ -411,49 +423,27 @@ def run_noise_resilience(
             if p == 0.0:
                 # Treat as identical to baseline; record one entry per model
                 # so plots have a clean p=0 anchor for every channel.
-                results.append(NoiseRunResult(
-                    noise_model=noise_model,
-                    noise_strength=0.0,
-                    n_iterations=niter_clean,
-                    energy_noisy=e_clean,
-                    energy_clean_at_noisy_params=e_clean,
-                    energy_clean_baseline=e_clean,
-                    param_drift_l2=0.0,
-                    param_drift_cosine=1.0,
-                    convergence_history=list(conv_clean),
-                    param_drift_rms=0.0,
-                    param_drift_l2_wrapped=0.0,
-                    clean_displacement_l2=clean_disp,
-                    noisy_displacement_l2=clean_disp,
-                ))
+                results.append(replace(baseline, noise_model=noise_model))
+                endpoints[f"{noise_model}@0"] = endpoints["none@0"]
                 continue
 
             logger.info("[run] noise=%s p=%.4f", noise_model, p)
-            theta_noisy, energy_noisy, conv_noisy, niter_noisy = _optimize_one(
-                loaded,
-                algorithm=algorithm,
-                n_layers=n_layers,
-                optimizer=optimizer,
-                max_iterations=max_iterations,
-                convergence_threshold=convergence_threshold,
-                random_seed=random_seed,
-                noise_model=noise_model,
-                noise_strength=p,
-                initial_parameters=theta_init,
-                prepare_hf=prepare_hf,
-                rotation_gates=rotation_gates,
-            )
+            backend = make_backend_config(loaded.hamiltonian.n_qubits, noise_model=noise_model, noise_strength=p)
+            noisy_solver = solver_for(backend_config=backend)
+            theta_noisy, energy_noisy, conv_noisy, niter_noisy = _optimize_one(noisy_solver, theta_init)
             e_noisy = float(energy_noisy)
             # Re-evaluate the noisy-optimum parameters on the *clean* simulator
             e_clean_at_noisy = float(clean_cost_fn(theta_noisy))
-            drift = parameter_drift_metrics(theta_noisy, theta_clean, theta_init)
+            noisy_endpoint = summarize_endpoint(loaded, noisy_solver, theta_noisy)
+            clean_at_noisy = summarize_endpoint(loaded, probe, theta_noisy)
+            key = f"{noise_model}@{noise_strength_label(p)}"
+            endpoints[key] = {"noisy": noisy_endpoint, "clean_at_noisy_params": clean_at_noisy}
+            drift = parameter_drift_metrics(theta_noisy, theta_clean, theta_init, period=probe.parameter_period)
             denom = float(np.linalg.norm(theta_noisy) * np.linalg.norm(theta_clean))
             cos = (
                 float(np.dot(theta_noisy, theta_clean) / denom) if denom > 0 else 1.0
             )
-            optimum_parameters["theta_noisy_star"][f"{noise_model}@{p:g}"] = (
-                theta_noisy.tolist()
-            )
+            optimum_parameters["theta_noisy_star"][key] = theta_noisy.tolist()
             results.append(NoiseRunResult(
                 noise_model=noise_model,
                 noise_strength=p,
@@ -466,11 +456,13 @@ def run_noise_resilience(
                 convergence_history=conv_noisy,
                 param_drift_rms=drift["param_drift_rms"],
                 param_drift_l2_wrapped=drift["param_drift_l2_wrapped"],
+                wrong_electron_probability_noisy=noisy_endpoint["wrong_electron_probability"],
+                wrong_electron_probability_clean_at_noisy_params=clean_at_noisy["wrong_electron_probability"],
                 clean_displacement_l2=drift["clean_displacement_l2"],
                 noisy_displacement_l2=drift["noisy_displacement_l2"],
             ))
             logger.info(
-                "    drift: L2=%.4f  RMS=%.4f rad  wrapped-L2=%.4f  cos=%.4f | "
+                "    drift: L2=%.4f  RMS=%.4f rad  wrapped-L2=%s  cos=%.4f | "
                 "dE_clean=%.3e Ha",
                 drift["param_drift_l2"], drift["param_drift_rms"],
                 drift["param_drift_l2_wrapped"], cos,
@@ -479,6 +471,7 @@ def run_noise_resilience(
 
     # ── 6. Persist ──────────────────────────────────────────────────────
     _save_outputs(cfg, baseline, results, out_dir, save_plots=save_plots)
+    (Path(out_dir) / "state_endpoints.json").write_text(json.dumps(endpoints, indent=2, allow_nan=False) + "\n")
     with open(Path(out_dir) / "optimum_parameters.json", "w") as f:
         json.dump(optimum_parameters, f)
 
@@ -519,12 +512,13 @@ def _save_outputs(
         w.writerow(RESULT_COLUMNS)
         for r in [baseline] + results:
             w.writerow([
-                r.noise_model, f"{r.noise_strength:.6g}", r.n_iterations,
+                r.noise_model, noise_strength_label(r.noise_strength), r.n_iterations,
                 f"{r.energy_noisy:.10f}", f"{r.energy_clean_at_noisy_params:.10f}",
                 f"{r.energy_clean_baseline:.10f}",
                 f"{r.param_drift_l2:.10f}", f"{r.param_drift_cosine:.10f}",
-                f"{r.param_drift_rms:.10f}", f"{r.param_drift_l2_wrapped:.10f}",
+                f"{r.param_drift_rms:.10f}", ("" if r.param_drift_l2_wrapped is None else f"{r.param_drift_l2_wrapped:.10f}"),
                 f"{r.clean_displacement_l2:.10f}", f"{r.noisy_displacement_l2:.10f}",
+                r.wrong_electron_probability_noisy, r.wrong_electron_probability_clean_at_noisy_params,
             ])
 
     # convergence_traces.csv -- long format
@@ -534,7 +528,7 @@ def _save_outputs(
         for r in [baseline] + results:
             for it, e in enumerate(r.convergence_history):
                 w.writerow([
-                    r.noise_model, f"{r.noise_strength:.6g}", it, f"{e:.10f}",
+                    r.noise_model, noise_strength_label(r.noise_strength), it, f"{e:.10f}",
                 ])
 
     if not save_plots:
@@ -569,9 +563,10 @@ def _save_outputs(
                 marker="x", linestyle="--", label=f"{model}: clean@noisy_theta")
     ax.set_xlabel("Noise strength p")
     ax.set_ylabel("Energy (Ha)")
+    depth = f", {cfg.n_layers} layers" if cfg.n_layers is not None else ""
     ax.set_title(
         f"Noise resilience: {cfg.molecule} ({cfg.algorithm}, "
-        f"{cfg.n_qubits_final} qubits, {cfg.n_layers} layers)"
+        f"{cfg.n_qubits_final} qubits{depth})"
     )
     ax.legend(fontsize=8, loc="best")
     ax.grid(True, alpha=0.3)
@@ -642,7 +637,7 @@ def _save_outputs(
                 r.convergence_history,
                 color=cmap(i / n),
                 linewidth=1,
-                label=f"p={r.noise_strength:g}",
+                label=f"p={noise_strength_label(r.noise_strength)}",
             )
         ax.set_xlabel("Optimizer iteration")
         ax.set_title(model)
@@ -708,15 +703,13 @@ def plot_noise_resilience_multi_molecule(
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
         import seaborn as sns
-    except Exception as exc:  # pragma: no cover
-        logger.warning("matplotlib/seaborn unavailable: %s", exc)
-        return
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError("The requested multi-molecule noise figures require matplotlib and seaborn") from exc
 
     if not combined_csv.is_file():
-        logger.warning("Combined CSV not found: %s", combined_csv)
-        return
+        raise FileNotFoundError(f"Combined CSV not found: {combined_csv}")
 
-    df = pd.read_csv(combined_csv)
+    df = pd.read_csv(combined_csv, float_precision="round_trip")
     required = {
         "molecule", "noise_model", "noise_strength",
         "param_drift_l2", "param_drift_cosine",
@@ -728,6 +721,12 @@ def plot_noise_resilience_multi_molecule(
     # Drop the synthetic noiseless baseline row when present.
     df = df[df["noise_model"].astype(str).str.lower() != "none"].copy()
     df["noise_strength"] = pd.to_numeric(df["noise_strength"], errors="coerce")
+    keys = ["molecule", "noise_model", "noise_strength"]
+    if df[keys].isna().any().any():
+        raise ValueError("Incomplete molecule, channel or strength in the noise figure data")
+    duplicated = df.duplicated(keys, keep=False)
+    if duplicated.any():
+        raise ValueError(f"Duplicate noise figure cell: {df.loc[duplicated, keys].iloc[0].to_dict()}")
 
     if "energy_clean_at_noisy_params" in df.columns and "energy_clean_baseline" in df.columns:
         ec = pd.to_numeric(df["energy_clean_at_noisy_params"], errors="coerce")
@@ -772,11 +771,10 @@ def plot_noise_resilience_multi_molecule(
                 ax.set_visible(False)
                 continue
             pivot = (
-                sub.pivot_table(
+                sub.pivot(
                     index="molecule",
                     columns="noise_strength",
                     values=value_col,
-                    aggfunc="first",
                 )
                 .reindex(index=mol_order, columns=p_order)
             )
@@ -862,7 +860,7 @@ def plot_noise_resilience_multi_molecule(
     else:
         closest_p = reference_p
     ns_arr = df["noise_strength"].to_numpy(dtype=float, copy=False)
-    mask = np.isclose(ns_arr, float(closest_p), rtol=0.0, atol=1e-12)
+    mask = ns_arr == closest_p
     sub_ref = df.loc[mask]
     if sub_ref.empty:
         sub_ref = df[df["noise_strength"] == closest_p]
@@ -882,11 +880,11 @@ def plot_noise_resilience_multi_molecule(
             ax.set_yticks(y_pos)
             ax.set_yticklabels(chunk["molecule"].values, fontsize=8)
             ax.set_xlabel(r"$||\Delta\theta||_2$")
-            ax.set_title(f"{model}\np ≈ {closest_p:g}")
+            ax.set_title(f"{model}\np ≈ {noise_strength_label(closest_p)}")
             ax.grid(True, axis="x", alpha=0.3)
         fig.suptitle(
             f"Parameter L2 drift at reference noise (target p={reference_p:g}, "
-            f"using tabulated p={closest_p:g})",
+            f"using tabulated p={noise_strength_label(closest_p)})",
             fontsize=11,
         )
         fig.tight_layout()
@@ -926,6 +924,8 @@ def _rows_for_batch_csv(
             "param_drift_cosine": r.param_drift_cosine,
             "param_drift_rms": r.param_drift_rms,
             "param_drift_l2_wrapped": r.param_drift_l2_wrapped,
+            "wrong_electron_probability_noisy": r.wrong_electron_probability_noisy,
+            "wrong_electron_probability_clean_at_noisy_params": r.wrong_electron_probability_clean_at_noisy_params,
             "clean_displacement_l2": r.clean_displacement_l2,
             "noisy_displacement_l2": r.noisy_displacement_l2,
             "n_qubits_final": cfg.n_qubits_final,
@@ -963,12 +963,14 @@ def run_noise_resilience_batch(
     ``output_dir``, ``batch_run_config.json``, ``batch_failures.json`` on
     errors, and calls :func:`plot_noise_resilience_multi_molecule` when
     ``save_aggregate_plots`` is True.
+    An incomplete cohort raises after writing its case failures and completed results.
 
     Returns keys ``output_dir``, ``batch_csv``, ``n_ok``, ``n_fail``,
     ``failures``, ``per_molecule_dirs``.
     """
     from datetime import datetime
 
+    _require_fixed_ansatz(algorithm, optimizer)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     if output_dir is None:
         tag = f"nq{cs_target_qubits}_{algorithm}_batch"
@@ -991,6 +993,7 @@ def run_noise_resilience_batch(
         "param_drift_l2", "param_drift_cosine",
         "param_drift_rms", "param_drift_l2_wrapped",
         "clean_displacement_l2", "noisy_displacement_l2",
+        "wrong_electron_probability_noisy", "wrong_electron_probability_clean_at_noisy_params",
         "n_qubits_final", "n_parameters", "rotation_gates", "prepare_hf",
     ]
     first = True
@@ -1053,9 +1056,9 @@ def run_noise_resilience_batch(
         "algorithm": algorithm,
         "basis": basis,
         "cs_target_qubits": cs_target_qubits,
-        "n_layers": n_layers,
+        "n_layers": n_layers if algorithm in LAYERED_ALGORITHMS else None,
         "max_iterations": max_iterations,
-        "prepare_hf": prepare_hf,
+        "prepare_hf": prepare_hf and algorithm != "qaoa_inspired_vqe",
         "noise_models": list(noise_models),
         "noise_strengths": list(noise_strengths),
         "n_ok": len(per_molecule_dirs),
@@ -1066,14 +1069,13 @@ def run_noise_resilience_batch(
     if failures:
         with open(output_dir / "batch_failures.json", "w") as f:
             json.dump(failures, f, indent=2)
+        names = ", ".join(row["molecule"] for row in failures)
+        raise RuntimeError(f"Incomplete noise cohort: {names}. See {output_dir / 'batch_failures.json'}")
 
     if save_aggregate_plots and batch_csv.is_file() and not first:
-        try:
-            plot_noise_resilience_multi_molecule(
-                batch_csv, output_dir, reference_p=reference_p_for_bars,
-            )
-        except Exception as exc:
-            logger.warning("Aggregate plotting failed: %s", exc)
+        plot_noise_resilience_multi_molecule(
+            batch_csv, output_dir, reference_p=reference_p_for_bars,
+        )
 
     return {
         "output_dir": output_dir,
@@ -1096,12 +1098,15 @@ def _build_argparser() -> argparse.ArgumentParser:
     )
     p.add_argument("--molecule", "-m", default="water",
                    help="Molecule abbreviation in datasets2/")
-    p.add_argument("--algorithm", "-a", default="hardware_efficient_vqe",
-                   help="Algorithm name (hardware_efficient_vqe or pennylane_vqe)")
+    p.add_argument("--algorithm", "-a", default="hardware_efficient_vqe", choices=NOISE_ALGORITHMS,
+                   help="Fixed ansatz to optimize on the clean and noisy simulators")
     p.add_argument("--basis", default="sto-3g")
+    p.add_argument("--input-snapshot", type=Path, help="Replay a single saved molecular input NPZ")
     p.add_argument("--cs-target-qubits", type=int, default=4,
                    help="CS reduction target qubits; <=0 to skip CS")
-    p.add_argument("--n-layers", type=int, default=2)
+    p.add_argument("--n-layers", type=int, default=2,
+                   help="Layer count for HE, PennyLane, QAOA and HVA. UCC uses its excitation list "
+                        "and NN-AE uses its encoder, latent and decoder depths.")
     p.add_argument("--rotation-gates", default=None, choices=["RY", "RY_RZ", "full"],
                    help="HE-VQE rotation set (default: the ansatz default RY => "
                         "1 param/qubit/layer).")
@@ -1164,7 +1169,10 @@ def _build_argparser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
-    args = _build_argparser().parse_args()
+    parser = _build_argparser()
+    args = parser.parse_args()
+    if args.input_snapshot is not None and (args.batch_amino_acids or args.batch_molecules or args.regenerate_multi_plots_from):
+        parser.error("--input-snapshot requires a single-molecule fit")
 
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
@@ -1212,8 +1220,8 @@ def main() -> None:
             noise_models=tuple(args.noise_models),
             noise_strengths=tuple(args.noise_strengths),
             output_dir=args.batch_output_dir,
-            save_per_molecule_plots=not args.no_per_molecule_plots,
-            save_aggregate_plots=True,
+            save_per_molecule_plots=not (args.no_plots or args.no_per_molecule_plots),
+            save_aggregate_plots=not args.no_plots,
             reference_p_for_bars=args.reference_p_bars,
             rotation_gates=args.rotation_gates,
         )
@@ -1222,10 +1230,6 @@ def main() -> None:
         print(f"OK: {summary['n_ok']}  failed: {summary['n_fail']}")
         print(f"Combined CSV: {summary['batch_csv']}")
         print(f"Output folder: {summary['output_dir']}")
-        if summary["failures"]:
-            print("Failures:")
-            for f in summary["failures"]:
-                print(f"  {f['molecule']}: {f['error']}")
         return
 
     out = run_noise_resilience(
@@ -1245,6 +1249,7 @@ def main() -> None:
         output_dir=args.output_dir,
         save_plots=not args.no_plots,
         rotation_gates=args.rotation_gates,
+        input_snapshot=args.input_snapshot,
     )
 
     cfg: NoiseResilienceConfig = out["config"]
@@ -1256,7 +1261,8 @@ def main() -> None:
     print("=" * 60)
     print(f"Active-space qubits: {cfg.n_qubits_active} -> final {cfg.n_qubits_final} "
           f"(CS={cfg.cs_target_qubits})")
-    print(f"Ansatz: {cfg.algorithm}, n_layers={cfg.n_layers}, "
+    depth = f"n_layers={cfg.n_layers}, " if cfg.n_layers is not None else ""
+    print(f"Ansatz: {cfg.algorithm}, {depth}"
           f"n_parameters={cfg.n_parameters}, init={cfg.init_strategy}, "
           f"prepare_hf={cfg.prepare_hf}")
     print(f"HF energy:    {cfg.hf_energy}")
@@ -1273,11 +1279,12 @@ def main() -> None:
           f"{'ΔE_clean(mHa)':>14} {'||Δθ||₂':>9} {'RMS(rad)':>9} {'wrapped':>9} {'cos':>7}")
     for r in results:
         d_e = (r.energy_clean_at_noisy_params - r.energy_clean_baseline) * 1e3
+        wrapped = "n/a" if r.param_drift_l2_wrapped is None else f"{r.param_drift_l2_wrapped:.4f}"
         print(
             f"{r.noise_model:<20} {r.noise_strength:>7.4f} "
             f"{r.energy_noisy:>12.6f} {r.energy_clean_at_noisy_params:>16.6f} "
             f"{d_e:>14.3f} {r.param_drift_l2:>9.4f} {r.param_drift_rms:>9.4f} "
-            f"{r.param_drift_l2_wrapped:>9.4f} {r.param_drift_cosine:>7.3f}"
+            f"{wrapped:>9} {r.param_drift_cosine:>7.3f}"
         )
     print(f"\nResults saved to: {out['output_dir']}")
 
