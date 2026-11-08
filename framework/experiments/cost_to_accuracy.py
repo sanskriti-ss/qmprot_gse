@@ -50,6 +50,7 @@ BASE_FIELDS = [
     "molecule", "algorithm", "target_n_params", "actual_n_params", "param_match",
     "n_outer_iters", "n_cost_evals", "n_callback_evals", "eval_budget",
     "runtime_seconds", "final_energy", "error_vs_casci", "best_error_vs_casci",
+    "error_vs_operator_ground", "operator_ground_energy",
     "hf_error_vs_casci", "hf_trivial", "converged_below_threshold",
     "stopped_at_accuracy", "init_label", "bounds_only", "notes",
 ]
@@ -90,6 +91,14 @@ def make_record(
         "final_energy": f"{row.final_energy:.10f}",
         "error_vs_casci": f"{row.error_vs_casci:.10f}",
         "best_error_vs_casci": f"{row.best_error_vs_casci:.10f}",
+        "error_vs_operator_ground": (
+            "" if getattr(row, "error_vs_operator_ground", None) is None
+            else f"{row.error_vs_operator_ground:.10f}"
+        ),
+        "operator_ground_energy": (
+            "" if getattr(row, "operator_ground_energy", None) is None
+            else f"{row.operator_ground_energy:.10f}"
+        ),
         "hf_error_vs_casci": f"{hf_err:.10f}",
         "hf_trivial": int(bool(np.isfinite(hf_err) and abs(hf_err) < CHEMICAL_ACCURACY_HA)),
         "converged_below_threshold": int(row.converged_below_threshold),

@@ -21,6 +21,24 @@ from config import HAMILTONIAN_MAX_TERMS, HAMILTONIAN_TARGET_QUBITS
 logger = logging.getLogger(__name__)
 
 
+def parity_signs(n_qubits):
+    """Return Z-parity signs for computational-basis indices."""
+    signs = np.ones(1 << n_qubits, dtype=np.int8)
+    for bit in range(n_qubits):
+        width = 1 << bit
+        signs[width:2 * width] = -signs[:width]
+    return signs
+
+
+def pauli_masks(word):
+    """Return computational-basis flip and phase masks for a Pauli word."""
+    flip = parity = 0
+    for pauli in word:
+        flip = (flip << 1) | (pauli in "XY")
+        parity = (parity << 1) | (pauli in "YZ")
+    return flip, parity
+
+
 @dataclass
 class Molecule:
     """Data class for molecule information"""
@@ -201,6 +219,68 @@ class QubitHamiltonian:
             result.append(pauli_map.get(i, 'I'))
         
         return ''.join(result)
+
+    def _extend_sparse_matrix(self, H, coefficients, pauli_strings, n_qubits):
+        """Build an ordered CSR sum of Pauli terms without Kronecker temporaries."""
+        from scipy.sparse import csr_matrix
+
+        dimension = 1 << n_qubits
+        if H is None:
+            H = csr_matrix((dimension, dimension), dtype=complex)
+        elif H.shape != (dimension, dimension):
+            raise ValueError(f"Incompatible matrix shape {H.shape} for {n_qubits} qubits")
+        rows = np.arange(dimension, dtype=np.int32)
+        indptr = np.arange(dimension + 1, dtype=np.int32)
+        signs = parity_signs(n_qubits)
+
+        for coeff, pauli_str in zip(coefficients, pauli_strings):
+            if not np.isfinite(coeff) or np.imag(coeff) != 0:
+                raise ValueError(f"Expected a finite real Pauli coefficient, got {coeff!r}")
+            pauli_str = str(pauli_str)
+            if '(' in pauli_str or pauli_str == 'Identity':
+                pauli_str = self._openfermion_to_pauli_string(pauli_str, n_qubits)
+            if len(pauli_str) != n_qubits or set(pauli_str).difference('IXYZ'):
+                raise ValueError(f"Invalid Pauli word {pauli_str!r} for {n_qubits} qubits")
+            if abs(coeff) < 1e-12:
+                continue
+            flip, parity = pauli_masks(pauli_str)
+            phase = (-1j) ** (pauli_str.count('Y') % 4)
+            op = csr_matrix(
+                (phase * signs[rows & parity], rows ^ flip, indptr),
+                shape=H.shape,
+            )
+            H = H + coeff * op
+        return H
+
+    def ordered_sparse_matrix(self):
+        """Return a CSR matrix for the current ordered Hamiltonian terms."""
+        words = tuple(self.pauli_strings)
+        coefficients = np.asarray(self.coefficients)
+        cached = getattr(self, "_ordered_sparse_cache", None)
+        if cached is not None:
+            count, saved_words, saved_coefficients, matrix = cached
+            if (self.n_qubits == count and words == saved_words
+                    and coefficients.dtype == saved_coefficients.dtype
+                    and np.array_equal(coefficients, saved_coefficients)):
+                return matrix
+        saved_coefficients = coefficients.copy()
+        matrix = self._extend_sparse_matrix(None, saved_coefficients, words, self.n_qubits)
+        for array in (matrix.data, matrix.indices, matrix.indptr):
+            array.flags.writeable = False
+        self._ordered_sparse_cache = self.n_qubits, words, saved_coefficients, matrix
+        return matrix
+
+    @staticmethod
+    def _sparse_ground_state_energy(H, n_qubits):
+        """Return the minimum eigenvalue of a Hermitian sparse operator."""
+        from scipy.sparse.linalg import eigsh
+
+        if H.nnz == 0:
+            return 0.0
+        if n_qubits <= 10:
+            return float(np.linalg.eigvalsh(H.toarray())[0])
+        eigenvalues, _ = eigsh(H, k=1, which='SA')
+        return float(eigenvalues[0])
     
     def _calculate_ground_state_energy(self, coefficients, pauli_strings, n_qubits):
         """
