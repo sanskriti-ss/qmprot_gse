@@ -1,3 +1,5 @@
+# ABOUTME: Dispatches each experiment configuration and records the completed campaign.
+# ABOUTME: Selects the native output location for each study and its batch mode.
 """Run every experiment JSON in one campaign folder.
 
 A campaign is one version of the comparison. Copy the folder, then change
@@ -87,8 +89,12 @@ def git_state(cwd: Path) -> dict:
 
 def output_flag(spec: dict) -> str:
     args = spec.get("args", {})
-    if args.get("all-molecules") or args.get("molecules"):
+    if spec["module"] == "experiments.trainability" and (args.get("all-molecules") or args.get("molecules")):
         return "--output-root"
+    if spec["module"] == "experiments.noise_resilience" and (
+        args.get("batch-amino-acids") or args.get("batch-molecules")
+    ):
+        return "--batch-output-dir"
     return "--output-dir"
 
 
@@ -102,15 +108,20 @@ def main() -> None:
     args = parser.parse_args()
 
     folder = campaign_dir(args.campaign)
-    framework = folder.parent.parent
+    framework = Path(__file__).resolve().parents[1]
     files = experiment_files(folder)
     started = datetime.now(timezone.utc).isoformat()
     commands = []
+    returncode = 0
     for path in files:
         spec = json.loads(path.read_text())
         argv = argv_from_args(spec)
         results = folder / "results" / path.stem
-        if "output-dir" not in spec.get("args", {}) and "output-root" not in spec.get("args", {}):
+        explicit = [spec["args"][name] for name in ("output-dir", "output-root", "batch-output-dir")
+                    if spec.get("args", {}).get(name)]
+        if explicit:
+            results = framework / explicit[0]
+        else:
             argv.extend([output_flag(spec), str(results)])
         commands.append({"file": path.name, "argv": argv, "results": str(results)})
         print(" ".join(argv))
@@ -118,8 +129,10 @@ def main() -> None:
             continue
         results.mkdir(parents=True, exist_ok=True)
         completed = subprocess.run(argv, cwd=framework)
-        if completed.returncode != 0:
-            raise SystemExit(completed.returncode)
+        returncode = completed.returncode
+        commands[-1]["returncode"] = returncode
+        if returncode:
+            break
 
     if args.dry_run:
         return
@@ -133,11 +146,14 @@ def main() -> None:
     manifest.setdefault("runs", [])
     manifest["runs"].append({
         "started": started,
+        "status": "failed" if returncode else "completed",
         **git_state(framework),
         "experiments": commands,
     })
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"recorded {manifest_path}")
+    if returncode:
+        raise SystemExit(returncode)
 
 
 if __name__ == "__main__":

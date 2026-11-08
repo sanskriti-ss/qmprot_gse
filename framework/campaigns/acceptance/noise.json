@@ -1,0 +1,26 @@
+{
+  "module": "experiments.noise_resilience",
+  "args": {
+    "molecule": "hydrogen",
+    "algorithm": "hardware_efficient_vqe",
+    "basis": "sto-3g",
+    "cs-target-qubits": 0,
+    "n-layers": 2,
+    "rotation-gates": "RY",
+    "prepare-hf": true,
+    "init-strategy": "small_random",
+    "optimizer": "COBYLA",
+    "max-iter": 24,
+    "convergence-threshold": 1e-10,
+    "seed": 42,
+    "noise-models": [
+      "depolarizing",
+      "phaseflip",
+      "amplitude_damping"
+    ],
+    "noise-strengths": [
+      0,
+      0.01
+    ]
+  }
+}

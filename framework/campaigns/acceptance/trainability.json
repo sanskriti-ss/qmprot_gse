@@ -1,0 +1,26 @@
+{
+  "module": "experiments.trainability",
+  "args": {
+    "molecule": "hydrogen",
+    "basis": "sto-3g",
+    "cs-target-qubits": 0,
+    "algorithms": [
+      "qubit_adapt_vqe",
+      "hardware_efficient_vqe"
+    ],
+    "param-targets": [
+      2,
+      21
+    ],
+    "eval-budget": 44,
+    "max-iter": 12,
+    "optimizer": "COBYLA",
+    "convergence-threshold": 1e-10,
+    "he-rotation-gates": "RY",
+    "he-param-match": "exact",
+    "he-init-strategy": "small_random",
+    "he-hf-init": true,
+    "he-stop-at-accuracy": false,
+    "seed": 42
+  }
+}

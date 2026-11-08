@@ -92,6 +92,7 @@ if str(_FW_DIR) not in sys.path:
     sys.path.insert(0, str(_FW_DIR))
 
 from core.base_vqe import incumbent_history, is_bayesian_optimizer  # noqa: E402
+from experiments.provenance import record_runtime, save_problem  # noqa: E402
 from experiments._common import (  # noqa: E402
     INIT_STRATEGIES,
     LoadedHamiltonian,
@@ -357,6 +358,8 @@ def run_noise_resilience(
     out_dir = output_dir or make_run_dir(
         "noise_resilience", molecule, algorithm,
     )
+    record_runtime(out_dir)
+    save_problem(loaded, Path(out_dir) / "inputs")
     logger.info("Output dir: %s", out_dir)
 
     # ── 4. Noiseless baseline run ───────────────────────────────────────

@@ -1,0 +1,16 @@
+{
+  "module": "experiments.accuracy_vs_params",
+  "args": {
+    "molecule": "hydrogen",
+    "cs-target-qubits": 0,
+    "algorithm": "qubit_adapt_vqe",
+    "k-list": [
+      1,
+      2,
+      5
+    ],
+    "inner-max-iter": 100,
+    "basis": "sto-3g",
+    "seed": 42
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "module": "experiments.experiment5_term_count_sweep",
+  "args": {
+    "molecules": [
+      "gly"
+    ],
+    "cs-target-qubits": 4,
+    "algorithms": [
+      "hardware_efficient_vqe",
+      "qubit_adapt_vqe",
+      "iqcc_true_vqe"
+    ],
+    "term-counts": [
+      1,
+      10,
+      26
+    ],
+    "n-layers": 1,
+    "max-operators": 3,
+    "max-iter": 32,
+    "basis": "sto-3g",
+    "seeds": [42, 43]
+  }
+}

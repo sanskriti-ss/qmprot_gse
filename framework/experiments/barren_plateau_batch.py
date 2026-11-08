@@ -56,7 +56,7 @@ _FW_DIR = Path(__file__).resolve().parent.parent
 if str(_FW_DIR) not in sys.path:
     sys.path.insert(0, str(_FW_DIR))
 
-from experiments._common import make_run_dir  # noqa: E402
+from experiments._common import make_run_dir, validate_study_axes  # noqa: E402
 from experiments.barren_plateau import (  # noqa: E402
     DEFAULT_BP_STRATEGIES,
     DEFAULT_LAYERS,
@@ -110,6 +110,8 @@ def run_barren_plateau_batch(
                             per_molecule_summary_csv, molecules_results
     """
     
+    validate_study_axes(molecules=molecules, layers=layers, bp_strategies=bp_strategies,
+                        opt_strategies=opt_strategies)
     cfg = BatchConfig(
         molecules=tuple(molecules),
         algorithm=algorithm,

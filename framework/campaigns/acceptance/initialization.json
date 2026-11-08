@@ -1,0 +1,26 @@
+{
+  "module": "experiments.barren_plateau",
+  "args": {
+    "molecule": "hydrogen",
+    "cs-target-qubits": 0,
+    "layers": [
+      1,
+      2
+    ],
+    "bp-strategies": [
+      "small_random"
+    ],
+    "n-samples": 5,
+    "max-gradient-probes": 3,
+    "optimizer": "BAYESIAN",
+    "opt-layers": 1,
+    "opt-strategies": [
+      "small_random",
+      "near_identity"
+    ],
+    "n-trials": 1,
+    "max-iter": 14,
+    "basis": "sto-3g",
+    "seed": 42
+  }
+}

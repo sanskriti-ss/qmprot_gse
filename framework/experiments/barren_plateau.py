@@ -86,6 +86,7 @@ if str(_FW_DIR) not in sys.path:
     sys.path.insert(0, str(_FW_DIR))
 
 from core.base_vqe import incumbent_history, is_bayesian_optimizer  # noqa: E402
+from experiments.provenance import record_runtime, save_problem  # noqa: E402
 from experiments._common import (  # noqa: E402
     INIT_STRATEGIES,
     LoadedHamiltonian,
@@ -95,6 +96,7 @@ from experiments._common import (  # noqa: E402
     make_run_dir,
     parameter_shift_gradient,
     sample_initial_parameters,
+    validate_study_axes,
 )
 
 logger = logging.getLogger(__name__)
@@ -473,6 +475,10 @@ def run_barren_plateau(
     Returns a dict with keys ``"config"``, ``"grad_rows"``, ``"opt_rows"``
     and ``"output_dir"``.
     """
+    if not skip_part_a:
+        validate_study_axes(layers=layers, bp_strategies=bp_strategies)
+    if not skip_part_b:
+        validate_study_axes(opt_strategies=opt_strategies)
     loaded = load_small_hamiltonian(
         molecule=molecule, basis=basis, cs_target_qubits=cs_target_qubits,
     )
@@ -517,6 +523,8 @@ def run_barren_plateau(
     )
 
     out_dir = output_dir or make_run_dir("barren_plateau", molecule, algorithm)
+    record_runtime(out_dir)
+    save_problem(loaded, Path(out_dir) / "inputs")
     logger.info("Output dir: %s", out_dir)
 
     grad_rows: List[GradientVarianceRow] = []

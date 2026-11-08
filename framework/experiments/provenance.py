@@ -68,7 +68,9 @@ def save_problem(loaded, directory):
                         coefficients=ham.coefficients, pauli_strings=np.asarray(ham.pauli_strings),
                         initial_state=state, molecule=json.dumps(asdict(ham.molecule)),
                         n_qubits=ham.n_qubits, n_qubits_active=loaded.n_qubits_active,
-                        cs_reduced=loaded.cs_reduced, molecular_hf=float(loaded.hf_energy), casci=float(loaded.casci_energy))
+                        cs_reduced=loaded.cs_reduced, molecular_hf=float(loaded.hf_energy), casci=float(loaded.casci_energy),
+                        encoded_reference_energy=(float(loaded.encoded_reference_energy)
+                                                  if loaded.encoded_reference_energy is not None else np.nan))
     return path
 
 
@@ -87,4 +89,7 @@ def load_problem(path):
                                  n_qubits_active=int(data["n_qubits_active"]), n_qubits_final=ham.n_qubits,
                                  cs_reduced=bool(data["cs_reduced"]), cs_metadata=json.loads(str(data["cs_metadata"])),
                                  hf_energy=float(data["molecular_hf"]), casci_energy=float(data["casci"]),
+                                 encoded_reference_energy=(float(data["encoded_reference_energy"])
+                                     if "encoded_reference_energy" in data
+                                     and np.isfinite(data["encoded_reference_energy"]) else None),
                                  preparation=json.loads(str(data["preparation"])))
