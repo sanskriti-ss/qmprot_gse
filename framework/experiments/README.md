@@ -284,7 +284,9 @@ generated full odd-Y pool contains 4,092 operators; only operators that
 fail to commute with the Hamiltonian are gradient-screened. The run config
 records both `n_pool_operators` and `n_screenable_operators`, so reports of
 the screened candidate count can be compared without confusing it with the
-generated pool size.
+generated pool size. If CS reduction is active, Qubit-ADAPT uses the full
+pool even when `--qubit-adapt-pool restricted` was requested; the run config
+records both the requested and effective pool modes.
 
 **Outputs** (in `results/accuracy_vs_params/<timestamp>_<mol>_<algo>/`):
 

@@ -10,27 +10,6 @@ The repository serves both as a research platform for benchmarking VQE variants 
 
 ---
 
-## Latest Results (2026-03-18)
-
-Full benchmark: **11 algorithms × 5 amino acids** (ALA, ARG, ASP, CYS, GLY).  
-Pipeline: cc-pVDZ basis, (10e,7o) active space [CYS: (12e,7o)], 14 qubits → 8 qubits after contextual subspace reduction.
-
-![Comprehensive comparison](framework/plots/20260318_200609/comprehensive_comparison.png)
-
-| Molecule | CASCI Ref (Ha) | HF (Ha) | Best VQE error (Ha) | Best algorithms |
-|----------|---------------|---------|---------------------|-----------------|
-| ALA (alanine) | −321.892 | −317.371 | 0.00232 | ADAPT, iQCC, UCC, NN-AE |
-| ARG (arginine) | −602.934 | −600.089 | 0.000098 | ADAPT, iQCC, UCC, NN-AE |
-| ASP (aspartic acid) | −509.517 | −506.088 | 0.00554 | ADAPT, iQCC, UCC, NN-AE |
-| CYS (cysteine) | −719.414 | −716.732 | 0.00111 | ADAPT, iQCC, UCC, NN-AE |
-| GLY (glycine) | −282.862 | −280.008 | 0.00733 | ADAPT, iQCC, UCC, NN-AE |
-
-All errors are **positive** (variational principle holds throughout). ARG reaches near-chemical accuracy (0.1 mHa error).
-
-![Error heatmap](framework/plots/20260318_200609/heatmap_error.png)
-
----
-
 ## Motivation
 
 Near-term quantum hardware is constrained by qubit counts and circuit depth, making direct simulation of large molecules infeasible. This repository explores algorithmic trade-offs under these constraints — benchmarking 11 VQE variants on the same set of molecular Hamiltonians to understand accuracy, runtime, and convergence behavior.
@@ -115,5 +94,4 @@ This framework targets 8 qubits after contextual subspace reduction from a 14-qu
 - Compute first excited states in addition to ground-state energies
 - Extend to larger amino acids and peptide chains
 - Noise model simulation for hardware-realistic benchmarking
-
 
