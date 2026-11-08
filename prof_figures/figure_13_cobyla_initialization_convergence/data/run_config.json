@@ -1,0 +1,48 @@
+{
+  "molecules": [
+    "ala",
+    "arg",
+    "asn",
+    "asp",
+    "cys",
+    "gln",
+    "glu",
+    "gly",
+    "his",
+    "ile",
+    "leu",
+    "lys",
+    "met",
+    "phe",
+    "pro",
+    "ser",
+    "thr",
+    "trp",
+    "tyr",
+    "val"
+  ],
+  "algorithm": "hardware_efficient_vqe",
+  "basis": "sto-3g",
+  "cs_target_qubits": 6,
+  "layers": [
+    1,
+    2,
+    4
+  ],
+  "bp_strategies": [
+    "random_uniform",
+    "small_random",
+    "near_identity"
+  ],
+  "n_samples": 30,
+  "opt_layers": 6,
+  "opt_strategies": [
+    "random_uniform",
+    "small_random",
+    "near_identity"
+  ],
+  "n_trials": 5,
+  "max_iterations": 200,
+  "optimizer": "COBYLA",
+  "random_seed": 42
+}

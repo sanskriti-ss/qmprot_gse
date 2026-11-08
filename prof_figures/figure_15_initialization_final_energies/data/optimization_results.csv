@@ -1,0 +1,3 @@
+strategy,trial,n_layers,n_parameters,initial_energy,final_energy,n_iterations
+small_random,0,1,8,-0.4637771112,-0.4637771112,14
+near_identity,0,1,8,-0.5261756239,-0.5261756239,14
