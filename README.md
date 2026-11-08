@@ -1,5 +1,7 @@
 # qmprot_gse
 
+![Repository configurability overview](framework/configurability_overview.svg)
+
 ## Overview
 
 qmprot_gse investigates the use of Variational Quantum Eigensolver (VQE) algorithms to compute ground-state energies (GSE) of amino acids using Hamiltonians derived from the [QMProt dataset](https://pennylane.ai/datasets/collection/qmprot).
