@@ -31,6 +31,7 @@ def run_pipeline(
     h5_path: Optional[str] = None,
     run_casscf: bool = False,
     run_basis_comparison: bool = False,
+    max_active_orbitals: Optional[int] = None,
     quiet: bool = False,
 ) -> dict:
     """Run the full active space pipeline.
@@ -60,7 +61,12 @@ def run_pipeline(
     # Step 1
     _log("\n[2/4] Running HF + MP2 orbital analysis...", quiet)
     t1 = time.time()
-    diagnostics = run_orbital_analysis(geometry, basis=basis, run_basis_comparison=run_basis_comparison)
+    diagnostics = run_orbital_analysis(
+        geometry,
+        basis=basis,
+        run_basis_comparison=run_basis_comparison,
+        max_active_orbitals=max_active_orbitals,
+    )
     _log(f"  Completed in {time.time() - t1:.1f}s", quiet)
     _log(diagnostics.summary(), quiet)
 
@@ -120,6 +126,8 @@ def main():
     parser.add_argument("--h5-path", default=None, help="Path to H5 geometry file")
     parser.add_argument("--casscf", action="store_true", help="Also run CASSCF")
     parser.add_argument("--basis-comparison", action="store_true", help="Run STO-3G comparison")
+    parser.add_argument("--max-active-orbitals", type=int, default=None,
+                        help="Maximum number of active orbitals (default: configured pipeline cap)")
     parser.add_argument("--all", action="store_true", help="Run all available molecules")
     args = parser.parse_args()
 
@@ -133,6 +141,7 @@ def main():
                     molecule=mol, basis=args.basis,
                     run_casscf=args.casscf,
                     run_basis_comparison=args.basis_comparison,
+                    max_active_orbitals=args.max_active_orbitals,
                 )
                 all_results[mol] = result
             except Exception as e:
@@ -143,6 +152,7 @@ def main():
             molecule=args.molecule, basis=args.basis,
             h5_path=args.h5_path, run_casscf=args.casscf,
             run_basis_comparison=args.basis_comparison,
+            max_active_orbitals=args.max_active_orbitals,
         )
 
 

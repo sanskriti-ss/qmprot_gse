@@ -45,6 +45,7 @@ class OrbitalDiagnostics:
     mol: object = None
     mf: object = None
     mo_coeff: Optional[np.ndarray] = None
+    natural_orbital_coefficients: Optional[np.ndarray] = None
 
     @property
     def n_qubits_proposed(self) -> int:
@@ -87,6 +88,7 @@ def run_orbital_analysis(
     geometry: MoleculeGeometry,
     basis: str = "cc-pvdz",
     run_basis_comparison: bool = False,
+    *, max_active_orbitals: Optional[int] = None,
 ) -> OrbitalDiagnostics:
     """Run HF + MP2 and propose active space (capped at MAX_ACTIVE_ORBITALS)."""
     from pyscf import gto, scf, mp as pyscf_mp
@@ -144,9 +146,14 @@ def run_orbital_analysis(
         else:
             raise ValueError(f"Unexpected MP2 RDM1 shape: {rdm1_arr.shape}")
 
-    nat_occ = np.linalg.eigvalsh(rdm1_spatial)
-    nat_occ = np.asarray(nat_occ, dtype=float)[::-1]  # descending
+    # Natural occupations and their eigenvectors are both needed: the chosen
+    # active-orbital indices refer to the natural-orbital basis, not canonical MOs.
+    nat_occ, nat_vec = np.linalg.eigh(rdm1_spatial)
+    order = np.argsort(nat_occ)[::-1]
+    nat_occ = np.asarray(nat_occ[order], dtype=float)
+    nat_vec = nat_vec[:, order]
     diag.natural_occupations = nat_occ
+    diag.natural_orbital_coefficients = mf.mo_coeff @ nat_vec
 
     # Freeze core
     n_core = sum(CORE_ELECTRONS.get(a, 0) // 2 for a in geometry.atoms)
@@ -167,7 +174,10 @@ def run_orbital_analysis(
     def _score(idx):
         return min(abs(nat_occ[idx] - 2.0), abs(nat_occ[idx] - 0.0))
     candidates.sort(key=_score, reverse=True)
-    candidates = sorted(candidates[:MAX_ACTIVE_ORBITALS])
+    cap = MAX_ACTIVE_ORBITALS if max_active_orbitals is None else max_active_orbitals
+    if cap < 1:
+        raise ValueError("Select at least one active orbital")
+    candidates = sorted(candidates[:cap])
     
     diag.proposed_active_indices = candidates
     diag.proposed_n_active_orbitals = len(candidates)

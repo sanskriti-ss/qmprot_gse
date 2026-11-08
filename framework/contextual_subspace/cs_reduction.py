@@ -98,10 +98,10 @@ def _compute_cs_initial_state(
     fn_form,
     ep_state,
     n_generators_to_drop: int,
-) -> np.ndarray:
+) -> Tuple[np.ndarray, float]:
     """Rotate the HF state into the CS basis and project out stabilized qubits.
 
-    Returns the reduced statevector suitable for ``qml.StatePrep``.
+    Returns the statevector and the HF probability retained by the projection.
     """
     from scipy.sparse import eye as sp_eye
 
@@ -122,9 +122,9 @@ def _compute_cs_initial_state(
         angle, gen_str = rotation
         G = pauli_to_sparse(gen_str)
         if angle == "pi/2":
-            R = (identity - 1j * G) / np.sqrt(2)
+            R = (identity + 1j * G) / np.sqrt(2)
         else:
-            R = np.cos(angle / 2) * identity - 1j * np.sin(angle / 2) * G
+            R = np.cos(angle / 2) * identity + 1j * np.sin(angle / 2) * G
         state = R @ state
 
     # 3. Project out stabilized qubits
@@ -161,7 +161,7 @@ def _compute_cs_initial_state(
     if norm > 1e-15:
         reduced_state /= norm
 
-    return reduced_state
+    return reduced_state, float(norm ** 2)
 
 
 def apply_contextual_subspace_reduction(
@@ -242,6 +242,9 @@ def apply_contextual_subspace_reduction(
     # --- 3. Determine how many generators to keep / drop ---
     rotations, diagonal_set, vals = diagonalize_epistemic(model, fn_form, ep_state)
     n_generators = len(diagonal_set)
+    if not n_generators:
+        return hamiltonian, {"original_qubits": n_qubits, "reduced": False,
+                             "reason": "no noncontextual stabilizers"}
     min_qubits = n_qubits - n_generators
 
     if target_qubits < min_qubits:
@@ -265,7 +268,8 @@ def apply_contextual_subspace_reduction(
         ham_dict, model, fn_form, ep_state, n_generators_to_drop
     )
 
-    cs_initial_state = _compute_cs_initial_state(
+    selected_energy = noncon_energy
+    cs_initial_state, hf_probability = _compute_cs_initial_state(
         n_qubits,
         hamiltonian.molecule.n_electrons,
         model, fn_form, ep_state,
@@ -276,20 +280,20 @@ def apply_contextual_subspace_reduction(
     # (zero norm after projection), search other sectors ordered by energy until
     # we find one that is HF-compatible.  This ensures VQE starts in the correct
     # physical sector rather than a spuriously low-energy wrong sector.
-    if np.linalg.norm(cs_initial_state) < 1e-10 and len(all_ep_candidates) > 1:
+    if hf_probability <= 1e-30:
         logger.info(
             "Default noncontextual sector has zero HF overlap; "
             f"searching for HF-compatible sector among {len(all_ep_candidates)} candidates..."
         )
         for alt_candidate in all_ep_candidates[1:]:
             alt_ep = alt_candidate[1]
-            alt_state = _compute_cs_initial_state(
+            alt_state, alt_probability = _compute_cs_initial_state(
                 n_qubits,
                 hamiltonian.molecule.n_electrons,
                 model, fn_form, alt_ep,
                 n_generators_to_drop,
             )
-            if np.linalg.norm(alt_state) > 1e-10:
+            if alt_probability > 1e-30:
                 logger.info(
                     f"Found HF-compatible noncontextual sector "
                     f"(energy {alt_candidate[0]:.6f} Ha vs min {noncon_energy:.6f} Ha); "
@@ -297,15 +301,15 @@ def apply_contextual_subspace_reduction(
                 )
                 ep_state = alt_ep
                 cs_initial_state = alt_state
+                hf_probability = alt_probability
+                selected_energy = alt_candidate[0]
+                rotations, diagonal_set, vals = diagonalize_epistemic(model, fn_form, ep_state)
                 ham_red = _build_reduced_hamiltonian(
                     ham_dict, model, fn_form, ep_state, n_generators_to_drop
                 )
                 break
         else:
-            logger.warning(
-                "No noncontextual sector contains the HF state; "
-                "using default sector (VQE initial state will be naive HF fallback)."
-            )
+            raise ValueError("No candidate contextual-subspace sector has a nonzero projected HF state")
 
     logger.info(
         f"Rotated HF state: {np.sum(np.abs(cs_initial_state) > 1e-8)} non-zero amplitudes "
@@ -358,6 +362,12 @@ def apply_contextual_subspace_reduction(
         "total_terms": len(ham_dict),
         "reduced_terms": len(ham_red),
         "noncontextual_ground_state_energy": noncon_energy,
+        "selected_noncontextual_energy": float(selected_energy),
+        "hf_projection_probability": hf_probability,
+        "rotations": [{"pauli": pauli, "angle_rad": float(np.pi / 2 if a == "pi/2" else a)}
+                      for a, pauli in rotations],
+        "stabilizers": [{"pauli": pauli, "eigenvalue": int(v)}
+                        for pauli, v in zip(diagonal_set[n_generators_to_drop:], vals[n_generators_to_drop:])],
         "min_achievable_qubits": min_qubits,
     }
 

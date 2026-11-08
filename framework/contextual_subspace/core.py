@@ -114,6 +114,8 @@ def to_indep_set(G_w_in: Dict[str, List]) -> Tuple[List, Dict]:
     """Given a commuting set of Pauli strings (dict mapping each to None),
     return an independent generating set and the mapping from original elements
     to their equivalent product in the new set."""
+    if not G_w_in:
+        return [], {}
     G_w = deepcopy(G_w_in)
     G_w_keys = [[str(g), 1] for g in G_w.keys()]
     G_w_keys_orig = [str(g) for g in G_w.keys()]

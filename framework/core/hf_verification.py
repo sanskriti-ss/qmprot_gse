@@ -160,6 +160,9 @@ def compute_hf_energy(
     Returns:
         The Hartree-Fock energy (float).
     """
+    cs_state = getattr(hamiltonian, "cs_initial_state", None)
+    if cs_state is not None and np.linalg.norm(cs_state) > 1e-10:
+        return compute_hf_energy_pennylane(hamiltonian, n_electrons=n_electrons)
     try:
         n_qubits = hamiltonian.n_qubits
         if n_electrons is None:
@@ -279,9 +282,13 @@ def compute_hf_energy_pennylane(
 
     @qml.qnode(dev)
     def hf_circuit():
-        # Prepare |1…1 0…0⟩ (Jordan-Wigner HF state)
-        for i in range(n_occ):
-            qml.PauliX(wires=i)
+        state = getattr(hamiltonian, "cs_initial_state", None)
+        if state is not None and np.linalg.norm(state) > 1e-10:
+            qml.StatePrep(state, wires=range(n_qubits))
+        else:
+            # Prepare |1…1 0…0⟩ (Jordan-Wigner HF state)
+            for i in range(n_occ):
+                qml.PauliX(wires=i)
         return qml.expval(H)
 
     return float(hf_circuit())

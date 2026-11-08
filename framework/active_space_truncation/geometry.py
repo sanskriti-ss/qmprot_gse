@@ -44,7 +44,8 @@ class MoleculeGeometry:
 
     @property
     def n_electrons(self) -> int:
-        return sum(self.ATOMIC_NUMBERS.get(a, 0) for a in self.atoms) - self.charge
+        from pyscf.data.elements import charge
+        return sum(charge(atom) for atom in self.atoms) - self.charge
 
     @property
     def multiplicity(self) -> int:
@@ -123,6 +124,7 @@ def load_geometry_from_h5(path: str) -> MoleculeGeometry:
 CORE_ELECTRONS = {
     "H": 0, "He": 0,
     "Li": 2, "Be": 2, "B": 2, "C": 2, "N": 2, "O": 2, "F": 2, "Ne": 2,
+    "S": 10,
 }
 
 # All amino acid abbreviations with H5 datasets

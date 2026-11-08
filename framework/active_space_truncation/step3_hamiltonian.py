@@ -48,6 +48,7 @@ def build_qubit_hamiltonian(
     geometry: MoleculeGeometry,
     active_space: ActiveSpaceResult,
     diagnostics: OrbitalDiagnostics,
+    *, orbital_coefficients=None,
 ) -> PipelineHamiltonian:
     """Build qubit Hamiltonian via PySCF active-space integrals + OpenFermion.
 
@@ -73,7 +74,12 @@ def build_qubit_hamiltonian(
     mc = mcscf.CASCI(mf, ncas, nelecas)
     # PySCF sort_mo expects 1-based orbital indices.
     cas_list = [i + 1 for i in diagnostics.proposed_active_indices]
-    mo = mcscf.sort_mo(mc, mf.mo_coeff, cas_list)
+    orbitals = orbital_coefficients
+    if orbitals is None:
+        orbitals = diagnostics.natural_orbital_coefficients
+    if orbitals is None:
+        orbitals = mf.mo_coeff
+    mo = mcscf.sort_mo(mc, orbitals, cas_list)
 
     # 1-electron integrals for active space.
     # h1eff includes the frozen-core Fock contribution;

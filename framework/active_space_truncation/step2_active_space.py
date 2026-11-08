@@ -48,6 +48,7 @@ def validate_active_space(
     geometry: MoleculeGeometry,
     diagnostics: OrbitalDiagnostics,
     run_casscf: bool = False,
+    *, orbital_coefficients=None,
 ) -> ActiveSpaceResult:
     """Validate proposed active space with CASCI (and optionally CASSCF)."""
     from pyscf import gto, scf, mcscf
@@ -76,11 +77,16 @@ def validate_active_space(
     mc = mcscf.CASCI(mf, ncas, nelecas)
     # PySCF sort_mo uses 1-based orbital indices
     cas_list = [i + 1 for i in diagnostics.proposed_active_indices]
-    mo = mcscf.sort_mo(mc, mf.mo_coeff, cas_list)
+    orbitals = orbital_coefficients
+    if orbitals is None:
+        orbitals = diagnostics.natural_orbital_coefficients
+    if orbitals is None:
+        orbitals = mf.mo_coeff
+    mo = mcscf.sort_mo(mc, orbitals, cas_list)
     mc.kernel(mo)
 
     result.casci_energy = float(mc.e_tot)
-    result.casci_converged = True
+    result.casci_converged = bool(mc.converged)
     result.energy_below_hf = result.casci_energy < result.hf_energy
 
     mp2_corr = diagnostics.mp2_correlation
@@ -89,7 +95,7 @@ def validate_active_space(
 
     if run_casscf:
         mc_scf = mcscf.CASSCF(mf, ncas, nelecas)
-        mo_scf = mcscf.sort_mo(mc_scf, mf.mo_coeff, cas_list)
+        mo_scf = mcscf.sort_mo(mc_scf, orbitals, cas_list)
         mc_scf.kernel(mo_scf)
         result.casscf_energy = float(mc_scf.e_tot)
         result.casscf_converged = bool(mc_scf.converged)
