@@ -23,7 +23,7 @@ export MPLBACKEND=Agg
 export QMPROT_GEOMETRIES="$PWD/smoke/geometries"
 ```
 
-`smoke/geometries` contains pinned real geometries for 19 amino acids and hydrogen. Asparagine is excluded because its published electron count and spin are inconsistent. Do not use `smoke/tiny_geometries` for amino-acid science: most of those files are small hydrogen fixtures for testing input routing.
+Keep the `QMPROT_GEOMETRIES` export in the same shell as the study commands. The path above assumes you are in `framework`. Without the export, the experiments use `datasets2`, where `ser`, `trp`, and `tyr` are fragments. The pinned directory contains 19 whole amino acids and hydrogen. Asparagine is excluded because its published electron count and spin are inconsistent. See [Choosing geometry inputs](framework/experiments/README.md#choosing-geometry-inputs) for how to check the saved inputs.
 
 ## First check
 

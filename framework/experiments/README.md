@@ -8,7 +8,7 @@ modules:
 - `algorithms/` -- the VQE ansatze (we use `hardware_efficient_vqe`,
   `pennylane_vqe`, `qubit_adapt_vqe` and `adapt_vqe`),
 - `active_space_truncation/` -- HF -> MP2 -> CASCI -> qubit Hamiltonian
-  pipeline driven directly from `datasets2/<molecule>/<molecule>.h5`,
+  pipeline driven directly from the selected molecular geometry files,
 - `contextual_subspace/` -- optional CS reduction to drive the qubit count
   down to ~4 for fast experiments (used by experiments 1 and 2; **not**
   used by experiments 3 and 4 -- see those sections for the reason).
@@ -32,6 +32,31 @@ couple of minutes per experiment; experiments 3 and 4 default to the
 12-qubit active-space water Hamiltonian and take a few minutes longer
 because adaptive ansatze need a real correlation gap to grow into.
 
+## Choosing geometry inputs
+
+For a whole-amino-acid benchmark, run these commands from the repository root
+in Bash or WSL before launching any `python -m experiments...` command:
+
+```bash
+cd framework
+export QMPROT_GEOMETRIES="$PWD/smoke/geometries"
+```
+
+The export applies to experiments launched from that shell. Repeat it in a new
+shell. If you are already in `framework`, start with the `export` line.
+
+The pinned directory contains 19 whole amino acids and hydrogen. With the
+variable unset, experiments read `framework/datasets2`. That directory also
+contains fragments. In particular, `ser`, `trp`, and `tyr` refer to smaller
+spin-1 inputs there, even when the same IDs appear in the batch command.
+`framework/smoke/tiny_geometries` contains test fixtures. Asparagine is outside
+the pinned cohort because its published electron count and spin disagree.
+
+Keep the saved `inputs/<molecule>.npz` files with the results. Their preparation
+metadata records the geometry hash, atom symbols and coordinates, orbital basis,
+and contextual reduction settings. Use those records when comparing runs that
+share molecule IDs.
+
 ## Layout
 
 ```
@@ -54,7 +79,7 @@ experiments/
 `_common.py` provides:
 
 - `load_small_hamiltonian(molecule, basis, cs_target_qubits)` -- runs the
-  active-space pipeline on `datasets2/<molecule>/<molecule>.h5` and (if
+  active-space pipeline on `<geometry root>/<molecule>/<molecule>.h5` and (if
   needed) folds in a CS reduction down to a target qubit count.
 - `make_backend_config(...)`, `build_vqe(...)` -- convenience constructors
   that bypass `main.py` so we can re-use one initial parameter vector
@@ -221,20 +246,18 @@ python -m experiments.trainability \
     --molecule water --param-targets 10 50 100 --max-iter 500
 ```
 
-Batch across datasets2 amino acids:
+Batch across the 19 pinned whole amino acids. The inline assignment selects
+the geometry root for this command only:
 
 ```bash
 cd framework
-python -m experiments.trainability \
+QMPROT_GEOMETRIES="$PWD/smoke/geometries" python -m experiments.trainability \
   --molecules ala arg asp cys gln glu gly his ile leu lys met phe pro ser thr trp tyr val \
   --param-targets 10 50 100 --max-iter 500
 ```
 
-`trainability.py` does not have a `--batch-amino-acids` flag. Use `--molecules`
-for a controlled amino-acid batch; `--all-molecules` also includes water and
-small chemical fragments found under `datasets2/`. The current `asn.h5.gz`
-file is a Hamiltonian file rather than the geometry file required by these
-pipelines, so omit asparagine until its geometry dataset is repaired.
+Use `--molecules` to specify the cohort. With the default `datasets2` root,
+`--all-molecules` also includes water and small chemical fragments.
 
 Useful flags: `--molecule hydrogen` (very fast, for plumbing checks),
 `--algorithms qubit_adapt_vqe hardware_efficient_vqe`,

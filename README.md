@@ -56,6 +56,8 @@ python main.py --plot-only
 
 Pre-built `.h5` Hamiltonians for all 5 amino acids are in `framework/datasets/`. See [framework/README.md](framework/README.md) for full documentation including algorithm descriptions, the Hamiltonian pipeline, and instructions for adding new algorithms.
 
+For fresh studies on whole amino acids, [select the pinned geometry inputs](framework/experiments/README.md#choosing-geometry-inputs) before launching the experiment commands.
+
 ---
 
 ## Supported Algorithms
