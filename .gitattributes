@@ -1,1 +1,2 @@
 *.sh text eol=lf
+framework/smoke/reproductions/iqcc_glycine/glycine.json text eol=lf

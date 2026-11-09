@@ -19,7 +19,7 @@ from smoke.batch import read_rows, require
 from smoke.fermionic_adapt import excitation_matrix
 from smoke.iqcc_control import score_rotations, validate as validate_iqcc_control
 from smoke.physics_acceptance import dense_hamiltonian
-from smoke.representative_checks import validate_noise, validate_trainability
+from smoke.representative_checks import GLYCINE_NATURAL_CASCI, validate_noise, validate_trainability
 from smoke.study_campaign import CONFIGURATION, CONTROL_SOURCES
 
 
@@ -277,7 +277,10 @@ def validate(directory):
                     reduction["rotations"] and all(np.isfinite(r["angle_rad"]) and len(r["pauli"]) == 12
                                                    for r in reduction["rotations"]),
                     "Incomplete glycine transformation or sector provenance")
-            np.testing.assert_allclose(problem.casci_energy, -279.1376629146243, rtol=0, atol=1e-7)
+            orbital_basis = problem.preparation.get("active_orbital_basis", "canonical")
+            references = {"natural": GLYCINE_NATURAL_CASCI, "canonical": -279.1376629146243}
+            require(orbital_basis in references, f"Unknown glycine orbital basis: {orbital_basis}")
+            np.testing.assert_allclose(problem.casci_energy, references[orbital_basis], rtol=0, atol=1e-7)
             report["max_iqcc_rotations"] = _check_prefix(folder, problem, input_file, spec["args"])
         else:
             matrix = dense_hamiltonian(problem.hamiltonian)

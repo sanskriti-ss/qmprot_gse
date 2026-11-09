@@ -86,10 +86,12 @@ def small_cas(path):
     homo = geometry.n_electrons // 2 - 1
     diagnostics = replace(diagnostics, proposed_active_indices=[homo, homo+1],
                           proposed_n_active_orbitals=2, proposed_n_active_electrons=2)
-    active = validate_active_space(geometry, diagnostics)
+    # This control uses the canonical HOMO/LUMO pair from the matched-pool audit.
+    canonical = diagnostics.mf.mo_coeff
+    active = validate_active_space(geometry, diagnostics, orbital_coefficients=canonical)
     if not active.casci_converged:
         raise ValueError("CASCI did not converge")
-    h = build_qubit_hamiltonian(geometry, active, diagnostics).qubit_hamiltonian
+    h = build_qubit_hamiltonian(geometry, active, diagnostics, orbital_coefficients=canonical).qubit_hamiltonian
     return h, active.casci_energy, diagnostics.proposed_active_indices
 
 

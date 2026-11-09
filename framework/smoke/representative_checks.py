@@ -21,7 +21,9 @@ from smoke.batch import FRAMEWORK, read_rows, require
 # The experiment writes energies and parameter metrics to ten decimal places.
 CSV_TOLERANCE = 1.1e-10
 
-# Direct PySCF STO-3G references use full CI for H₂ and CAS(6,6) in glycine orbitals 17–22 (zero-based).
+# Direct PySCF STO-3G references use full CI for H₂ and CAS(6,6) in glycine
+# MP2 natural orbitals 17–22 (zero-based); see orbital_comparison.json.
+GLYCINE_NATURAL_CASCI = -279.18879617990666
 TINY_CASCI_ENERGIES = {
     "ala": -1.1297025558704,
     "arg": -1.1222508120508,
@@ -29,7 +31,7 @@ TINY_CASCI_ENERGIES = {
     "cys": -1.1032476612245,
     "gln": -1.0925391540402,
     "glu": -1.0814385650691,
-    "gly": -279.1376629146243,
+    "gly": GLYCINE_NATURAL_CASCI,
     "his": -1.0589646308990,
     "hydrogen": -1.1371170673457,
     "ile": -1.0479495737708,
