@@ -246,4 +246,4 @@ Results are saved in `results/` as JSON:
 
 ## License
 
-MIT License
+See [LICENSE.md](../LICENSE.md) for the MIT software license and the separate QMProt dataset attribution.
