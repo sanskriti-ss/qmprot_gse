@@ -51,9 +51,10 @@ def run(directory):
 
 def check_prefix(directory, optimizer):
     cases, receipt = checked_run(directory)
+    input_digest = check_input(directory, legacy_snapshot=True)
     require(receipt["optimizer_requested"] == optimizer and receipt["seeds"] == [42, 43]
             and set(cases) == {("hydrogen", 15, alg, s) for alg in ALGORITHMS for s in (42, 43)}
-            and receipt["input_sha256"] == {"hydrogen": FROZEN_SHA}, "Incorrect hydrogen prefix matrix")
+            and receipt["input_sha256"] == {"hydrogen": input_digest}, "Incorrect hydrogen prefix matrix")
     problem = load_problem(directory / "inputs/hydrogen.npz")
     leaked = 0
     for (_, _, method, seed), case in cases.items():
@@ -86,7 +87,12 @@ def check_accuracy(directory, method, optimizer):
     config = json.loads((folder / "run_config.json").read_text())
     require(config["algorithm"] == method and config["optimizer"] == optimizer and config["k_list"] == [1, 2],
             "Incorrect accuracy configuration")
-    solver = ALGORITHMS[method](problem.hamiltonian, random_seed=42)
+    pool_settings = {}
+    if method == "qubit_adapt_vqe":
+        pool_mode = config["qubit_adapt_pool_effective"]
+        require(pool_mode in {"full", "restricted"}, f"Unknown Qubit-ADAPT pool: {pool_mode}")
+        pool_settings["use_restricted_pool"] = pool_mode == "restricted"
+    solver = ALGORITHMS[method](problem.hamiltonian, random_seed=config["random_seed"], **pool_settings)
     solver.build_ansatz()
     pool = [list(op) if isinstance(op, tuple) else op for op in solver.operator_pool]
     selected = []

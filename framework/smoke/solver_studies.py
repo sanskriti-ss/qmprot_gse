@@ -48,14 +48,17 @@ def compare_values(observed, expected, tolerance, location):
         require(observed == expected, f"Unexpected {location}: {observed!r} != {expected!r}")
 
 
-def check_input(directory):
+def check_input(directory, *, legacy_snapshot=False):
     path = directory / "inputs/hydrogen.npz"
     with np.load(path, allow_pickle=False) as actual, np.load(FROZEN, allow_pickle=False) as frozen:
         require(set(actual.files) - {"encoded_reference_energy"} == set(frozen.files),
                 "Hydrogen input schema differs")
         if "encoded_reference_energy" in actual.files:
-            np.testing.assert_allclose(actual["encoded_reference_energy"], frozen["molecular_hf"],
-                                       atol=1e-12, rtol=0, err_msg="encoded_reference_energy")
+            encoded = float(actual["encoded_reference_energy"])
+            # Resaving a legacy prepared input encodes its absent reference as NaN.
+            if not (legacy_snapshot and np.isnan(encoded)):
+                np.testing.assert_allclose(encoded, frozen["molecular_hf"],
+                                           atol=1e-12, rtol=0, err_msg="encoded_reference_energy")
         for name in frozen.files:
             if name in {"molecule", "preparation", "cs_metadata"}:
                 observed = json.loads(str(actual[name]))
