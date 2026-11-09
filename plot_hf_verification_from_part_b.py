@@ -2,7 +2,8 @@
 Create HF verification bar chart from a completed Part B all-molecules output folder.
 
 The chart mirrors the paper-style figure:
-Reference (CASCI) vs <HF|H|HF> vs Best VQE (minimum final energy per molecule).
+Active-space CASCI vs molecular HF vs Best VQE (minimum final energy per molecule).
+The molecular HF reference is not the expectation of the reduced initial state.
 
 Usage:
     python plot_hf_verification_from_part_b.py \
@@ -26,7 +27,7 @@ def _read_best_vqe_energy(optimization_csv: Path) -> float:
     with open(optimization_csv, newline="") as handle:
         reader = csv.DictReader(handle)
         vals = [float(row["final_energy"]) for row in reader if row.get("final_energy")]
-    if not vals:
+    if not vals or not all(np.isfinite(vals)):
         raise ValueError(f"No final_energy values in {optimization_csv}")
     return min(vals)
 
@@ -39,7 +40,12 @@ def _collect_rows(output_root: Path) -> List[Tuple[str, float, float, float]]:
     with open(manifest_path) as handle:
         manifest = json.load(handle)
 
-    molecules = manifest.get("molecules_succeeded") or manifest.get("molecules_selected") or []
+    molecules = manifest.get("molecules_selected", [])
+    succeeded = manifest.get("molecules_succeeded", [])
+    if (not molecules or len(molecules) != len(set(molecules))
+            or len(succeeded) != len(set(succeeded))
+            or set(succeeded) != set(molecules) or manifest.get("molecules_failed")):
+        raise ValueError("Incomplete Part B molecule cohort: selected and successful molecules must match")
     rows: List[Tuple[str, float, float, float]] = []
 
     for molecule in molecules:
@@ -47,15 +53,16 @@ def _collect_rows(output_root: Path) -> List[Tuple[str, float, float, float]]:
         run_cfg = molecule_dir / "run_config.json"
         opt_csv = molecule_dir / "optimization_results.csv"
         if not run_cfg.is_file() or not opt_csv.is_file():
-            continue
+            raise ValueError(f"Incomplete Part B molecule cohort: missing output for {molecule}")
 
         with open(run_cfg) as handle:
             cfg = json.load(handle)
 
         reference_energy = cfg.get("casci_energy")
         hf_energy = cfg.get("hf_energy")
-        if reference_energy is None or hf_energy is None:
-            continue
+        if (reference_energy is None or hf_energy is None
+                or not np.isfinite(float(reference_energy)) or not np.isfinite(float(hf_energy))):
+            raise ValueError(f"Incomplete Part B molecule cohort: missing finite references for {molecule}")
 
         best_vqe_energy = _read_best_vqe_energy(opt_csv)
         rows.append((molecule, float(reference_energy), float(hf_energy), float(best_vqe_energy)))
@@ -66,7 +73,7 @@ def _collect_rows(output_root: Path) -> List[Tuple[str, float, float, float]]:
     return rows
 
 
-def make_plot(output_root: Path, title: str) -> Path:
+def make_plot(output_root: Path, title: str | None = None) -> Path:
     rows = _collect_rows(output_root)
 
     molecules = [r[0] for r in rows]
@@ -78,14 +85,14 @@ def make_plot(output_root: Path, title: str) -> Path:
     width = 0.26
 
     fig, ax = plt.subplots(figsize=(16, 7))
-    ax.bar(x - width, ref_energies, width, label="Reference (exact)", color="#7f7f7f", alpha=0.85)
-    ax.bar(x, hf_energies, width, label="<HF|H|HF>", color="#ff7f0e", alpha=0.85)
+    ax.bar(x - width, ref_energies, width, label="Active-space CASCI", color="#7f7f7f", alpha=0.85)
+    ax.bar(x, hf_energies, width, label="Molecular HF", color="#ff7f0e", alpha=0.85)
     ax.bar(x + width, vqe_energies, width, label="Best VQE", color="#1f77b4", alpha=0.85)
 
     ax.set_xticks(x)
     ax.set_xticklabels(molecules, rotation=35, ha="right")
     ax.set_ylabel("Energy (Hartree)")
-    ax.set_title(title)
+    ax.set_title(title or f"Molecular energy references | {len(molecules)} molecules")
     ax.legend(loc="best")
     ax.grid(True, axis="y", alpha=0.25)
 
@@ -99,7 +106,7 @@ def make_plot(output_root: Path, title: str) -> Path:
     with open(summary_path, "w", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow([
-            "molecule", "reference_exact", "hf_expectation", "best_vqe",
+            "molecule", "active_space_casci_energy", "molecular_hf_energy", "best_vqe",
             "casci_minus_hf_mha", "hf_within_chem_acc", "best_vqe_minus_hf_mha",
         ])
         for mol, ref, hf, best in rows:
@@ -126,7 +133,7 @@ def _build_argparser() -> argparse.ArgumentParser:
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument(
         "--title",
-        default="HF Verification | 24 molecules",
+        default=None,
         help="Plot title",
     )
     return parser
