@@ -1,5 +1,21 @@
 # Campaign smoke tests
 
+For an offline source/evidence handoff, run from the repository root:
+
+```sh
+python utils/research_handoff.py build /path/to/new-handoff.zip
+python utils/research_handoff.py verify /path/to/new-handoff.zip
+```
+
+The archive includes a standalone Git bundle, tracked working-tree files, and
+files under `framework/results`, `framework/experiments/results`, and
+`framework/logs`. It omits symlinks and `framework/results/handoffs` to avoid
+following external data or recursively archiving previous handoffs. Untracked
+source files outside those result directories must be added to Git first.
+An existing destination is never overwritten. The manifest records hashes,
+omitted links and deleted tracked files; `HANDOFF_RESTORE.txt` describes offline
+restoration. Verification checks content hashes and bundle completeness.
+
 The [deep-circuit and study efficiency report](DEEP_EFFICIENCY.md) gives full-budget local and Modal timings, the fitted Bayesian comparison and commands for rechecking exact solver outputs. The [first efficiency sweep](EXACT_EFFICIENCY.md) records the earlier baseline.
 
 From the repository root on a machine with Python 3.12:

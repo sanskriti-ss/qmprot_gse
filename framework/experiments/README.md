@@ -18,6 +18,15 @@ folder of the form
 `results/<experiment_name>/<YYYYmmdd_HHMMSS>_<molecule>_<algo>/` so runs
 are trivially diff-able.
 
+Trainability CSVs include `hf_energy` (molecular HF) and `casci_energy`
+(active-space CASCI), including batch aggregates and resumed results. These
+columns let the appendix energy/runtime plots consume fresh results directly.
+The Part B HF chart uses the explicit column names `molecular_hf_energy` and
+`active_space_casci_energy`; it requires a complete successful molecule cohort.
+The accuracy poster labels the contributing cohort at each attained operator
+count and only normalizes correlation recovery where HF minus CASCI exceeds
+1.6 mHa. Recovery values outside 0–100% remain visible.
+
 The cheap end (4 qubits, water/glycine/hydrogen) runs on a laptop in a
 couple of minutes per experiment; experiments 3 and 4 default to the
 12-qubit active-space water Hamiltonian and take a few minutes longer

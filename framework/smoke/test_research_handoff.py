@@ -46,6 +46,13 @@ class ResearchHandoff(unittest.TestCase):
                 self.assertFalse(any(name.startswith("framework/results/handoffs/") for name in source.namelist()))
                 manifest = json.loads(source.read("EVIDENCE_MANIFEST.json"))
                 self.assertEqual(set(manifest["omitted_links"]), {"framework/results/uninstalled-package"})
+                bundle = directory / "repository.bundle"
+                bundle.write_bytes(source.read("repository.bundle"))
+                restored = directory / "restored"
+                subprocess.run(["git", "clone", "-q", str(bundle), str(restored)], check=True)
+                self.assertEqual((restored / "README.md").read_text(), "Trial record\n")
+                head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=restored, text=True).strip()
+                self.assertEqual(head, manifest["commit"])
                 for name in members:
                     self.assertEqual(source.read(name), (name + "\n").encode())
                 changed = directory / "changed.zip"

@@ -52,7 +52,7 @@ ALGO_STYLE = {
 BASE_FIELDS = [
     "molecule", "algorithm", "target_n_params", "actual_n_params", "param_match",
     "n_outer_iters", "n_cost_evals", "n_callback_evals", "n_reused_reference_probes", "eval_budget",
-    "runtime_seconds", "final_energy", "error_vs_casci", "best_error_vs_casci",
+    "runtime_seconds", "final_energy", "hf_energy", "casci_energy", "error_vs_casci", "best_error_vs_casci",
     "error_vs_operator_ground", "operator_ground_energy",
     "best_abs_error_vs_casci", "hf_error_vs_casci", "hf_trivial", "hf_tolerance_ha",
     "evals_to_hf", "reached_hf", "converged_below_threshold",
@@ -96,6 +96,8 @@ def make_record(
         "eval_budget": row.eval_budget,
         "runtime_seconds": f"{row.runtime_seconds:.4f}",
         "final_energy": f"{row.final_energy:.10f}",
+        "hf_energy": row.hf_energy,
+        "casci_energy": row.casci_energy,
         "error_vs_casci": f"{row.error_vs_casci:.10f}",
         "best_error_vs_casci": f"{row.best_error_vs_casci:.10f}",
         "error_vs_operator_ground": row.error_vs_operator_ground,
@@ -605,6 +607,7 @@ def analyze_existing(
                         key = f"{kind}_evals_to_{lab}"
                         r[key] = rec.get(key, "")
                 records.append(r)
+                r.update(hf_energy=hf, casci_energy=casci)
     if not records:
         raise FileNotFoundError(f"No <molecule>/results.csv found under {results_root}")
     summary = summarize(records, thresholds)

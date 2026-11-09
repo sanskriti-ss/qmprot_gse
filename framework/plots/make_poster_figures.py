@@ -419,135 +419,67 @@ def make_trainability_figure(train_dir: Path, out_dir: Path) -> Path:
 # Figure 4 — Accuracy vs parameters (ADAPT convergence across molecules)
 # ═══════════════════════════════════════════════════════════════════════════
 
-def make_accuracy_figure(acc_dir: Path, out_dir: Path) -> Path:
-    """
-    Two-panel figure:
-      Left  — |error vs CASCI| vs k, one thin line per molecule +
-               bold mean line, log-y scale.
-      Right — Same data on linear scale, normalised as fraction of
-               HF→CASCI correlation energy recovered, to make all
-               molecules comparable on one axis.
-    """
-    csv = acc_dir / "batch_all_results.csv"
-    if not csv.exists():
-        raise FileNotFoundError(f"batch_all_results.csv not found in {acc_dir}")
-
-    df = pd.read_csv(csv)
-    df = df[df["status"] == "ok"].copy()
-    df["k"] = pd.to_numeric(df["k"], errors="coerce")
-    df["error_vs_casci"] = pd.to_numeric(df["error_vs_casci"], errors="coerce")
-    df["error_vs_hf"] = pd.to_numeric(df["error_vs_hf"], errors="coerce")
-
-    # Fraction of correlation energy recovered = |E_HF - E_k| / |E_HF - E_CASCI|
-    # error_vs_hf = energy - hf_energy  (negative = improvement)
-    # error_vs_casci = energy - casci_energy (positive = above CASCI)
-    # correlation energy gap = hf_energy - casci_energy > 0
-    # fraction recovered = (hf_energy - energy) / (hf_energy - casci_energy)
-    #                     = -error_vs_hf / (hf_energy - casci_energy)
-    # We load hf and casci from per-molecule sub-dirs if available
-    # Dir names are like "ala_qubit_adapt_vqe" — extract molecule prefix
-    import json as _json2
-    hf_map: dict = {}
-    casci_map: dict = {}
-    for mol_dir in acc_dir.iterdir():
-        if not mol_dir.is_dir():
-            continue
-        rc_f = mol_dir / "run_config.json"
-        if rc_f.exists():
-            rc = _json2.loads(rc_f.read_text())
-            mol_key = rc.get("molecule") or mol_dir.name.split("_")[0]
-            if rc.get("hf_energy") is not None:
-                hf_map[mol_key] = float(rc["hf_energy"])
-            if rc.get("casci_energy") is not None:
-                casci_map[mol_key] = float(rc["casci_energy"])
-
-    if hf_map and casci_map:
-        df["hf_energy"] = df["molecule"].map(hf_map)
-        df["casci_energy_val"] = df["molecule"].map(casci_map)
-        gap = df["hf_energy"] - df["casci_energy_val"]
-        df["frac_recovered"] = (-df["error_vs_hf"]) / gap
-    else:
-        df["frac_recovered"] = np.nan
-
-    mols = sorted(df["molecule"].unique())
-    ks = sorted(df["k"].unique())
-
-    CHEM_ACC_HA = 1.6e-3  # chemical accuracy threshold
+def _accuracy_poster_figure(df: pd.DataFrame):
+    """Plot attained checkpoints and show each panel's contributing cohort."""
+    data = df.copy()
+    for column in ("k", "error_vs_casci", "error_vs_hf"):
+        data[column] = pd.to_numeric(data[column], errors="coerce")
+    if data.duplicated(["molecule", "k"]).any():
+        raise ValueError("Duplicate accuracy observation (molecule, k)")
+    molecules = sorted(data["molecule"].unique())
+    ks = sorted(data["k"].dropna().unique())
+    attained = pd.to_numeric(data.get("attained_k", data["k"]), errors="coerce")
+    reached = attained.eq(data["k"])
+    if "status" in data:
+        reached &= data["status"].eq("ok")
+    data = data[reached & np.isfinite(data["error_vs_casci"])].copy()
+    data["abs_error"] = data["error_vs_casci"].abs()
+    # Both signed errors share the same VQE energy, so their difference is HF - CASCI.
+    gap = data["error_vs_casci"] - data["error_vs_hf"]
+    data["frac_recovered"] = (-data["error_vs_hf"] / gap).where(gap > 1.6e-3)
+    data.loc[~np.isfinite(data["frac_recovered"]), "frac_recovered"] = np.nan
 
     with plt.rc_context(POSTER_RC):
-        fig, (ax_log, ax_frac) = plt.subplots(1, 2, figsize=(13, 5))
-
-        # ── Left: |E - CASCI| log scale ───────────────────────────────
-        mol_cmap = plt.cm.get_cmap("tab20", max(len(mols), 1))
-        for i, mol in enumerate(mols):
-            sub = df[df["molecule"] == mol].sort_values("k")
-            ax_log.plot(sub["k"], sub["error_vs_casci"].abs(),
-                        color=mol_cmap(i), alpha=0.45, linewidth=1.4,
+        fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+        cmap = plt.get_cmap("tab20")
+        for ax, value in zip(axes, ("abs_error", "frac_recovered")):
+            contributing = data[np.isfinite(data[value])]
+            for index, molecule in enumerate(molecules):
+                points = contributing[contributing["molecule"] == molecule].set_index("k")[value].reindex(ks)
+                ax.plot(ks, points, color=cmap(index % 20), alpha=.45, linewidth=1.4,
                         marker="o", markersize=4)
-
-        # Mean line
-        mean_err = df.groupby("k")["error_vs_casci"].apply(lambda x: x.abs().mean())
-        ax_log.plot(mean_err.index, mean_err.values,
-                    color="black", linewidth=2.8, label="Mean (all mols)",
-                    zorder=5, marker="D", markersize=6)
-
-        # Chemical accuracy line
-        ax_log.axhline(CHEM_ACC_HA, color="#f28e2b", linestyle="--",
-                       linewidth=1.8, label=f"Chem. accuracy (1.6 mHa)")
-
-        ax_log.set_yscale("log")
-        ax_log.set_xlabel("k  = # ADAPT operators")
-        ax_log.set_ylabel("|Energy − CASCI|  (Ha)")
-        ax_log.set_title("Accuracy improves with parameter count")
-        ax_log.legend(fontsize=10)
-        ax_log.set_xticks(ks)
-
-        # ── Right: fraction correlation energy recovered ───────────────
-        if df["frac_recovered"].notna().any():
-            for i, mol in enumerate(mols):
-                sub = df[df["molecule"] == mol].sort_values("k")
-                ax_frac.plot(sub["k"], sub["frac_recovered"],
-                             color=mol_cmap(i), alpha=0.45, linewidth=1.4,
-                             marker="o", markersize=4)
-
-            mean_frac = df.groupby("k")["frac_recovered"].mean()
-            ax_frac.plot(mean_frac.index, mean_frac.values,
-                         color="black", linewidth=2.8, label="Mean (all mols)",
-                         zorder=5, marker="D", markersize=6)
-
-            ax_frac.axhline(1.0, color="grey", linestyle=":", linewidth=1.2,
-                            label="CASCI (100%)")
-            ax_frac.set_ylim(0, 1.05)
-        else:
-            # Fallback: absolute error on linear scale
-            for i, mol in enumerate(mols):
-                sub = df[df["molecule"] == mol].sort_values("k")
-                ax_frac.plot(sub["k"], sub["error_vs_casci"].abs(),
-                             color=mol_cmap(i), alpha=0.45, linewidth=1.4,
-                             marker="o", markersize=4)
-            mean_err2 = df.groupby("k")["error_vs_casci"].apply(lambda x: x.abs().mean())
-            ax_frac.plot(mean_err2.index, mean_err2.values,
-                         color="black", linewidth=2.8, label="Mean", zorder=5)
-
-        ax_frac.set_xlabel("k  = # ADAPT operators")
-        ax_frac.set_ylabel("Fraction of correlation energy recovered")
-        ax_frac.set_title("Correlation energy captured per operator")
-        ax_frac.legend(fontsize=10)
-        ax_frac.set_xticks(ks)
-
-        # Add molecule count annotation
-        n_ok = df["molecule"].nunique()
-        fig.text(0.5, -0.02,
-                 f"Qubit-ADAPT-VQE on {n_ok} amino acids (12-qubit active space, STO-3G)",
-                 ha="center", fontsize=11, color="dimgrey")
-
-        fig.suptitle("Exp 4 — Accuracy vs number of variational parameters",
-                     fontsize=15, fontweight="bold", y=1.01)
+            mean = contributing.groupby("k")[value].mean().reindex(ks)
+            ax.plot(ks, mean, color="black", linewidth=2.8, marker="D", markersize=6,
+                    label="Mean over contributing molecules")
+            counts = contributing.groupby("k")["molecule"].nunique()
+            ax.set_xticks(ks, [f"{k:g}\n({counts.get(k, 0)}/{len(molecules)})" for k in ks])
+            ax.set_xlabel("k = ADAPT operators (contributing / selected molecules)")
+        axes[0].axhline(1.6e-3, color="#f28e2b", linestyle="--", label="Chemical accuracy (1.6 mHa)")
+        axes[0].set_yscale("log")
+        axes[0].set_ylabel("|Energy − CASCI| (Ha)")
+        axes[0].set_title("Accuracy at attained operator counts")
+        axes[1].axhline(0, color="grey", linewidth=.8)
+        axes[1].axhline(1, color="grey", linestyle=":", label="CASCI (100%)")
+        axes[1].set_ylabel("Fraction of correlation energy recovered")
+        axes[1].set_title("Recovery where HF − CASCI > 1.6 mHa")
+        for ax in axes:
+            ax.legend(fontsize=9)
+        fig.suptitle("Exp 4 — Accuracy versus ADAPT operator count")
         fig.tight_layout()
-        out_path = out_dir / "poster_exp4_accuracy_vs_params.png"
-        fig.savefig(out_path, dpi=180, bbox_inches="tight")
-        plt.close(fig)
+    return fig
 
+
+def make_accuracy_figure(acc_dir: Path, out_dir: Path) -> Path:
+    csv = acc_dir / "batch_all_results.csv"
+    if not csv.is_file():
+        raise FileNotFoundError(f"batch_all_results.csv not found in {acc_dir}")
+    fig = _accuracy_poster_figure(pd.read_csv(csv))
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / "poster_exp4_accuracy_vs_params.png"
+    try:
+        fig.savefig(out_path, dpi=180, bbox_inches="tight")
+    finally:
+        plt.close(fig)
     print(f"  [Exp 4] saved → {out_path}")
     return out_path
 

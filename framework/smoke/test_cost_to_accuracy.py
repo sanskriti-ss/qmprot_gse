@@ -40,6 +40,8 @@ class CostToAccuracy(unittest.TestCase):
         self.assertAlmostEqual(row.best_abs_error_vs_casci, 0.)
         self.assertEqual([p[0] for p in row.error_trace], [1, 2, 3])
         record = cta.make_record("pair", row)
+        self.assertEqual(record["hf_energy"], 1.)
+        self.assertEqual(record["casci_energy"], -1.)
         self.assertEqual(record["evals_to_hf"], 2)
         self.assertEqual(record["evals_to_1.6mHa"], 3)
         summary = cta.summarize([record])[0]
@@ -83,6 +85,7 @@ class CostToAccuracy(unittest.TestCase):
                 writer.writerow(["hardware_efficient_vqe", 6, 6, 12, -.999, .001, 4])
             result = cta.analyze_existing(root)
             far, near = result["records"]
+            self.assertEqual((far["hf_energy"], near["casci_energy"]), (1., -1.))
             self.assertEqual(far["evals_to_1.6mHa"], "")
             self.assertEqual(far["evals_to_hf"], 10)
             self.assertEqual(near["evals_to_1.6mHa"], 12)

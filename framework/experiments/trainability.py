@@ -219,6 +219,8 @@ class TrainabilityRow:
     endpoint: dict = field(default_factory=dict)
     operator_ground_energy: Optional[float] = None
     error_vs_operator_ground: Optional[float] = None
+    hf_energy: Optional[float] = None
+    casci_energy: Optional[float] = None
 
 
 @dataclass
@@ -259,6 +261,8 @@ def _fill_accuracy_metrics(
     """Populate the cost-to-accuracy fields of ``row`` from a finished counter."""
     casci = loaded.casci_energy
     hf = loaded.hf_energy
+    row.hf_energy = hf
+    row.casci_energy = casci
     row.n_cost_evals = int(counter.count)
     row.n_callback_evals = int(counter.callback_evals)
     if hf is not None and casci is not None:
@@ -1264,6 +1268,8 @@ def _load_trainability_rows(molecule_out_dir: Path) -> List[TrainabilityRow]:
                     runtime_seconds=float(rec["runtime_seconds"]),
                     final_energy=float(rec["final_energy"]),
                     error_vs_casci=float(rec["error_vs_casci"]),
+                    hf_energy=float(rec["hf_energy"]) if rec.get("hf_energy") else None,
+                    casci_energy=float(rec["casci_energy"]) if rec.get("casci_energy") else None,
                     operator_ground_energy=(float(rec["operator_ground_energy"])
                                             if rec.get("operator_ground_energy") else None),
                     error_vs_operator_ground=(float(rec["error_vs_operator_ground"])

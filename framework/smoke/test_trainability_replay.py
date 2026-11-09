@@ -29,6 +29,11 @@ class TrainabilityReplay(unittest.TestCase):
             report = replay(directory)
             self.assertEqual(report["endpoints"], 2)
             self.assertGreater(report["crossing_witnesses"], 0)
+            config = json.loads((directory / "run_config.json").read_text())
+            with (directory / "results.csv").open() as stream:
+                for record in csv.DictReader(stream):
+                    self.assertEqual(float(record["hf_energy"]), config["hf_energy"])
+                    self.assertEqual(float(record["casci_energy"]), config["casci_energy"])
             path = directory / "endpoints.jsonl"
             original = path.read_text().splitlines()
 
@@ -74,6 +79,23 @@ class TrainabilityReplay(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertNotRegex(result.stdout + result.stderr, r"\[WARNING\]|Warning:|Traceback")
                 self.assertEqual(set(replay(directory)), {"hydrogen", "glu"})
+                with (directory / "all_molecules_results.csv").open() as stream:
+                    for record in csv.DictReader(stream):
+                        config = json.loads((directory / record["molecule"] / "run_config.json").read_text())
+                        self.assertEqual(float(record["hf_energy"]), config["hf_energy"])
+                        self.assertEqual(float(record["casci_energy"]), config["casci_energy"])
+            # Exercise the public plotting CLIs against a fresh/resumed native batch CSV.
+            for view in ("additional_02_trainability_energy", "additional_03_trainability_runtime",
+                         "additional_05_trainability_combined"):
+                output = directory / (view + ".png")
+                plotted = subprocess.run([
+                    sys.executable, str(framework.parent / "prof_figures" / view / "generate.py"),
+                    "--input", str(directory / "all_molecules_results.csv"), "--target", "2",
+                    "--label", "Integration test", "--output", str(output),
+                ], cwd=framework, env=env, capture_output=True, text=True)
+                self.assertEqual(plotted.returncode, 0, plotted.stdout + plotted.stderr)
+                self.assertTrue(output.is_file())
+                self.assertTrue(output.with_suffix(".pdf").is_file())
             path = directory / "batch_manifest.json"
             manifest = json.loads(path.read_text())
             self.assertEqual(manifest["molecules_succeeded"], ["hydrogen", "glu"])
