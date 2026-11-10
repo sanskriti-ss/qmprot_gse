@@ -49,7 +49,7 @@ campaigns/run.sh 20261105 --dry-run    # print the commands, do not run them
 * Hardware-efficient VQE prepares the Hartree–Fock state and starts from `small_random` angles on `[-π/8, π/8]` with `RY` rotations. Qubit-ADAPT prepares Hartree–Fock and grows a real Pauli pool. Pass `--no-he-hf-init` to start hardware-efficient from `|0…0>`.
 * A large pool can spend the whole budget on the first gradient screen. The row then has `actual_n_params` below the target. That is the number the energy plot uses.
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 framework/
@@ -90,7 +90,7 @@ framework/
 └── plots/                         # Generated plots (timestamped subdirs)
 ```
 
-## 🔬 Hamiltonian Pipeline
+## Hamiltonian Pipeline
 
 The `active_space_truncation/` pipeline builds qubit Hamiltonians directly from molecular geometry without needing pre-stored Hamiltonian files:
 
@@ -103,7 +103,7 @@ Pre-built `.h5` Hamiltonians for all 5 molecules are stored in `datasets/`.
 
 
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Install Dependencies
 
@@ -227,7 +227,7 @@ Coefficient	Operators
 }
 ```
 
-## 📤 Output Format
+## Output Format
 
 Results are saved in `results/` as JSON:
 

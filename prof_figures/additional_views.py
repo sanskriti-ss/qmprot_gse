@@ -5,6 +5,7 @@ at a point. The supplied examples contain one run, so no interval is estimated.
 """
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.ticker import LogLocator, NullLocator
 import numpy as np
 import pandas as pd
 from scipy.stats import t
@@ -112,6 +113,8 @@ def draw_forest(ax, table, molecules, *, runtime=False):
     ax.invert_yaxis(); ax.grid(axis="x", alpha=.16)
     if runtime:
         ax.set_xscale("log"); ax.set_xlabel("Geometric mean runtime (seconds; log scale)")
+        ax.xaxis.set_major_locator(LogLocator(base=10, subs=(1, 2, 5), numticks=6))
+        ax.xaxis.set_minor_locator(NullLocator())
     else:
         ax.axvline(0, color="#9b8ba7", lw=1, linestyle=":")
         ax.set_xlabel("Final energy − molecular HF (Ha)")

@@ -2,6 +2,49 @@
 
 These folders correspond to Figures 13–17 in the appendix of `QMProt.pdf`. Each includes a generator, sample input, PNG, PDF, and instructions. The plots share the purple, pink, and orange palette used by `paper_combined_figure.py`. They read saved CSVs and do not run quantum calculations.
 
+## Generate figures after experiments 1–5
+
+In WSL, run the Bash entry point with the **exact output directories**, in experiment order.
+It uses `framework/.venv/bin/python` automatically. To use another environment, set
+`QMPROT_PYTHON` to its Python executable. Relative inputs are resolved from your current directory.
+
+```bash
+cd /mnt/c/qmprot_2026/qmprot_gse
+bash prof_figures/generate_rerun.sh \
+  framework/experiments/results/noise_resilience_batch/20261109_100609_nq6_hardware_efficient_vqe_batch \
+  framework/experiments/results/barren_plateau_batch/20261109_114819_batch_hardware_efficient_vqe \
+  framework/experiments/results/trainability/20261109_140603_all_molecules_comparison \
+  framework/experiments/results/accuracy_vs_params_batch/20261109_184553_batch \
+  framework/experiments/results/experiment5_term_count_sweep/20261109_154511_batch
+```
+
+Replace these run directories when selecting newer results. Add `--dry-run` to validate
+input selection and list planned outputs without writing. This does not validate every plotting
+column or guarantee that individual generators will succeed. Add `--label "Fresh rerun | ..."`
+to record verified geometry/orbital choices; the default makes no whole-molecule claim.
+
+PNG and PDF files named `prof_rerun_*.png` and `prof_rerun_*.pdf` are written directly
+into **each experiment's output root**, alongside its CSV files. Existing files with these
+names are replaced on subsequent runs. Original experiment CSVs and native plots are preserved.
+Each root also receives `prof_rerun_manifest.json` with commands, input hashes and generator
+diagnostics. Failed figures are reported, remaining jobs are attempted, and any failure gives
+a nonzero exit status. Check the manifest before using files left from an earlier invocation.
+
+The script generates:
+
+- Experiment 1: Figure 17 and an energy comparison for every saved molecule ID.
+- Experiment 2: Figure 14 for Bayesian initialization (or Figure 13 for COBYLA, determined
+  from saved configurations), plus Figure 15. It never launches the other optimizer.
+- Experiment 3: Figure 16 and energy, runtime and combined views for every saved target.
+- Experiment 4: operator cost and an energy/cost view for every nonfailed molecule ID.
+- Experiment 5: full and QAOA-excluded prefix-study views, each comparing the stored
+  prefix energies with both full CASCI and prefix ground energies. These are additional
+  views, not numbered manuscript figures. Shading is population SD across molecule means,
+  not confidence intervals. The full-reference comparison is not a full-Hamiltonian rescore.
+
+The script does not combine historical runs, infer geometry provenance, or train VQEs.
+Retain the original run configurations, failure reports and inputs alongside the figures.
+
 | Paper figure | Folder | Included preview |
 | --- | --- | --- |
 | 13 | `figure_13_cobyla_initialization_convergence` | Historical COBYLA batch, 16 molecule IDs |
