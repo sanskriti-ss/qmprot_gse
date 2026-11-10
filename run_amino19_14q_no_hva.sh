@@ -28,4 +28,4 @@ main()
   --truncation-mode active_space --active-space-basis sto-3g \
   --backend-type statevector --n-shots 0 \
   --optimizer COBYLA --n-layers 2 --max-iterations 200 --seed 42 \
-  --results-dir "$run/results" --plots-dir "$run/plots" 
+  --results-dir "$run/results" --plots-dir "$run/plots" --no-plot
