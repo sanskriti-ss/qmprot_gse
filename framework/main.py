@@ -110,6 +110,9 @@ class VQEFramework:
     def run_single(self,
                    molecule: str,
                    algorithm: str,
+                   *,
+                   max_active_orbitals: Optional[int] = None,
+                   expected_n_qubits: Optional[int] = None,
                    **kwargs) -> dict:
         """
         Run a single VQE experiment.
@@ -117,6 +120,8 @@ class VQEFramework:
         Args:
             molecule: Molecule abbreviation or Hamiltonian file path
             algorithm: Algorithm name
+            max_active_orbitals: Override the pipeline cap for this fit.
+            expected_n_qubits: Reject an unexpected Hamiltonian size before fitting.
             **kwargs: Additional algorithm parameters
             
         Returns:
@@ -142,6 +147,7 @@ class VQEFramework:
             str(self.hamiltonians_dir.resolve()),
             truncation_mode,
             active_space_basis if truncation_mode == "active_space" else None,
+            max_active_orbitals if truncation_mode == "active_space" else None,
             max_terms if truncation_mode != "active_space" else None,
             target_qubits if truncation_mode != "active_space" else None,
             cs_enabled,
@@ -164,6 +170,8 @@ class VQEFramework:
                     "basis": active_space_basis,
                     "quiet": True,
                 }
+                if max_active_orbitals is not None:
+                    pipeline_kw["max_active_orbitals"] = max_active_orbitals
                 # Use geometry from the same hamiltonians_dir as H5 mode (e.g. datasets2)
                 h5_geom = self.hamiltonians_dir / molecule / f"{molecule}.h5"
                 if h5_geom.is_file():
@@ -207,6 +215,9 @@ class VQEFramework:
                     logger.info("CS reduction: no reduction applied")
 
             self._hamiltonian_cache[_cache_key] = hamiltonian
+
+        if expected_n_qubits is not None and hamiltonian.n_qubits != expected_n_qubits:
+            raise ValueError(f"{molecule} produced {hamiltonian.n_qubits} qubits, expected {expected_n_qubits}")
 
         # Get algorithm class
         AlgorithmClass = get_algorithm(algorithm)

@@ -28,8 +28,8 @@ import time
 import sys
 sys.path.append('..')
 from core.base_vqe import BaseVQE, VQEResult, incumbent_history
-from core.hamiltonian_loader import QubitHamiltonian
-from core.hf_verification import _build_hamiltonian_matrix
+from core.hamiltonian_loader import QubitHamiltonian, parity_signs, pauli_masks
+from core.hf_verification import _parse_pauli_string
 
 logger = logging.getLogger(__name__)
 
@@ -60,8 +60,8 @@ class ClassicallyBoostedVQE(BaseVQE):
     3. Solve the generalized eigenvalue problem  H c = E S c.
 
     The classical state |phi_cl> is the encoded reference, including its CS rotation.
-    Cross-terms are computed via the Hadamard test (quantum) combined
-    with classically extractable matrix elements.
+    The analytic simulator supplies the complex amplitudes that a Hadamard
+    test would measure. The projection applies the Hamiltonian as Pauli terms.
     """
 
     parameter_period = 2 * np.pi
@@ -144,7 +144,7 @@ class ClassicallyBoostedVQE(BaseVQE):
         return np.zeros(self.n_parameters)
 
     # ------------------------------------------------------------------
-    # Ansatz unitary matrix (needed for Hadamard test)
+    # Dense Hadamard-test controls retained for the historical overlap benchmark.
     # ------------------------------------------------------------------
 
     def _ansatz_unitary(self, params: np.ndarray) -> np.ndarray:
@@ -211,6 +211,20 @@ class ClassicallyBoostedVQE(BaseVQE):
     # Classical boosting step
     # ------------------------------------------------------------------
 
+    def _apply_hamiltonian(self, states):
+        """Apply ordered Pauli terms to one or two state columns in O(2**n) memory."""
+        rows = np.arange(1 << self.n_qubits)
+        signs = parity_signs(self.n_qubits)
+        output = np.zeros_like(states, dtype=complex)
+        for coefficient, raw_word in zip(self.hamiltonian.coefficients, self.hamiltonian.pauli_strings):
+            if abs(coefficient) < 1e-15:  # Match the historical projection's cutoff.
+                continue
+            word = _parse_pauli_string(raw_word, self.n_qubits)
+            flip, parity = pauli_masks(word)
+            weights = coefficient * (-1j) ** word.count("Y") * signs[rows & parity]
+            output += weights[:, None] * states[rows ^ flip]
+        return output
+
     def _classical_boost(self, optimal_params: np.ndarray, vqe_energy: float) -> float:
         """
         Perform the classical boosting post-processing.
@@ -221,45 +235,35 @@ class ClassicallyBoostedVQE(BaseVQE):
         """
         import pennylane as qml
 
-        n_qubits = self.n_qubits
-        device = qml.device("default.qubit", wires=n_qubits)
-
-        @qml.qnode(device)
+        @qml.qnode(self.device)
         def reference_state():
             self._prepare_initial_state()
             return qml.state()
 
-        reference = np.asarray(reference_state())
-        support = np.flatnonzero(reference)
-        matrix = None
-        if support.size == 1:
-            idx = support[0]
-            h_row = reference[idx].conj() * _build_hamiltonian_matrix(self.hamiltonian, row=idx)
-        else:
-            matrix = _build_hamiltonian_matrix(self.hamiltonian)
-            h_row = reference.conj() @ matrix
-        ref_energy = float(np.real(h_row @ reference))
+        @qml.qnode(self.device)
+        def fitted_state(params):
+            # Reuse exactly the circuit operations used for the fitted energy.
+            tape = qml.tape.make_qscript(self.cost_fn.func)(params)
+            for operation in tape.operations:
+                qml.apply(operation)
+            return qml.state()
 
-        unitary = self._ansatz_unitary(optimal_params)
-        h_cross = 0j
-        overlap = 0j
-        # Both off-diagonal elements use the same measured amplitude ⟨j|ψ⟩.
-        for idx in np.flatnonzero((reference != 0) | (h_row != 0)):
-            amplitude = self._hadamard_test(unitary, idx)
-            h_cross += h_row[idx] * amplitude
-            overlap += reference[idx].conj() * amplitude
+        reference = np.array(reference_state())
+        state = np.asarray(fitted_state(optimal_params))
+        h_reference = self._apply_hamiltonian(reference[:, None])[:, 0]
+        ref_energy = float(np.vdot(reference, h_reference).real)
+        h_cross = np.vdot(h_reference, state)
+        overlap = np.vdot(reference, state)
 
         h_proj = np.array([[ref_energy, h_cross], [h_cross.conjugate(), vqe_energy]])
         s_proj = np.array([[1., overlap], [overlap.conjugate(), 1.]])
         if 1. - abs(overlap) < np.sqrt(np.finfo(float).eps):
             # The Gram matrix squares the condition number of the state pair.
             # Resolve a small independent direction directly on the analytic simulator.
-            basis, triangular = np.linalg.qr(np.column_stack((reference, unitary[:, 0])))
+            basis, triangular = np.linalg.qr(np.column_stack((reference, state)))
             if abs(triangular[1, 1]) <= np.finfo(float).eps * max(basis.shape):
                 return min(ref_energy, vqe_energy)
-            if matrix is None:
-                matrix = _build_hamiltonian_matrix(self.hamiltonian)
-            cb_energy = float(linalg.eigvalsh(basis.conj().T @ matrix @ basis)[0])
+            cb_energy = float(linalg.eigvalsh(basis.conj().T @ self._apply_hamiltonian(basis))[0])
         else:
             cb_energy = float(linalg.eigvalsh(h_proj, s_proj)[0])
         logger.info(f"  CB-VQE energy       = {cb_energy:.8f}")

@@ -1,14 +1,9 @@
-# ABOUTME: Exercises the classically boosted VQE Hadamard overlap measurement on a real simulator.
-# ABOUTME: Compares the measured projection with an independent small Hamiltonian calculation.
-import csv
+# ABOUTME: Compares the statevector CB-VQE projection with independent dense controls.
 from contextlib import redirect_stdout
 from io import StringIO
-import os
 from pathlib import Path
-import subprocess
-import sys
-import tempfile
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 import pennylane as qml
@@ -19,12 +14,6 @@ from algorithms.vqe_CB import ClassicallyBoostedVQE
 from active_space_truncation.run_pipeline import run_pipeline
 from core.backend_manager import BackendConfig
 from core.hamiltonian_loader import Molecule, QubitHamiltonian
-
-
-class CountedOverlaps(ClassicallyBoostedVQE):
-    def _hadamard_test(self, unitary, determinant):
-        self.overlaps += 1
-        return super()._hadamard_test(unitary, determinant)
 
 
 class ClassicalBoost(unittest.TestCase):
@@ -43,16 +32,6 @@ class ClassicalBoost(unittest.TestCase):
             self.assertIs(_contextual_unitary(*args), matrix)
             self.assertFalse(matrix.flags.writeable)
 
-    def test_zero_matrix_elements_and_hf_overlap(self):
-        molecule = Molecule("h2", "Hydrogen", 4, 2, -1.0, "", n_electrons=2)
-        hamiltonian = QubitHamiltonian.from_dict({"ZIII": 0.7, "XIIX": 0.2}, molecule)
-        parameters = np.linspace(-0.6, 0.7, 12)
-        vqe = CountedOverlaps(hamiltonian, n_layers=1)
-        vqe.build_ansatz()
-        vqe.overlaps = 0
-        vqe._classical_boost(parameters, vqe.cost_function(parameters))
-        self.assertEqual(vqe.overlaps, 2)
-
     def test_requires_analytic_pure_state(self):
         molecule = Molecule("pair", "Two orbitals", 2, 1, -1., "", n_electrons=1)
         ham = QubitHamiltonian.from_dict({"ZZ": 1.}, molecule)
@@ -61,21 +40,15 @@ class ClassicalBoost(unittest.TestCase):
             with self.subTest(backend=backend), self.assertRaisesRegex(ValueError, "analytic.*statevector"):
                 ClassicallyBoostedVQE(ham, n_layers=1, backend_config=backend).build_ansatz()
 
-    def test_batch_reports_an_unavailable_overlap_device(self):
-        framework = Path(__file__).resolve().parents[1]
-        with tempfile.TemporaryDirectory() as folder:
-            env = dict(os.environ, QMPROT_GEOMETRIES=str(framework / "smoke/geometries"),
-                       PENNYLANE_DEVICE="unavailable.overlap", OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1")
-            args = [sys.executable, "-m", "experiments.experiment5_term_count_sweep", "--molecules", "hydrogen",
-                    "--algorithms", "cb_vqe", "--term-counts", "1", "--cs-target-qubits", "0",
-                    "--max-iter", "32", "--no-plots", "--output-dir", folder]
-            result = subprocess.run(args, cwd=framework, env=env, capture_output=True, text=True)
-            self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-            with (Path(folder) / "batch_all_results.csv").open() as table:
-                row, = csv.DictReader(table)
-            self.assertEqual(row["status"], "failed")
-            self.assertIn("unavailable.overlap", row["notes"])
-            self.assertIn("unavailable.overlap", result.stderr)
+    def test_fourteen_qubit_projection_does_not_build_a_dense_unitary(self):
+        molecule = Molecule("pair", "Fourteen wires", 14, 1, -1., "", n_electrons=8)
+        ham = QubitHamiltonian.from_dict({"Z" + "I" * 13: .7}, molecule)
+        vqe = ClassicallyBoostedVQE(ham, n_layers=1)
+        vqe.build_ansatz()
+        parameters = np.linspace(.1, .6, 42)
+        energy = vqe.cost_function(parameters)
+        with patch.object(vqe, "_ansatz_unitary", side_effect=AssertionError("dense unitary")):
+            self.assertAlmostEqual(vqe._classical_boost(parameters, energy), -.7, places=12)
 
     def test_projected_energy_and_measured_overlap(self):
         molecule = Molecule("h2", "Hydrogen", 2, 2, -1.0, "", n_electrons=1)
@@ -103,8 +76,7 @@ class ClassicalBoost(unittest.TestCase):
         hamiltonian = QubitHamiltonian.from_dict({"ZI": .7, "IY": .4, "XI": .3}, molecule)
         reference = np.array([1, 2j, 0, -1j]) / np.sqrt(6)
         hamiltonian.cs_initial_state = reference
-        vqe = CountedOverlaps(hamiltonian, n_layers=1)
-        vqe.overlaps = 0
+        vqe = ClassicallyBoostedVQE(hamiltonian, n_layers=1)
         vqe.build_ansatz()
         params = np.linspace(-.7, .4, 6)
         state = vqe._ansatz_unitary(params)[:, 0]
@@ -116,7 +88,6 @@ class ClassicalBoost(unittest.TestCase):
         energy = vqe.cost_function(params)
         self.assertAlmostEqual(energy, np.vdot(state, matrix @ state).real, places=12)
         self.assertAlmostEqual(vqe._classical_boost(params, energy), expected, places=12)
-        self.assertEqual(vqe.overlaps, 4)
 
     def test_physical_hydrogen_matches_dense_complex_projection(self):
         path = Path(__file__).resolve().parent / "geometries/hydrogen/hydrogen.h5"

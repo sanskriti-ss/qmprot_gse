@@ -41,6 +41,39 @@ campaigns/run.sh 20261105 --dry-run    # print the commands, do not run them
 
 `config.py` is not this record. It holds solver defaults such as the optimizer name and the shot count.
 
+## Parallel 14-qubit amino-acid comparison (WSL)
+
+From the repository root, use the existing `framework/.venv` to run the ten
+non-HVA solvers on the 19 pinned whole amino acids:
+
+```bash
+bash run_amino19_14q_parallel.sh --dry-run --workers 4
+bash run_amino19_14q_parallel.sh --workers 2 --plots
+```
+
+Each worker prepares one molecule's seven active orbitals and reuses its full
+14-qubit Hamiltonian across the selected solvers. Each process uses one compute
+thread. The default is two concurrent molecules. Use `--workers 4` if the WSL
+memory allocation can accommodate four. To try a small batch at the same fit
+settings, pass `--molecules ala gly --algorithms pennylane_vqe cb_vqe`.
+
+The launcher prints its output directory, which defaults to
+`framework/results/amino19_14q_parallel_<timestamp>/`. It saves one JSON file
+per completed fit and a log per molecule under `molecules/`. To continue after
+an interruption or retry missing fits, point `--resume` at that directory:
+
+```bash
+bash run_amino19_14q_parallel.sh --resume /path/to/parallel-run --workers 4 --plots
+```
+
+Resume uses the saved molecule and solver lists and checks the source,
+configuration, geometry hashes and solver dependencies. It skips completed fits,
+including fits that reached their optimizer limit. An interrupted fit starts from
+its original initialization. Completed results are collected into `results/json/`
+and `results/csv/`. With `--plots`, the framework writes plots after all fits finish.
+The earlier serial launcher wrote a different format, so use a new directory for
+the first parallel run. Worker runtimes can include CPU and memory contention.
+
 ## Key conventions
 * `target_n_params` is what was requested; `actual_n_params` + `param_match`
   (`exact` | `rounded_up` | `stopped_early`) are in every CSV row and plot label.
