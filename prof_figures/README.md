@@ -1,5 +1,33 @@
 # Appendix figure scripts
 
+## Parallel amino-acid benchmark plots
+
+For the root `run_amino19_14q_parallel.sh` benchmark, use the saved-checkpoint
+plotter below. It reads results only and can plot an incomplete run without
+launching missing fits.
+
+```bash
+cd /mnt/c/qmprot_2026/qmprot_gse
+framework/.venv/bin/python prof_figures/generate_amino_benchmark.py \
+  framework/results/amino19_14q_parallel_20261110_081445
+```
+
+It writes `prof_rerun_benchmark_*.png` and matching PDFs directly in the supplied
+run root: four comparison heatmaps and a convergence sheet for every molecule.
+The manifest records input hashes and missing fits. Existing figures with these
+names are replaced. Missing checkpoints remain explicitly marked; saved results
+may have reached their optimization budget without converging. Convergence
+history indices have algorithm-specific meanings and are not equal evaluation
+budgets. Runtime plots show saved fit durations under concurrent execution,
+excluding interrupted attempts. These are additional rerun views, not numbered
+paper figures or the five-study plots below.
+
+The November 10 benchmark's missing true-iQCC results were rerun separately after
+correcting its returned algorithm name. Its `iqcc_repair_manifest.json` records
+the supplemental source/configuration and hashes of both the 171 preserved fits
+and 19 added fits. Retain that manifest and the `iqcc_true_repair_20261111/`
+directory alongside the original run provenance.
+
 These folders correspond to Figures 13–17 in the appendix of `QMProt.pdf`. Each includes a generator, sample input, PNG, PDF, and instructions. The plots share the purple, pink, and orange palette used by `paper_combined_figure.py`. They read saved CSVs and do not run quantum calculations.
 
 ## Generate figures after experiments 1–5

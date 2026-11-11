@@ -23,6 +23,16 @@ from smoke.physics_acceptance import dense_hamiltonian
 
 
 class IQCCScreening(unittest.TestCase):
+    def test_registered_solver_preserves_checkpoint_identity(self):
+        from algorithms import get_algorithm
+
+        name = "iqcc_true_vqe"
+        molecule = Molecule("one", "one", 1, 1, -1., "", n_electrons=1)
+        solver = get_algorithm(name)(QubitHamiltonian.from_dict({"X": 1.}, molecule), bound=np.pi)
+        result = solver.run().to_dict()
+        self.assertEqual((result["molecule_abbrev"], result["algorithm_name"]), ("one", name))
+        self.assertAlmostEqual(result["calculated_energy"], -1.)
+
     def test_pauli_observables_require_finite_real_coefficients(self):
         import pennylane as qml
         commutator = 1j * (QubitOperator("Z0") * QubitOperator("X0")

@@ -74,7 +74,7 @@ class iQCC_true_VQE(BaseVQE):
         super().__init__(hamiltonian, **kwargs)
         if self.backend_config.is_noisy and self.backend_config.noise_strength != 0:
             raise ValueError("True iQCC does not implement noise channels during Hamiltonian dressing")
-        self.name = 'iqcc_vqe'
+        self.name = 'iqcc_true_vqe'
         self.description = 'Iterative Qubit Coupled Cluster'
         self.max_operators = max_operators
         self.gradient_threshold = gradient_threshold
